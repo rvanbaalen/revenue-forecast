@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/rvanbaalen/revenue-forecast/compare/v1.0.1...v1.0.2) (2025-12-11)
+
+
+### Bug Fixes
+
+* Add npm build step to GitHub Pages deployment ([#7](https://github.com/rvanbaalen/revenue-forecast/issues/7)) ([e82d40b](https://github.com/rvanbaalen/revenue-forecast/commit/e82d40b3b0e04f85247addccf72f1470db2f34ee))
+
 ## [1.0.1](https://github.com/rvanbaalen/revenue-forecast/compare/v1.0.0...v1.0.1) (2025-12-11)
 
 
