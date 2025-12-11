@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { AppConfig, RevenueSource, Salary, Currency, Month } from '../types';
+import type { AppConfig, RevenueSource, Salary, SalaryTax, Currency, Month } from '../types';
 import { MONTHS, DEFAULT_CONFIG } from '../types';
 import db from '../store/db';
 
@@ -7,6 +7,7 @@ export function useRevenueData() {
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
   const [sources, setSources] = useState<RevenueSource[]>([]);
   const [salaries, setSalaries] = useState<Salary[]>([]);
+  const [salaryTaxes, setSalaryTaxes] = useState<SalaryTax[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Initialize data from IndexedDB
@@ -14,14 +15,16 @@ export function useRevenueData() {
     async function loadData() {
       try {
         await db.init();
-        const [configData, sourcesData, salariesData] = await Promise.all([
+        const [configData, sourcesData, salariesData, salaryTaxesData] = await Promise.all([
           db.getConfig(),
           db.getSources(),
           db.getSalaries(),
+          db.getSalaryTaxes(),
         ]);
         setConfig(configData);
         setSources(sourcesData);
         setSalaries(salariesData);
+        setSalaryTaxes(salaryTaxesData);
       } catch (error) {
         console.error('Failed to load data:', error);
       } finally {
@@ -143,8 +146,6 @@ export function useRevenueData() {
     const newSalary: Omit<Salary, 'id'> = {
       name: `Employee ${salaries.length + 1}`,
       amounts: {},
-      taxType: 'percentage',
-      taxValue: 15,
     };
     const id = await db.addSalary(newSalary);
     setSalaries([...salaries, { ...newSalary, id }]);
@@ -177,8 +178,42 @@ export function useRevenueData() {
 
   const deleteSalary = useCallback(async (id: number) => {
     setSalaries(salaries.filter(s => s.id !== id));
+    // Also remove taxes for this salary from local state
+    setSalaryTaxes(salaryTaxes.filter(t => t.salaryId !== id));
     await db.deleteSalary(id);
-  }, [salaries]);
+  }, [salaries, salaryTaxes]);
+
+  // Salary tax operations
+  const addSalaryTax = useCallback(async (salaryId: number) => {
+    const newTax: Omit<SalaryTax, 'id'> = {
+      salaryId,
+      name: 'New Tax',
+      type: 'percentage',
+      value: 0,
+    };
+    const id = await db.addSalaryTax(newTax);
+    setSalaryTaxes([...salaryTaxes, { ...newTax, id }]);
+  }, [salaryTaxes]);
+
+  const updateSalaryTax = useCallback(async (id: number, updates: Partial<SalaryTax>) => {
+    const updatedTaxes = salaryTaxes.map(t =>
+      t.id === id ? { ...t, ...updates } : t
+    );
+    setSalaryTaxes(updatedTaxes);
+    const tax = updatedTaxes.find(t => t.id === id);
+    if (tax) {
+      await db.updateSalaryTax(tax);
+    }
+  }, [salaryTaxes]);
+
+  const deleteSalaryTax = useCallback(async (id: number) => {
+    setSalaryTaxes(salaryTaxes.filter(t => t.id !== id));
+    await db.deleteSalaryTax(id);
+  }, [salaryTaxes]);
+
+  const getTaxesForSalary = useCallback((salaryId: number): SalaryTax[] => {
+    return salaryTaxes.filter(t => t.salaryId === salaryId);
+  }, [salaryTaxes]);
 
   // Calculation helpers
   const getSourceValue = useCallback((source: RevenueSource, month: Month, type: 'expected' | 'actual'): number => {
@@ -225,13 +260,17 @@ export function useRevenueData() {
 
   const getSalaryTaxCg = useCallback((salary: Salary): number => {
     const total = getSalaryTotal(salary);
-    if (salary.taxType === 'percentage') {
-      return total * (salary.taxValue / 100);
-    }
-    // Fixed amount per month worked
+    const taxes = salaryTaxes.filter(t => t.salaryId === salary.id);
     const monthsWorked = MONTHS.filter(m => (salary.amounts[m] || 0) > 0).length;
-    return salary.taxValue * monthsWorked;
-  }, [getSalaryTotal]);
+
+    return taxes.reduce((sum, tax) => {
+      if (tax.type === 'percentage') {
+        return sum + total * (tax.value / 100);
+      }
+      // Fixed amount per month worked
+      return sum + tax.value * monthsWorked;
+    }, 0);
+  }, [getSalaryTotal, salaryTaxes]);
 
   const getMonthlySalary = useCallback((month: Month): number => {
     return salaries.reduce((sum, s) => sum + (s.amounts[month] || 0), 0);
@@ -264,14 +303,16 @@ export function useRevenueData() {
   const importData = useCallback(async (jsonData: string, clearExisting = true) => {
     await db.importData(jsonData, clearExisting);
     // Reload data
-    const [configData, sourcesData, salariesData] = await Promise.all([
+    const [configData, sourcesData, salariesData, salaryTaxesData] = await Promise.all([
       db.getConfig(),
       db.getSources(),
       db.getSalaries(),
+      db.getSalaryTaxes(),
     ]);
     setConfig(configData);
     setSources(sourcesData);
     setSalaries(salariesData);
+    setSalaryTaxes(salaryTaxesData);
   }, []);
 
   return {
@@ -279,6 +320,7 @@ export function useRevenueData() {
     config,
     sources,
     salaries,
+    salaryTaxes,
     loading,
 
     // Config operations
@@ -303,6 +345,12 @@ export function useRevenueData() {
     updateSalary,
     updateSalaryAmount,
     deleteSalary,
+
+    // Salary tax operations
+    addSalaryTax,
+    updateSalaryTax,
+    deleteSalaryTax,
+    getTaxesForSalary,
 
     // Calculations
     getSourceValue,

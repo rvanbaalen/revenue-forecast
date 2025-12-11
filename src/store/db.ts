@@ -1,8 +1,8 @@
-import type { AppConfig, RevenueSource, Salary } from '../types';
-import { DEFAULT_CONFIG, DEFAULT_SOURCES, DEFAULT_SALARIES } from '../types';
+import type { AppConfig, RevenueSource, Salary, SalaryTax } from '../types';
+import { DEFAULT_CONFIG, DEFAULT_SOURCES, DEFAULT_SALARIES, DEFAULT_SALARY_TAXES } from '../types';
 
 const DB_NAME = 'RevenueTracker2026';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 class RevenueDB {
   private db: IDBDatabase | null = null;
@@ -20,6 +20,7 @@ class RevenueDB {
 
       request.onupgradeneeded = (event) => {
         const database = (event.target as IDBOpenDBRequest).result;
+        const oldVersion = event.oldVersion;
 
         if (!database.objectStoreNames.contains('config')) {
           database.createObjectStore('config', { keyPath: 'id' });
@@ -31,6 +32,40 @@ class RevenueDB {
 
         if (!database.objectStoreNames.contains('salaries')) {
           database.createObjectStore('salaries', { keyPath: 'id', autoIncrement: true });
+        }
+
+        // Version 2: Add salary taxes store
+        if (!database.objectStoreNames.contains('salaryTaxes')) {
+          const taxStore = database.createObjectStore('salaryTaxes', { keyPath: 'id', autoIncrement: true });
+          taxStore.createIndex('salaryId', 'salaryId', { unique: false });
+        }
+
+        // Migration from v1: Convert old salary.taxType/taxValue to separate salaryTaxes
+        if (oldVersion < 2 && oldVersion > 0) {
+          const transaction = (event.target as IDBOpenDBRequest).transaction!;
+          const salaryStore = transaction.objectStore('salaries');
+          const taxStore = transaction.objectStore('salaryTaxes');
+
+          salaryStore.openCursor().onsuccess = (e) => {
+            const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+            if (cursor) {
+              const salary = cursor.value;
+              // Migrate old tax data to new salaryTaxes store
+              if (salary.taxType !== undefined && salary.taxValue !== undefined) {
+                taxStore.add({
+                  salaryId: salary.id,
+                  name: 'Payroll Tax',
+                  type: salary.taxType,
+                  value: salary.taxValue,
+                });
+                // Remove old tax fields from salary
+                delete salary.taxType;
+                delete salary.taxValue;
+                cursor.update(salary);
+              }
+              cursor.continue();
+            }
+          };
         }
       };
     });
@@ -160,9 +195,84 @@ class RevenueDB {
 
   async deleteSalary(id: number): Promise<void> {
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaries', 'readwrite');
+      const tx = this.db!.transaction(['salaries', 'salaryTaxes'], 'readwrite');
       tx.objectStore('salaries').delete(id);
+      // Also delete all taxes for this salary
+      const taxStore = tx.objectStore('salaryTaxes');
+      const index = taxStore.index('salaryId');
+      index.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
+        const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
       tx.oncomplete = () => resolve();
+    });
+  }
+
+  // Salary tax operations
+  async getSalaryTaxes(): Promise<SalaryTax[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('salaryTaxes', 'readonly');
+      const request = tx.objectStore('salaryTaxes').getAll();
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result.length === 0) {
+          this.initDefaultSalaryTaxes().then(resolve);
+        } else {
+          resolve(result);
+        }
+      };
+    });
+  }
+
+  private async initDefaultSalaryTaxes(): Promise<SalaryTax[]> {
+    const taxes: SalaryTax[] = DEFAULT_SALARY_TAXES.map((t, i) => ({ ...t, id: i + 1 }));
+    await this.saveSalaryTaxes(taxes);
+    return taxes;
+  }
+
+  async saveSalaryTaxes(taxes: SalaryTax[]): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('salaryTaxes', 'readwrite');
+      const store = tx.objectStore('salaryTaxes');
+      store.clear();
+      taxes.forEach(t => store.put(t));
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async addSalaryTax(tax: Omit<SalaryTax, 'id'>): Promise<number> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('salaryTaxes', 'readwrite');
+      const request = tx.objectStore('salaryTaxes').add(tax);
+      request.onsuccess = () => resolve(request.result as number);
+    });
+  }
+
+  async updateSalaryTax(tax: SalaryTax): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('salaryTaxes', 'readwrite');
+      tx.objectStore('salaryTaxes').put(tax);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteSalaryTax(id: number): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('salaryTaxes', 'readwrite');
+      tx.objectStore('salaryTaxes').delete(id);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async getSalaryTaxesBySalaryId(salaryId: number): Promise<SalaryTax[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('salaryTaxes', 'readonly');
+      const index = tx.objectStore('salaryTaxes').index('salaryId');
+      const request = index.getAll(IDBKeyRange.only(salaryId));
+      request.onsuccess = () => resolve(request.result);
     });
   }
 
@@ -171,7 +281,8 @@ class RevenueDB {
     const config = await this.getConfig();
     const sources = await this.getSources();
     const salaries = await this.getSalaries();
-    return JSON.stringify({ config, sources, salaries }, null, 2);
+    const salaryTaxes = await this.getSalaryTaxes();
+    return JSON.stringify({ config, sources, salaries, salaryTaxes }, null, 2);
   }
 
   // Import data
@@ -198,6 +309,16 @@ class RevenueDB {
       } else {
         for (const salary of data.salaries) {
           await this.addSalary(salary);
+        }
+      }
+    }
+
+    if (data.salaryTaxes) {
+      if (clearExisting) {
+        await this.saveSalaryTaxes(data.salaryTaxes);
+      } else {
+        for (const tax of data.salaryTaxes) {
+          await this.addSalaryTax(tax);
         }
       }
     }

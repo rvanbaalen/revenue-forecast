@@ -38,8 +38,15 @@ export interface Salary {
   id: number;
   name: string;
   amounts: MonthlyValues;   // Monthly salary amounts in Cg
-  taxType: 'percentage' | 'fixed';
-  taxValue: number;         // Tax percentage or fixed amount
+}
+
+// Salary tax definition - allows multiple taxes per salary
+export interface SalaryTax {
+  id: number;
+  salaryId: number;         // Reference to salary
+  name: string;             // Tax name (e.g., "Income Tax", "Social Security")
+  type: 'percentage' | 'fixed';
+  value: number;            // Tax percentage or fixed amount per month worked
 }
 
 // Application configuration
@@ -71,5 +78,10 @@ export const DEFAULT_SOURCES: Omit<RevenueSource, 'id'>[] = [
 
 // Default salaries
 export const DEFAULT_SALARIES: Omit<Salary, 'id'>[] = [
-  { name: 'Employee 1', amounts: {}, taxType: 'percentage', taxValue: 15 }
+  { name: 'Employee 1', amounts: {} }
+];
+
+// Default salary taxes
+export const DEFAULT_SALARY_TAXES: Omit<SalaryTax, 'id'>[] = [
+  { salaryId: 1, name: 'Payroll Tax', type: 'percentage', value: 15 }
 ];

@@ -1,5 +1,5 @@
 import { useRevenue } from '../context/RevenueContext';
-import { SalaryTable } from '../components';
+import { SalaryTable, SalaryTaxConfig } from '../components';
 import { MONTHS } from '../types';
 import { formatCurrency } from '../utils/format';
 
@@ -10,6 +10,10 @@ export function SalaryPage() {
     updateSalary,
     updateSalaryAmount,
     deleteSalary,
+    addSalaryTax,
+    updateSalaryTax,
+    deleteSalaryTax,
+    getTaxesForSalary,
     getSalaryTotal,
     getSalaryTaxCg,
     getMonthlySalary,
@@ -20,6 +24,13 @@ export function SalaryPage() {
   const totalTax = salaries.reduce((sum, s) => sum + getSalaryTaxCg(s), 0);
   const totalNet = totalGross + totalTax;
   const monthlyAvg = totalGross / 12;
+
+  // Helper to count months worked for a salary
+  const getMonthsWorked = (salaryId: number): number => {
+    const salary = salaries.find(s => s.id === salaryId);
+    if (!salary) return 0;
+    return MONTHS.filter(m => (salary.amounts[m] || 0) > 0).length;
+  };
 
   return (
     <>
@@ -73,6 +84,29 @@ export function SalaryPage() {
         getSalaryTaxCg={getSalaryTaxCg}
         getMonthlySalary={getMonthlySalary}
       />
+
+      {/* Tax Configuration Section */}
+      {salaries.length > 0 && (
+        <section className="glass rounded-2xl p-6 fade-in">
+          <h2 className="text-lg font-semibold text-slate-300 mb-4">Tax Configuration</h2>
+          <p className="text-sm text-slate-400 mb-4">
+            Configure one or more taxes for each employee. Taxes can be percentage-based (calculated on total gross salary)
+            or fixed amount per month worked.
+          </p>
+          {salaries.map(salary => (
+            <SalaryTaxConfig
+              key={salary.id}
+              salary={salary}
+              taxes={getTaxesForSalary(salary.id)}
+              salaryTotal={getSalaryTotal(salary)}
+              monthsWorked={getMonthsWorked(salary.id)}
+              onAddTax={addSalaryTax}
+              onUpdateTax={updateSalaryTax}
+              onDeleteTax={deleteSalaryTax}
+            />
+          ))}
+        </section>
+      )}
     </>
   );
 }
