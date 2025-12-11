@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useRevenueData } from './hooks/useRevenueData';
+import type { Month } from './types';
 import {
   Header,
   ConfigSection,
@@ -6,6 +8,7 @@ import {
   VatTable,
   SalaryTable,
   SummaryDashboard,
+  MonthlyConfirmationModal,
 } from './components';
 
 function App() {
@@ -29,6 +32,7 @@ function App() {
     updateSource,
     updateSourceRevenue,
     deleteSource,
+    confirmMonthlyRevenue,
 
     // Salary operations
     addSalary,
@@ -53,6 +57,20 @@ function App() {
     exportData,
     importData,
   } = useRevenueData();
+
+  // Modal state for monthly confirmation
+  const [confirmationModal, setConfirmationModal] = useState<{ isOpen: boolean; month: Month }>({
+    isOpen: false,
+    month: 'jan',
+  });
+
+  const openConfirmationModal = (month: Month) => {
+    setConfirmationModal({ isOpen: true, month });
+  };
+
+  const closeConfirmationModal = () => {
+    setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+  };
 
   if (loading) {
     return (
@@ -128,6 +146,7 @@ function App() {
           getSourceTotalCg={getSourceTotalCg}
           getProfitTax={getProfitTax}
           getMonthlyTotal={getMonthlyTotal}
+          onMonthHeaderClick={openConfirmationModal}
         />
 
         <VatTable
@@ -155,6 +174,19 @@ function App() {
           Data stored locally in your browser using IndexedDB
         </footer>
       </div>
+
+      {/* Monthly Confirmation Modal */}
+      <MonthlyConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        month={confirmationModal.month}
+        sources={sources}
+        config={config}
+        onClose={closeConfirmationModal}
+        onConfirmSource={(sourceId, month, value) => updateSourceRevenue(sourceId, month, value, 'actual')}
+        onConfirmAll={confirmMonthlyRevenue}
+        getSourceValue={getSourceValue}
+        getRate={getRate}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ interface RevenueTableProps {
   getSourceTotalCg: (source: RevenueSource, type: 'expected' | 'actual') => number;
   getProfitTax: (source: RevenueSource, type: 'expected' | 'actual') => number;
   getMonthlyTotal: (month: Month, type: 'expected' | 'actual') => number;
+  onMonthHeaderClick?: (month: Month) => void;
 }
 
 export function RevenueTable({
@@ -28,6 +29,7 @@ export function RevenueTable({
   getSourceTotalCg,
   getProfitTax,
   getMonthlyTotal,
+  onMonthHeaderClick,
 }: RevenueTableProps) {
   const headerClass = dataType === 'expected' ? 'expected-header' : 'actual-header';
   const title = dataType === 'expected' ? 'Expected Revenue' : 'Actual Revenue';
@@ -59,7 +61,17 @@ export function RevenueTable({
               )}
               {MONTHS.map(month => (
                 <th key={month} className="px-3 py-3 text-right font-semibold text-slate-300">
-                  {MONTH_LABELS[month]}
+                  {dataType === 'actual' && onMonthHeaderClick ? (
+                    <button
+                      onClick={() => onMonthHeaderClick(month)}
+                      className="hover:text-emerald-400 hover:underline transition-colors cursor-pointer"
+                      title={`Click to confirm ${MONTH_LABELS[month]} revenue`}
+                    >
+                      {MONTH_LABELS[month]}
+                    </button>
+                  ) : (
+                    MONTH_LABELS[month]
+                  )}
                 </th>
               ))}
               <th className="px-3 py-3 text-right font-semibold text-slate-300">Total</th>

@@ -17,6 +17,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@tanstack/react-router": "^1.141.1",
     "react": "^19.2.1",
     "react-dom": "^19.2.1"
   },
