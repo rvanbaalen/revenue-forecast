@@ -1,0 +1,32 @@
+{
+  "name": "revenue-forecast",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A client-side revenue forecasting tool built with React and TailwindCSS. All data is stored locally using IndexedDB.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:37221/git/rvanbaalen/revenue-forecast"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7"
+  }
+}

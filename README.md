@@ -1,18 +1,17 @@
 # Revenue Forecast
 
-A client-side revenue forecasting tool built with HTML, JavaScript, and TailwindCSS. All data is stored locally using IndexedDB - no server required.
+A client-side revenue forecasting tool built with React 19, TypeScript, and Tailwind CSS v4. All data is stored locally using IndexedDB - no server required.
 
 ## Features
 
-- **Revenue Tracking**: Add, edit, and delete revenue entries with date, amount, category, and description
-- **Dashboard**: Visual overview with charts showing revenue trends and category breakdowns
-- **Forecasting**: Multiple forecasting methods including:
-  - Simple Moving Average
-  - Weighted Moving Average
-  - Exponential Smoothing
-  - Linear Regression
-- **Analytics**: Statistical analysis including min/max, average, median, standard deviation, and growth rates
-- **Category Performance**: Track performance across different revenue categories
+- **Revenue Tracking**: Track both expected (budgeted) and actual revenue
+- **Multiple Currency Support**: Caribbean Guilder (Cg, ƒ) and US Dollar (USD, $) with configurable exchange rates
+- **Local vs Foreign Revenue**: Distinguish between local and foreign revenue for tax calculations
+- **Monthly Recurring Revenue (MRR)**: Define recurring monthly revenue sources
+- **VAT Calculation**: Automatic VAT calculation for local revenue
+- **Profit Tax Tracking**: Track local profit tax liability
+- **Salary Management**: Track employee salaries and payroll taxes
+- **Expected vs Actual Variance**: Compare budgeted revenue against actual performance
 - **Import/Export**: Backup and restore data using JSON files
 - **Offline Support**: Works entirely in the browser with no internet required after initial load
 
@@ -30,43 +29,64 @@ Visit the deployed version at: `https://[username].github.io/revenue-forecast`
    cd revenue-forecast
    ```
 
-2. Serve the files with any static server. For example:
+2. Install dependencies:
    ```bash
-   # Using Python
-   python -m http.server 8000
-
-   # Using Node.js (npx)
-   npx serve
-
-   # Using PHP
-   php -S localhost:8000
+   npm install
    ```
 
-3. Open `http://localhost:8000` in your browser
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open `http://localhost:5173/revenue-forecast/` in your browser
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` directory.
 
 ## Usage
 
-### Adding Revenue Entries
+### Configuration
 
-1. Navigate to the "Revenue Entries" tab
-2. Click "Add Entry"
-3. Fill in the date, amount, category, and optional description
-4. Click "Save Entry"
+Set up your tax rates and currencies in the Configuration section:
+- **Local Profit Tax Rate**: Tax rate for local revenue (default: 16%)
+- **Local VAT Rate**: VAT rate for local revenue (default: 6%)
+- **Exchange Rates**: Configure currencies and their exchange rates to Cg
 
-### Generating Forecasts
+### Revenue Sources
 
-1. Navigate to the "Forecast" tab
-2. Select a forecasting method:
-   - **Weighted Moving Avg**: Gives more weight to recent data
-   - **Simple Moving Avg**: Equal weight to all periods
-   - **Exponential Smoothing**: Smooths out fluctuations
-   - **Linear Regression**: Projects based on trend line
-3. Select the number of periods to forecast (3, 6, or 12 months)
-4. Click "Generate Forecast"
+1. Add revenue sources with the "+ Add Source" button
+2. Configure each source:
+   - **Name**: Descriptive name for the revenue source
+   - **Type**: Local or Foreign (affects tax calculations)
+   - **Currency**: Select from configured currencies
+   - **MRR**: Check for Monthly Recurring Revenue and set the amount
+
+3. Enter expected (budgeted) revenue in the "Expected Revenue" section
+4. Enter actual revenue as it comes in the "Actual Revenue" section
+
+### Salaries
+
+Track employee salaries and payroll taxes:
+- Add employees with monthly salary amounts
+- Configure tax type (percentage or fixed amount)
+- View gross salary and tax totals
+
+### Summary Dashboard
+
+View at-a-glance metrics:
+- Expected vs Actual revenue comparison
+- Variance calculations
+- Net margins
 
 ### Import/Export Data
 
-- **Export**: Click "Export" in the navigation bar to download your data as JSON
+- **Export**: Click "Export" to download your data as JSON
 - **Import**: Click "Import" to load data from a previously exported JSON file
 
 ## Data Storage
@@ -79,20 +99,11 @@ All data is stored locally in your browser using IndexedDB. This means:
 
 ## Tech Stack
 
-- **HTML5** - Structure
-- **TailwindCSS** (CDN) - Styling
-- **Chart.js** - Data visualization
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite 7** - Build tool
+- **Tailwind CSS v4** - Styling
 - **IndexedDB** - Local data storage
-- **ES6 Modules** - JavaScript module system
-
-## Deployment
-
-This project is configured for automatic deployment to GitHub Pages. Push to the `main` branch to trigger deployment.
-
-To set up GitHub Pages:
-1. Go to repository Settings > Pages
-2. Under "Build and deployment", select "GitHub Actions"
-3. Push changes to trigger the workflow
 
 ## Browser Support
 
