@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/rvanbaalen/revenue-forecast/compare/v1.0.0...v1.0.1) (2025-12-11)
+
+
+### Bug Fixes
+
+* Use relative path for main.tsx to support subdirectory deployment ([#5](https://github.com/rvanbaalen/revenue-forecast/issues/5)) ([b94b127](https://github.com/rvanbaalen/revenue-forecast/commit/b94b1275290d7b9f4b6405f36d153b12d8dac7ad))
+
 ## 1.0.0 (2025-12-11)
 
 
