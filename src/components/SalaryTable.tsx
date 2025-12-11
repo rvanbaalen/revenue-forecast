@@ -1,28 +1,19 @@
-import type { Salary, Month } from '../types';
 import { MONTHS, MONTH_LABELS } from '../types';
 import { formatCurrency } from '../utils/format';
+import { useRevenue } from '../context/RevenueContext';
 
-interface SalaryTableProps {
-  salaries: Salary[];
-  onAddSalary: () => void;
-  onUpdateSalary: (id: number, updates: Partial<Salary>) => void;
-  onUpdateSalaryAmount: (id: number, month: Month, value: number) => void;
-  onDeleteSalary: (id: number) => void;
-  getSalaryTotal: (salary: Salary) => number;
-  getSalaryTaxCg: (salary: Salary) => number;
-  getMonthlySalary: (month: Month) => number;
-}
+export function SalaryTable() {
+  const {
+    salaries,
+    addSalary,
+    updateSalary,
+    updateSalaryAmount,
+    deleteSalary,
+    getSalaryTotal,
+    getSalaryTaxCg,
+    getMonthlySalary,
+  } = useRevenue();
 
-export function SalaryTable({
-  salaries,
-  onAddSalary,
-  onUpdateSalary,
-  onUpdateSalaryAmount,
-  onDeleteSalary,
-  getSalaryTotal,
-  getSalaryTaxCg,
-  getMonthlySalary,
-}: SalaryTableProps) {
   const totalSalaryGross = salaries.reduce((sum, s) => sum + getSalaryTotal(s), 0);
   const totalSalaryTax = salaries.reduce((sum, s) => sum + getSalaryTaxCg(s), 0);
   const totalTaxPct = totalSalaryGross > 0 ? (totalSalaryTax / totalSalaryGross) * 100 : 0;
@@ -32,7 +23,7 @@ export function SalaryTable({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-slate-300">Salaries</h2>
         <button
-          onClick={onAddSalary}
+          onClick={addSalary}
           className="btn-primary px-4 py-2 rounded-lg text-sm font-medium text-white"
         >
           + Add Salary
@@ -66,7 +57,7 @@ export function SalaryTable({
                     <input
                       type="text"
                       value={salary.name}
-                      onChange={(e) => onUpdateSalary(salary.id, { name: e.target.value })}
+                      onChange={(e) => updateSalary(salary.id, { name: e.target.value })}
                       className="w-32 px-2 py-1 rounded text-slate-200 text-sm"
                     />
                   </td>
@@ -75,7 +66,7 @@ export function SalaryTable({
                       <input
                         type="number"
                         value={salary.amounts[month] || ''}
-                        onChange={(e) => onUpdateSalaryAmount(salary.id, month, parseFloat(e.target.value) || 0)}
+                        onChange={(e) => updateSalaryAmount(salary.id, month, parseFloat(e.target.value) || 0)}
                         placeholder="-"
                         className="editable-cell w-full px-2 py-1 rounded text-slate-200 text-sm font-mono currency-input"
                       />
@@ -92,7 +83,7 @@ export function SalaryTable({
                   </td>
                   <td className="px-3 py-2 text-center">
                     <button
-                      onClick={() => onDeleteSalary(salary.id)}
+                      onClick={() => deleteSalary(salary.id)}
                       className="btn-danger px-2 py-1 rounded text-white text-xs font-medium opacity-70 hover:opacity-100"
                     >
                       Delete

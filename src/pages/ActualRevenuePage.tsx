@@ -1,27 +1,8 @@
 import { useState } from 'react';
 import type { Month } from '../types';
-import { useRevenue } from '../context/RevenueContext';
 import { RevenueTable, VatTable, MonthlyConfirmationModal } from '../components';
 
 export function ActualRevenuePage() {
-  const {
-    config,
-    sources,
-    addSource,
-    updateSource,
-    updateSourceRevenue,
-    deleteSource,
-    confirmMonthlyRevenue,
-    getSourceValue,
-    getSourceTotal,
-    getSourceTotalCg,
-    getProfitTax,
-    getSourceVat,
-    getMonthlyTotal,
-    getMonthlyVat,
-    getRate,
-  } = useRevenue();
-
   // Modal state for monthly confirmation
   const [confirmationModal, setConfirmationModal] = useState<{ isOpen: boolean; month: Month }>({
     isOpen: false,
@@ -45,41 +26,16 @@ export function ActualRevenuePage() {
       </p>
 
       <RevenueTable
-        sources={sources}
-        config={config}
         dataType="actual"
-        onAddSource={addSource}
-        onUpdateSource={updateSource}
-        onUpdateRevenue={updateSourceRevenue}
-        onDeleteSource={deleteSource}
-        getSourceTotal={getSourceTotal}
-        getSourceTotalCg={getSourceTotalCg}
-        getProfitTax={getProfitTax}
-        getMonthlyTotal={getMonthlyTotal}
         onMonthHeaderClick={openConfirmationModal}
       />
 
-      <VatTable
-        sources={sources}
-        config={config}
-        dataType="actual"
-        getSourceValue={getSourceValue}
-        getSourceVat={getSourceVat}
-        getMonthlyVat={getMonthlyVat}
-        getRate={getRate}
-      />
+      <VatTable dataType="actual" />
 
-      {/* Monthly Confirmation Modal */}
       <MonthlyConfirmationModal
         isOpen={confirmationModal.isOpen}
         month={confirmationModal.month}
-        sources={sources}
-        config={config}
         onClose={closeConfirmationModal}
-        onConfirmSource={(sourceId, month, value) => updateSourceRevenue(sourceId, month, value, 'actual')}
-        onConfirmAll={confirmMonthlyRevenue}
-        getSourceValue={getSourceValue}
-        getRate={getRate}
       />
     </>
   );

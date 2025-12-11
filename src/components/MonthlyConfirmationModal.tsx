@@ -1,31 +1,29 @@
 import { useState, useEffect } from 'react';
-import type { RevenueSource, AppConfig, Month } from '../types';
+import type { Month } from '../types';
 import { MONTH_LABELS } from '../types';
 import { formatCurrency } from '../utils/format';
+import { useRevenue } from '../context/RevenueContext';
 
 interface MonthlyConfirmationModalProps {
   isOpen: boolean;
   month: Month;
-  sources: RevenueSource[];
-  config: AppConfig;
   onClose: () => void;
-  onConfirmSource: (sourceId: number, month: Month, value: number) => void;
-  onConfirmAll: (month: Month) => void;
-  getSourceValue: (source: RevenueSource, month: Month, type: 'expected' | 'actual') => number;
-  getRate: (code: string) => number;
 }
 
 export function MonthlyConfirmationModal({
   isOpen,
   month,
-  sources,
-  config,
   onClose,
-  onConfirmSource,
-  onConfirmAll,
-  getSourceValue,
-  getRate,
 }: MonthlyConfirmationModalProps) {
+  const {
+    sources,
+    config,
+    updateSourceRevenue,
+    confirmMonthlyRevenue,
+    getSourceValue,
+    getRate,
+  } = useRevenue();
+
   // Track edited values locally before confirming
   const [editedValues, setEditedValues] = useState<Record<number, number>>({});
 
@@ -47,19 +45,21 @@ export function MonthlyConfirmationModal({
     setEditedValues(prev => ({ ...prev, [sourceId]: value }));
   };
 
-  const handleConfirmSource = (source: RevenueSource) => {
+  const handleConfirmSource = (sourceId: number) => {
+    const source = sources.find(s => s.id === sourceId);
+    if (!source) return;
     const expected = getSourceValue(source, month, 'expected');
-    onConfirmSource(source.id, month, expected);
-    setEditedValues(prev => ({ ...prev, [source.id]: expected }));
+    updateSourceRevenue(sourceId, month, expected, 'actual');
+    setEditedValues(prev => ({ ...prev, [sourceId]: expected }));
   };
 
-  const handleSaveSource = (source: RevenueSource) => {
-    const value = editedValues[source.id] ?? 0;
-    onConfirmSource(source.id, month, value);
+  const handleSaveSource = (sourceId: number) => {
+    const value = editedValues[sourceId] ?? 0;
+    updateSourceRevenue(sourceId, month, value, 'actual');
   };
 
   const handleConfirmAll = () => {
-    onConfirmAll(month);
+    confirmMonthlyRevenue(month);
     // Update local state to reflect confirmed values
     const newValues: Record<number, number> = {};
     sources.forEach(source => {
@@ -167,7 +167,7 @@ export function MonthlyConfirmationModal({
 
                     {hasChanged ? (
                       <button
-                        onClick={() => handleSaveSource(source)}
+                        onClick={() => handleSaveSource(source.id)}
                         className="btn-primary px-3 py-2 rounded-lg text-xs font-medium text-white whitespace-nowrap"
                       >
                         Save
@@ -178,7 +178,7 @@ export function MonthlyConfirmationModal({
                       </span>
                     ) : (
                       <button
-                        onClick={() => handleConfirmSource(source)}
+                        onClick={() => handleConfirmSource(source.id)}
                         className="btn-primary px-3 py-2 rounded-lg text-xs font-medium text-white whitespace-nowrap"
                       >
                         Use Expected

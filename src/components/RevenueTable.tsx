@@ -1,36 +1,30 @@
-import type { RevenueSource, AppConfig, Month } from '../types';
+import type { Month } from '../types';
 import { MONTHS, MONTH_LABELS } from '../types';
 import { formatCurrency } from '../utils/format';
+import { useRevenue } from '../context/RevenueContext';
 
 interface RevenueTableProps {
-  sources: RevenueSource[];
-  config: AppConfig;
   dataType: 'expected' | 'actual';
-  onAddSource: () => void;
-  onUpdateSource: (id: number, updates: Partial<RevenueSource>) => void;
-  onUpdateRevenue: (id: number, month: Month, value: number, type: 'expected' | 'actual') => void;
-  onDeleteSource: (id: number) => void;
-  getSourceTotal: (source: RevenueSource, type: 'expected' | 'actual') => number;
-  getSourceTotalCg: (source: RevenueSource, type: 'expected' | 'actual') => number;
-  getProfitTax: (source: RevenueSource, type: 'expected' | 'actual') => number;
-  getMonthlyTotal: (month: Month, type: 'expected' | 'actual') => number;
   onMonthHeaderClick?: (month: Month) => void;
 }
 
 export function RevenueTable({
-  sources,
-  config,
   dataType,
-  onAddSource,
-  onUpdateSource,
-  onUpdateRevenue,
-  onDeleteSource,
-  getSourceTotal,
-  getSourceTotalCg,
-  getProfitTax,
-  getMonthlyTotal,
   onMonthHeaderClick,
 }: RevenueTableProps) {
+  const {
+    sources,
+    config,
+    addSource,
+    updateSource,
+    updateSourceRevenue,
+    deleteSource,
+    getSourceTotal,
+    getSourceTotalCg,
+    getProfitTax,
+    getMonthlyTotal,
+  } = useRevenue();
+
   const headerClass = dataType === 'expected' ? 'expected-header' : 'actual-header';
   const title = dataType === 'expected' ? 'Expected Revenue' : 'Actual Revenue';
   const titleColor = dataType === 'expected' ? 'text-amber-400' : 'text-emerald-400';
@@ -43,7 +37,7 @@ export function RevenueTable({
       <div className="flex items-center justify-between mb-4">
         <h2 className={`text-lg font-semibold ${titleColor}`}>{title}</h2>
         <button
-          onClick={onAddSource}
+          onClick={addSource}
           className="btn-primary px-4 py-2 rounded-lg text-sm font-medium text-white"
         >
           + Add Source
@@ -87,14 +81,14 @@ export function RevenueTable({
                   <input
                     type="text"
                     value={source.name}
-                    onChange={(e) => onUpdateSource(source.id, { name: e.target.value })}
+                    onChange={(e) => updateSource(source.id, { name: e.target.value })}
                     className="w-32 px-2 py-1 rounded text-slate-200 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2">
                   <select
                     value={source.type}
-                    onChange={(e) => onUpdateSource(source.id, { type: e.target.value as 'local' | 'foreign' })}
+                    onChange={(e) => updateSource(source.id, { type: e.target.value as 'local' | 'foreign' })}
                     className="px-2 py-1 rounded text-slate-200 text-sm"
                   >
                     <option value="local">Local</option>
@@ -104,7 +98,7 @@ export function RevenueTable({
                 <td className="px-3 py-2">
                   <select
                     value={source.currency}
-                    onChange={(e) => onUpdateSource(source.id, { currency: e.target.value })}
+                    onChange={(e) => updateSource(source.id, { currency: e.target.value })}
                     className="px-2 py-1 rounded text-slate-200 text-sm font-mono"
                   >
                     {config.currencies.map(c => (
@@ -118,14 +112,14 @@ export function RevenueTable({
                       <input
                         type="checkbox"
                         checked={source.isRecurring}
-                        onChange={(e) => onUpdateSource(source.id, { isRecurring: e.target.checked })}
+                        onChange={(e) => updateSource(source.id, { isRecurring: e.target.checked })}
                         className="w-4 h-4 rounded"
                       />
                       {source.isRecurring && (
                         <input
                           type="number"
                           value={source.recurringAmount || ''}
-                          onChange={(e) => onUpdateSource(source.id, { recurringAmount: parseFloat(e.target.value) || 0 })}
+                          onChange={(e) => updateSource(source.id, { recurringAmount: parseFloat(e.target.value) || 0 })}
                           placeholder="MRR"
                           className="w-20 px-2 py-1 rounded text-slate-200 text-sm font-mono currency-input"
                         />
@@ -143,7 +137,7 @@ export function RevenueTable({
                       <input
                         type="number"
                         value={source[dataType][month] || ''}
-                        onChange={(e) => onUpdateRevenue(source.id, month, parseFloat(e.target.value) || 0, dataType)}
+                        onChange={(e) => updateSourceRevenue(source.id, month, parseFloat(e.target.value) || 0, dataType)}
                         placeholder="-"
                         className="editable-cell w-full px-2 py-1 rounded text-slate-200 text-sm font-mono currency-input"
                       />
@@ -161,7 +155,7 @@ export function RevenueTable({
                 </td>
                 <td className="px-3 py-2 text-center">
                   <button
-                    onClick={() => onDeleteSource(source.id)}
+                    onClick={() => deleteSource(source.id)}
                     className="btn-danger px-2 py-1 rounded text-white text-xs font-medium opacity-70 hover:opacity-100"
                   >
                     Delete
