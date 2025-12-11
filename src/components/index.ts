@@ -4,3 +4,4 @@ export { RevenueTable } from './RevenueTable';
 export { VatTable } from './VatTable';
 export { SalaryTable } from './SalaryTable';
 export { SummaryDashboard } from './SummaryDashboard';
+export { MonthlyConfirmationModal } from './MonthlyConfirmationModal';

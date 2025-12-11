@@ -124,6 +124,20 @@ export function useRevenueData() {
     await db.deleteSource(id);
   }, [sources]);
 
+  // Confirm monthly revenue - copy expected to actual for all sources in a month
+  const confirmMonthlyRevenue = useCallback(async (month: Month) => {
+    const updatedSources = sources.map(source => {
+      const expectedValue = source.isRecurring ? source.recurringAmount : (source.expected[month] || 0);
+      return {
+        ...source,
+        actual: { ...source.actual, [month]: expectedValue }
+      };
+    });
+
+    setSources(updatedSources);
+    await db.saveSources(updatedSources);
+  }, [sources]);
+
   // Salary operations
   const addSalary = useCallback(async () => {
     const newSalary: Omit<Salary, 'id'> = {
@@ -282,6 +296,7 @@ export function useRevenueData() {
     updateSource,
     updateSourceRevenue,
     deleteSource,
+    confirmMonthlyRevenue,
 
     // Salary operations
     addSalary,
