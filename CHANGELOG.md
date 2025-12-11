@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.0.2...v1.1.0) (2025-12-11)
+
+
+### Features
+
+* Add monthly revenue confirmation and client-side routing ([#9](https://github.com/rvanbaalen/revenue-forecast/issues/9)) ([5ec5af1](https://github.com/rvanbaalen/revenue-forecast/commit/5ec5af1139ae0dfb641d6fe96a384776023395aa))
+
 ## [1.0.2](https://github.com/rvanbaalen/revenue-forecast/compare/v1.0.1...v1.0.2) (2025-12-11)
 
 
