@@ -1,25 +1,12 @@
 import { formatCurrency, formatVariance } from '../utils/format';
+import { useRevenue } from '../context/RevenueContext';
 
-interface SummaryDashboardProps {
-  expectedTotals: {
-    totalRevenue: number;
-    totalProfitTax: number;
-    totalVat: number;
-    totalSalaryGross: number;
-    totalSalaryTax: number;
-    net: number;
-  };
-  actualTotals: {
-    totalRevenue: number;
-    totalProfitTax: number;
-    totalVat: number;
-    totalSalaryGross: number;
-    totalSalaryTax: number;
-    net: number;
-  };
-}
+export function SummaryDashboard() {
+  const { getTotals } = useRevenue();
 
-export function SummaryDashboard({ expectedTotals, actualTotals }: SummaryDashboardProps) {
+  const expectedTotals = getTotals('expected');
+  const actualTotals = getTotals('actual');
+
   const revenueVariance = formatVariance(expectedTotals.totalRevenue, actualTotals.totalRevenue);
   const netVariance = formatVariance(expectedTotals.net, actualTotals.net);
 

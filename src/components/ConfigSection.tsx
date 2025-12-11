@@ -1,20 +1,14 @@
-import type { AppConfig, Currency } from '../types';
+import { useRevenue } from '../context/RevenueContext';
 
-interface ConfigSectionProps {
-  config: AppConfig;
-  onUpdateConfig: (updates: Partial<AppConfig>) => void;
-  onAddCurrency: () => void;
-  onUpdateCurrency: (index: number, field: keyof Currency, value: string | number) => void;
-  onRemoveCurrency: (index: number) => void;
-}
+export function ConfigSection() {
+  const {
+    config,
+    updateConfig,
+    addCurrency,
+    updateCurrency,
+    removeCurrency,
+  } = useRevenue();
 
-export function ConfigSection({
-  config,
-  onUpdateConfig,
-  onAddCurrency,
-  onUpdateCurrency,
-  onRemoveCurrency,
-}: ConfigSectionProps) {
   return (
     <section className="glass rounded-2xl p-6 mb-6 fade-in">
       <h2 className="text-lg font-semibold text-slate-300 mb-4">Configuration</h2>
@@ -28,7 +22,7 @@ export function ConfigSection({
               min={0}
               max={100}
               step={0.1}
-              onChange={(e) => onUpdateConfig({ profitTaxRate: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => updateConfig({ profitTaxRate: parseFloat(e.target.value) || 0 })}
               className="w-24 px-3 py-2 rounded-lg text-slate-200 font-mono text-right"
             />
             <span className="text-slate-400">%</span>
@@ -44,7 +38,7 @@ export function ConfigSection({
               min={0}
               max={100}
               step={0.1}
-              onChange={(e) => onUpdateConfig({ vatRate: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => updateConfig({ vatRate: parseFloat(e.target.value) || 0 })}
               className="w-24 px-3 py-2 rounded-lg text-slate-200 font-mono text-right"
             />
             <span className="text-slate-400">%</span>
@@ -60,7 +54,7 @@ export function ConfigSection({
                   type="text"
                   value={currency.code}
                   maxLength={4}
-                  onChange={(e) => onUpdateCurrency(index, 'code', e.target.value.toUpperCase())}
+                  onChange={(e) => updateCurrency(index, 'code', e.target.value.toUpperCase())}
                   className="w-14 px-2 py-1 rounded text-slate-200 text-sm font-mono uppercase"
                   readOnly={currency.code === 'Cg'}
                 />
@@ -68,7 +62,7 @@ export function ConfigSection({
                   type="text"
                   value={currency.symbol}
                   maxLength={2}
-                  onChange={(e) => onUpdateCurrency(index, 'symbol', e.target.value)}
+                  onChange={(e) => updateCurrency(index, 'symbol', e.target.value)}
                   className="w-10 px-2 py-1 rounded text-slate-200 text-sm text-center"
                   readOnly={currency.code === 'Cg'}
                 />
@@ -78,14 +72,14 @@ export function ConfigSection({
                   value={currency.rate}
                   step={0.01}
                   min={0}
-                  onChange={(e) => onUpdateCurrency(index, 'rate', parseFloat(e.target.value) || 1)}
+                  onChange={(e) => updateCurrency(index, 'rate', parseFloat(e.target.value) || 1)}
                   className="w-20 px-2 py-1 rounded text-slate-200 text-sm font-mono text-right"
                   readOnly={currency.code === 'Cg'}
                 />
                 <span className="text-slate-400 text-sm">Cg</span>
                 {currency.code !== 'Cg' && (
                   <button
-                    onClick={() => onRemoveCurrency(index)}
+                    onClick={() => removeCurrency(index)}
                     className="text-slate-500 hover:text-red-400 ml-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,7 +91,7 @@ export function ConfigSection({
             ))}
           </div>
           <button
-            onClick={onAddCurrency}
+            onClick={addCurrency}
             className="mt-3 text-sm text-sky-400 hover:text-sky-300 transition-colors"
           >
             + Add currency

@@ -1,21 +1,17 @@
 import { useRef } from 'react';
+import { useRevenue } from '../context/RevenueContext';
 
-interface HeaderProps {
-  year: number;
-  onExport: () => Promise<string>;
-  onImport: (data: string) => Promise<void>;
-}
-
-export function Header({ year, onExport, onImport }: HeaderProps) {
+export function Header() {
+  const { config, exportData, importData } = useRevenue();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
-    const data = await onExport();
+    const data = await exportData();
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `revenue-tracker-${year}-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `revenue-tracker-${config.year}-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -34,7 +30,7 @@ export function Header({ year, onExport, onImport }: HeaderProps) {
     reader.onload = async (event) => {
       try {
         const data = event.target?.result as string;
-        await onImport(data);
+        await importData(data);
         alert('Data imported successfully!');
       } catch {
         alert('Failed to import data. Please check the file format.');
@@ -51,7 +47,7 @@ export function Header({ year, onExport, onImport }: HeaderProps) {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-sky-400 to-violet-400 bg-clip-text text-transparent">
-            {year} Revenue Tracker
+            {config.year} Revenue Tracker
           </h1>
           <p className="text-slate-400 mt-2">
             Track revenue, taxes, VAT, and salaries across multiple currencies

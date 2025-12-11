@@ -1,25 +1,29 @@
-import type { Salary, SalaryTax } from '../types';
+import type { SalaryTax } from '../types';
+import { MONTHS } from '../types';
 import { formatCurrency } from '../utils/format';
+import { useRevenue } from '../context/RevenueContext';
 
 interface SalaryTaxConfigProps {
-  salary: Salary;
-  taxes: SalaryTax[];
-  salaryTotal: number;
-  monthsWorked: number;
-  onAddTax: (salaryId: number) => void;
-  onUpdateTax: (id: number, updates: Partial<SalaryTax>) => void;
-  onDeleteTax: (id: number) => void;
+  salaryId: number;
 }
 
-export function SalaryTaxConfig({
-  salary,
-  taxes,
-  salaryTotal,
-  monthsWorked,
-  onAddTax,
-  onUpdateTax,
-  onDeleteTax,
-}: SalaryTaxConfigProps) {
+export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
+  const {
+    salaries,
+    getTaxesForSalary,
+    getSalaryTotal,
+    addSalaryTax,
+    updateSalaryTax,
+    deleteSalaryTax,
+  } = useRevenue();
+
+  const salary = salaries.find(s => s.id === salaryId);
+  if (!salary) return null;
+
+  const taxes = getTaxesForSalary(salaryId);
+  const salaryTotal = getSalaryTotal(salary);
+  const monthsWorked = MONTHS.filter(m => (salary.amounts[m] || 0) > 0).length;
+
   const calculateTaxAmount = (tax: SalaryTax): number => {
     if (tax.type === 'percentage') {
       return salaryTotal * (tax.value / 100);
@@ -37,7 +41,7 @@ export function SalaryTaxConfig({
           Tax Configuration for {salary.name}
         </h3>
         <button
-          onClick={() => onAddTax(salary.id)}
+          onClick={() => addSalaryTax(salary.id)}
           className="px-3 py-1 text-xs font-medium text-sky-400 hover:text-sky-300 border border-sky-400/50 hover:border-sky-300 rounded transition-colors"
         >
           + Add Tax
@@ -60,14 +64,14 @@ export function SalaryTaxConfig({
                 <input
                   type="text"
                   value={tax.name}
-                  onChange={(e) => onUpdateTax(tax.id, { name: e.target.value })}
+                  onChange={(e) => updateSalaryTax(tax.id, { name: e.target.value })}
                   placeholder="Tax name"
                   className="flex-1 px-2 py-1 rounded text-slate-200 text-sm bg-slate-700/50 min-w-0"
                 />
                 <select
                   value={tax.type}
                   onChange={(e) =>
-                    onUpdateTax(tax.id, { type: e.target.value as 'percentage' | 'fixed' })
+                    updateSalaryTax(tax.id, { type: e.target.value as 'percentage' | 'fixed' })
                   }
                   className="px-2 py-1 rounded text-slate-200 text-sm bg-slate-700/50"
                 >
@@ -81,7 +85,7 @@ export function SalaryTaxConfig({
                     step={0.01}
                     min={0}
                     onChange={(e) =>
-                      onUpdateTax(tax.id, { value: parseFloat(e.target.value) || 0 })
+                      updateSalaryTax(tax.id, { value: parseFloat(e.target.value) || 0 })
                     }
                     className="w-20 px-2 py-1 rounded text-slate-200 text-sm font-mono text-right bg-slate-700/50"
                   />
@@ -96,7 +100,7 @@ export function SalaryTaxConfig({
                   ({taxPct.toFixed(1)}%)
                 </span>
                 <button
-                  onClick={() => onDeleteTax(tax.id)}
+                  onClick={() => deleteSalaryTax(tax.id)}
                   className="px-2 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
                 >
                   Remove

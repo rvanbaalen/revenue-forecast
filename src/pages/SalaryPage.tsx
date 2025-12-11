@@ -4,33 +4,13 @@ import { MONTHS } from '../types';
 import { formatCurrency } from '../utils/format';
 
 export function SalaryPage() {
-  const {
-    salaries,
-    addSalary,
-    updateSalary,
-    updateSalaryAmount,
-    deleteSalary,
-    addSalaryTax,
-    updateSalaryTax,
-    deleteSalaryTax,
-    getTaxesForSalary,
-    getSalaryTotal,
-    getSalaryTaxCg,
-    getMonthlySalary,
-  } = useRevenue();
+  const { salaries, getSalaryTotal, getSalaryTaxCg, getMonthlySalary } = useRevenue();
 
   // Calculate summary stats
   const totalGross = salaries.reduce((sum, s) => sum + getSalaryTotal(s), 0);
   const totalTax = salaries.reduce((sum, s) => sum + getSalaryTaxCg(s), 0);
   const totalNet = totalGross + totalTax;
   const monthlyAvg = totalGross / 12;
-
-  // Helper to count months worked for a salary
-  const getMonthsWorked = (salaryId: number): number => {
-    const salary = salaries.find(s => s.id === salaryId);
-    if (!salary) return 0;
-    return MONTHS.filter(m => (salary.amounts[m] || 0) > 0).length;
-  };
 
   return (
     <>
@@ -74,16 +54,7 @@ export function SalaryPage() {
         </div>
       </section>
 
-      <SalaryTable
-        salaries={salaries}
-        onAddSalary={addSalary}
-        onUpdateSalary={updateSalary}
-        onUpdateSalaryAmount={updateSalaryAmount}
-        onDeleteSalary={deleteSalary}
-        getSalaryTotal={getSalaryTotal}
-        getSalaryTaxCg={getSalaryTaxCg}
-        getMonthlySalary={getMonthlySalary}
-      />
+      <SalaryTable />
 
       {/* Tax Configuration Section */}
       {salaries.length > 0 && (
@@ -94,16 +65,7 @@ export function SalaryPage() {
             or fixed amount per month worked.
           </p>
           {salaries.map(salary => (
-            <SalaryTaxConfig
-              key={salary.id}
-              salary={salary}
-              taxes={getTaxesForSalary(salary.id)}
-              salaryTotal={getSalaryTotal(salary)}
-              monthsWorked={getMonthsWorked(salary.id)}
-              onAddTax={addSalaryTax}
-              onUpdateTax={updateSalaryTax}
-              onDeleteTax={deleteSalaryTax}
-            />
+            <SalaryTaxConfig key={salary.id} salaryId={salary.id} />
           ))}
         </section>
       )}

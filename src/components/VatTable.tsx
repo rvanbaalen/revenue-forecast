@@ -1,26 +1,21 @@
-import type { RevenueSource, AppConfig, Month } from '../types';
 import { MONTHS, MONTH_LABELS } from '../types';
 import { formatCurrency } from '../utils/format';
+import { useRevenue } from '../context/RevenueContext';
 
 interface VatTableProps {
-  sources: RevenueSource[];
-  config: AppConfig;
   dataType: 'expected' | 'actual';
-  getSourceValue: (source: RevenueSource, month: Month, type: 'expected' | 'actual') => number;
-  getSourceVat: (source: RevenueSource, type: 'expected' | 'actual') => number;
-  getMonthlyVat: (month: Month, type: 'expected' | 'actual') => number;
-  getRate: (code: string) => number;
 }
 
-export function VatTable({
-  sources,
-  config,
-  dataType,
-  getSourceValue,
-  getSourceVat,
-  getMonthlyVat,
-  getRate,
-}: VatTableProps) {
+export function VatTable({ dataType }: VatTableProps) {
+  const {
+    sources,
+    config,
+    getSourceValue,
+    getSourceVat,
+    getMonthlyVat,
+    getRate,
+  } = useRevenue();
+
   const vatRate = config.vatRate / 100;
   const title = dataType === 'expected' ? 'VAT to Reserve (Expected)' : 'VAT to Reserve (Actual)';
   const titleColor = dataType === 'expected' ? 'text-amber-400' : 'text-emerald-400';
