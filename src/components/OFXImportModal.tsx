@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import {
   Upload,
@@ -20,8 +19,6 @@ import {
   Loader2,
   Building2,
   Calendar,
-  ArrowRight,
-  ArrowUpDown,
 } from 'lucide-react';
 import { useBank } from '@/context/BankContext';
 import type { OFXImportResult } from '@/types';
@@ -34,6 +31,12 @@ interface OFXImportModalProps {
 }
 
 type ImportState = 'idle' | 'preview' | 'importing' | 'success' | 'error';
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
   const { importOFXFile, accounts } = useBank();
@@ -189,88 +192,71 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
           <div className="space-y-4">
             {/* File info */}
             <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <FileText className="h-8 w-8 text-primary" />
+              <FileText className="h-6 w-6 text-primary flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">{file?.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {(file?.size ?? 0 / 1024).toFixed(1)} KB
+                <p className="font-medium text-foreground truncate text-sm">{file?.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(file?.size ?? 0)}
                 </p>
               </div>
             </div>
 
-            <Separator />
-
             {/* Account info */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Account</span>
-              </div>
-              <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <p className="font-medium text-foreground">
                     {preview.account.accountType} ****{preview.account.accountId.slice(-4)}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Currency: {preview.currency}
                   </p>
                 </div>
-                {existingAccount ? (
-                  <Badge variant="secondary">
-                    Existing Account
-                  </Badge>
-                ) : (
-                  <Badge className="bg-primary text-primary-foreground">
-                    New Account
-                  </Badge>
-                )}
               </div>
+              {existingAccount ? (
+                <Badge variant="outline">Existing</Badge>
+              ) : (
+                <Badge>New Account</Badge>
+              )}
             </div>
-
-            <Separator />
 
             {/* Transaction summary */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Transactions</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-card border border-border rounded-lg text-center">
+                <p className="text-2xl font-bold text-foreground">
+                  {preview.transactions.length}
+                </p>
+                <p className="text-xs text-muted-foreground">Total Transactions</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-card border border-border rounded-lg">
-                  <p className="text-2xl font-bold text-foreground">
-                    {preview.transactions.length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Total</p>
-                </div>
-                <div className="p-3 bg-card border border-border rounded-lg">
-                  <p className="text-2xl font-bold variance-positive">
-                    {preview.transactions.filter(t => t.amount > 0).length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Credits</p>
-                </div>
+              <div className="p-3 bg-card border border-border rounded-lg text-center">
+                <p className="text-2xl font-bold variance-positive">
+                  {preview.transactions.filter(t => t.amount > 0).length}
+                </p>
+                <p className="text-xs text-muted-foreground">Credits</p>
               </div>
             </div>
 
-            <Separator />
-
-            {/* Date range */}
-            <div className="flex items-center gap-3 text-sm">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Date Range:</span>
-              <span className="font-mono text-foreground">{preview.dateRange.start}</span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono text-foreground">{preview.dateRange.end}</span>
-            </div>
-
-            {/* Balance if available */}
-            {preview.balance && (
-              <div className="flex items-center gap-3 text-sm">
-                <span className="text-muted-foreground">Ending Balance:</span>
-                <span className="font-mono text-foreground font-medium">
-                  {preview.currency} {preview.balance.amount.toFixed(2)}
+            {/* Date range & balance */}
+            <div className="p-3 bg-muted/50 rounded-lg space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Date Range
+                </span>
+                <span className="font-mono text-foreground">
+                  {preview.dateRange.start} → {preview.dateRange.end}
                 </span>
               </div>
-            )}
+              {preview.balance && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Ending Balance</span>
+                  <span className="font-mono text-foreground font-medium">
+                    {preview.currency} {preview.balance.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
