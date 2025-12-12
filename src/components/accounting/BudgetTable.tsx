@@ -156,9 +156,9 @@ export function BudgetTable() {
                           {actual > 0 && (
                             <div className={cn(
                               "text-xs font-mono",
-                              status === 'good' && "text-green-600 dark:text-green-400",
-                              status === 'warning' && "text-yellow-600 dark:text-yellow-400",
-                              status === 'over' && "text-red-600 dark:text-red-400"
+                              status === 'good' && "variance-positive",
+                              status === 'warning' && "text-warning",
+                              status === 'over' && "variance-negative"
                             )}>
                               {formatCurrency(actual, false)}
                             </div>
@@ -205,9 +205,9 @@ export function BudgetTable() {
                       {actual > 0 && (
                         <div className={cn(
                           "text-xs font-mono",
-                          status === 'good' && "text-green-600 dark:text-green-400",
-                          status === 'warning' && "text-yellow-600 dark:text-yellow-400",
-                          status === 'over' && "text-red-600 dark:text-red-400"
+                          status === 'good' && "variance-positive",
+                          status === 'warning' && "text-warning",
+                          status === 'over' && "variance-negative"
                         )}>
                           {formatCurrency(actual, false)}
                         </div>
@@ -246,15 +246,15 @@ export function BudgetTable() {
       {/* Legend */}
       <div className="flex items-center gap-6 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-green-500" />
+          <CheckCircle className="h-4 w-4 variance-positive" />
           <span>Under budget</span>
         </div>
         <div className="flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-yellow-500" />
+          <AlertCircle className="h-4 w-4 text-warning" />
           <span>Near budget (within 10%)</span>
         </div>
         <div className="flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-red-500" />
+          <AlertCircle className="h-4 w-4 variance-negative" />
           <span>Over budget</span>
         </div>
       </div>

@@ -201,6 +201,43 @@ select:hover {
   color: oklch(0.488 0.243 264.376);
 }
 
+/* Semantic background/text colors for status indicators */
+.bg-success {
+  background: oklch(0.627 0.194 149.214);
+}
+
+.bg-success-muted {
+  background: oklch(0.962 0.044 156.743);
+}
+
+.bg-warning {
+  background: oklch(0.769 0.188 70.08);
+}
+
+.bg-warning-muted {
+  background: oklch(0.962 0.059 95.277);
+}
+
+.text-success {
+  color: oklch(0.627 0.194 149.214);
+}
+
+.text-warning {
+  color: oklch(0.639 0.159 55.934);
+}
+
+.bg-info {
+  background: oklch(0.488 0.243 264.376);
+}
+
+.bg-info-muted {
+  background: oklch(0.932 0.032 255.585);
+}
+
+.text-info {
+  color: oklch(0.488 0.243 264.376);
+}
+
 /* Subtle animations */
 .fade-in {
   animation: fadeIn 0.2s ease-out;

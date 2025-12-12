@@ -53,8 +53,8 @@ export function AccountingLayout() {
                   {formatCurrency(pnl.revenue, false)}
                 </p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-full">
-                <TrendingUp className="h-5 w-5 text-green-500" />
+              <div className="p-3 bg-success-muted rounded-full">
+                <TrendingUp className="h-5 w-5 variance-positive" />
               </div>
             </div>
           </CardContent>
@@ -69,8 +69,8 @@ export function AccountingLayout() {
                   {formatCurrency(pnl.expenses, false)}
                 </p>
               </div>
-              <div className="p-3 bg-red-500/10 rounded-full">
-                <TrendingDown className="h-5 w-5 text-red-500" />
+              <div className="p-3 bg-destructive/10 rounded-full">
+                <TrendingDown className="h-5 w-5 variance-negative" />
               </div>
             </div>
           </CardContent>
@@ -90,11 +90,11 @@ export function AccountingLayout() {
               </div>
               <div className={cn(
                 "p-3 rounded-full",
-                pnl.netIncome >= 0 ? "bg-green-500/10" : "bg-red-500/10"
+                pnl.netIncome >= 0 ? "bg-success-muted" : "bg-destructive/10"
               )}>
                 <DollarSign className={cn(
                   "h-5 w-5",
-                  pnl.netIncome >= 0 ? "text-green-500" : "text-red-500"
+                  pnl.netIncome >= 0 ? "variance-positive" : "variance-negative"
                 )} />
               </div>
             </div>

@@ -43,9 +43,9 @@ export function AccountingOverviewPage() {
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-muted-foreground">{MONTH_LABELS[currentMonth]} Net Income</p>
               {monthlyPnl.netIncome >= 0 ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <TrendingUp className="h-4 w-4 variance-positive" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
+                <TrendingDown className="h-4 w-4 variance-negative" />
               )}
             </div>
             <p className={cn(
@@ -66,9 +66,9 @@ export function AccountingOverviewPage() {
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-muted-foreground">YTD Net Income</p>
               {yearlyPnl.netIncome >= 0 ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <TrendingUp className="h-4 w-4 variance-positive" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
+                <TrendingDown className="h-4 w-4 variance-negative" />
               )}
             </div>
             <p className={cn(

@@ -218,7 +218,7 @@ export function BankAccountCard({ account, onSelect }: BankAccountCardProps) {
                     className={cn(
                       "h-full rounded-full transition-all",
                       utilizationPercent && utilizationPercent > 80 ? "bg-destructive" :
-                      utilizationPercent && utilizationPercent > 50 ? "bg-warning" : "bg-green-500"
+                      utilizationPercent && utilizationPercent > 50 ? "bg-warning" : "bg-success"
                     )}
                     style={{ width: `${Math.min(utilizationPercent || 0, 100)}%` }}
                   />
@@ -258,7 +258,7 @@ export function BankAccountCard({ account, onSelect }: BankAccountCardProps) {
           </div>
 
           {stats.unmappedCount > 0 && (
-            <div className="mt-3 p-2 bg-warning/10 border border-warning/20 rounded-lg flex items-center gap-2">
+            <div className="mt-3 p-2 bg-warning-muted border border-border rounded-lg flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-warning" />
               <span className="text-sm text-warning">
                 {stats.unmappedCount} unmapped transaction{stats.unmappedCount !== 1 ? 's' : ''}

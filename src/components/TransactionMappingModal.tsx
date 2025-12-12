@@ -71,8 +71,8 @@ export function TransactionMappingModal({
       const isCreditCard = bankAccount?.accountType === 'CREDITCARD' || bankAccount?.accountType === 'CREDITLINE';
 
       if (isCreditCard) {
-        // For credit cards: positive amount = payment (transfer), negative = charge (expense)
-        setSelectedTab(transaction.amount >= 0 ? 'transfer' : 'expense');
+        // For credit cards in OFX: positive = charge/purchase (expense), negative = payment (transfer)
+        setSelectedTab(transaction.amount > 0 ? 'expense' : 'transfer');
       } else {
         // For checking: positive = income (revenue), negative = spending (expense)
         setSelectedTab(transaction.amount >= 0 ? 'revenue' : 'expense');
@@ -236,7 +236,7 @@ export function TransactionMappingModal({
               {MONTH_LABELS[transaction.month]} {transaction.year}
             </span>
             {isCreditCard && (
-              <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded">
+              <span className="text-xs badge-warning px-2 py-0.5 rounded">
                 Credit Card
               </span>
             )}

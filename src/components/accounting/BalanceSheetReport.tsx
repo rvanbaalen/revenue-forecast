@@ -79,8 +79,8 @@ export function BalanceSheetReport() {
                   {formatCurrency(balanceSheet.assets, false)}
                 </p>
               </div>
-              <div className="p-3 bg-blue-500/10 rounded-full">
-                <Wallet className="h-5 w-5 text-blue-500" />
+              <div className="p-3 bg-info-muted rounded-full">
+                <Wallet className="h-5 w-5 text-info" />
               </div>
             </div>
           </CardContent>
@@ -95,15 +95,15 @@ export function BalanceSheetReport() {
                   {formatCurrency(balanceSheet.liabilities, false)}
                 </p>
               </div>
-              <div className="p-3 bg-red-500/10 rounded-full">
-                <CreditCard className="h-5 w-5 text-red-500" />
+              <div className="p-3 bg-destructive/10 rounded-full">
+                <CreditCard className="h-5 w-5 variance-negative" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className={cn(
-          balanceSheet.equity >= 0 ? "border-green-500/50" : "border-red-500/50"
+          balanceSheet.equity >= 0 ? "border-success/50" : "border-destructive/50"
         )}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -118,11 +118,11 @@ export function BalanceSheetReport() {
               </div>
               <div className={cn(
                 "p-3 rounded-full",
-                balanceSheet.equity >= 0 ? "bg-green-500/10" : "bg-red-500/10"
+                balanceSheet.equity >= 0 ? "bg-success-muted" : "bg-destructive/10"
               )}>
                 <Scale className={cn(
                   "h-5 w-5",
-                  balanceSheet.equity >= 0 ? "text-green-500" : "text-red-500"
+                  balanceSheet.equity >= 0 ? "variance-positive" : "variance-negative"
                 )} />
               </div>
             </div>
@@ -141,7 +141,7 @@ export function BalanceSheetReport() {
         <table className="w-full text-sm">
           <tbody>
             {/* Assets Section */}
-            <tr className="bg-blue-50 dark:bg-blue-900/20 font-medium">
+            <tr className="bg-info-muted font-medium">
               <td className="px-4 py-3 text-foreground" colSpan={2}>
                 ASSETS
               </td>
@@ -169,7 +169,7 @@ export function BalanceSheetReport() {
                 </td>
               </tr>
             )}
-            <tr className="border-t border-border bg-blue-100 dark:bg-blue-900/40 font-medium">
+            <tr className="border-t border-border bg-info-muted font-medium">
               <td className="px-4 py-2 text-foreground">Total Assets</td>
               <td className="px-4 py-2 text-right font-mono text-foreground">
                 {formatCurrency(balanceSheet.assets, false)}
@@ -177,7 +177,7 @@ export function BalanceSheetReport() {
             </tr>
 
             {/* Liabilities Section */}
-            <tr className="bg-red-50 dark:bg-red-900/20 font-medium border-t-2 border-border">
+            <tr className="bg-destructive/10 font-medium border-t-2 border-border">
               <td className="px-4 py-3 text-foreground" colSpan={2}>
                 LIABILITIES
               </td>
@@ -205,7 +205,7 @@ export function BalanceSheetReport() {
                 </td>
               </tr>
             )}
-            <tr className="border-t border-border bg-red-100 dark:bg-red-900/40 font-medium">
+            <tr className="border-t border-border bg-destructive/10 font-medium">
               <td className="px-4 py-2 text-foreground">Total Liabilities</td>
               <td className="px-4 py-2 text-right font-mono text-foreground">
                 {formatCurrency(balanceSheet.liabilities, false)}
@@ -216,8 +216,8 @@ export function BalanceSheetReport() {
             <tr className={cn(
               "border-t-2 border-border font-bold",
               balanceSheet.equity >= 0
-                ? "bg-green-100 dark:bg-green-900/40"
-                : "bg-red-100 dark:bg-red-900/40"
+                ? "bg-success-muted"
+                : "bg-destructive/10"
             )}>
               <td className="px-4 py-3 text-foreground text-lg">NET WORTH (EQUITY)</td>
               <td className={cn(

@@ -43,10 +43,10 @@ import { useRevenue } from '@/context/RevenueContext';
 import { useAccountingContext } from '@/context/AccountingContext';
 
 const CATEGORY_COLORS: Record<TransactionCategory, string> = {
-  revenue: 'bg-green-500/10 text-green-600 border-green-500/20',
-  expense: 'bg-red-500/10 text-red-600 border-red-500/20',
-  transfer: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  ignore: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
+  revenue: 'badge-success',
+  expense: 'bg-destructive/10 text-destructive border-destructive/20',
+  transfer: 'badge-info',
+  ignore: 'bg-muted text-muted-foreground border-border',
 };
 
 interface RuleFormData {
@@ -249,12 +249,12 @@ export function MappingRulesTable() {
                   <TableCell>
                     {rule.revenueSourceId ? (
                       <div className="flex items-center gap-1 text-sm">
-                        <Link2 className="h-3 w-3 text-green-500" />
+                        <Link2 className="h-3 w-3 variance-positive" />
                         {getSourceName(rule.revenueSourceId)}
                       </div>
                     ) : rule.chartAccountId ? (
                       <div className="flex items-center gap-1 text-sm">
-                        <Link2 className="h-3 w-3 text-red-500" />
+                        <Link2 className="h-3 w-3 variance-negative" />
                         {getChartAccountName(rule.chartAccountId)}
                       </div>
                     ) : (

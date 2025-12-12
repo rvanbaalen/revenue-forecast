@@ -133,13 +133,14 @@ export function useBankData() {
         const { month, year } = extractMonthYear(tx.datePosted);
 
         // Determine default category based on account type and amount
-        // For credit cards: positive = payment (transfer), negative = purchase (expense)
-        // For checking/savings: positive = income (revenue), negative = expense
+        // OFX sign conventions:
+        // - Credit cards: positive = charge/purchase (expense), negative = payment received (transfer)
+        // - Checking/Savings: positive = deposit/income (revenue), negative = withdrawal (expense)
         const isCreditCard = account.accountType === 'CREDITCARD' || account.accountType === 'CREDITLINE';
         let category: TransactionCategory;
         if (isCreditCard) {
-          // Credit card: positive amounts are payments TO the card (transfer), negative are purchases (expense)
-          category = tx.amount >= 0 ? 'transfer' : 'expense';
+          // Credit card: positive amounts are charges/purchases (expense), negative are payments (transfer)
+          category = tx.amount > 0 ? 'expense' : 'transfer';
         } else {
           // Checking/Savings: positive amounts are income (revenue), negative are expenses
           category = tx.amount >= 0 ? 'revenue' : 'expense';

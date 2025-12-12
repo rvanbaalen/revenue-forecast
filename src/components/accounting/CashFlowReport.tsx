@@ -85,8 +85,8 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
                   {formatCurrency(cashFlow.inflows, false)}
                 </p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-full">
-                <ArrowDownLeft className="h-5 w-5 text-green-500" />
+              <div className="p-3 bg-success-muted rounded-full">
+                <ArrowDownLeft className="h-5 w-5 variance-positive" />
               </div>
             </div>
           </CardContent>
@@ -101,15 +101,15 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
                   {formatCurrency(cashFlow.outflows, false)}
                 </p>
               </div>
-              <div className="p-3 bg-red-500/10 rounded-full">
-                <ArrowUpRight className="h-5 w-5 text-red-500" />
+              <div className="p-3 bg-destructive/10 rounded-full">
+                <ArrowUpRight className="h-5 w-5 variance-negative" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className={cn(
-          cashFlow.netCashFlow >= 0 ? "border-green-500/50" : "border-red-500/50"
+          cashFlow.netCashFlow >= 0 ? "border-success/50" : "border-destructive/50"
         )}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -124,11 +124,11 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
               </div>
               <div className={cn(
                 "p-3 rounded-full",
-                cashFlow.netCashFlow >= 0 ? "bg-green-500/10" : "bg-red-500/10"
+                cashFlow.netCashFlow >= 0 ? "bg-success-muted" : "bg-destructive/10"
               )}>
                 <TrendingUp className={cn(
                   "h-5 w-5",
-                  cashFlow.netCashFlow >= 0 ? "text-green-500" : "text-red-500"
+                  cashFlow.netCashFlow >= 0 ? "variance-positive" : "variance-negative"
                 )} />
               </div>
             </div>
@@ -162,12 +162,12 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
                 {/* Bars */}
                 <div className="flex-1 w-full flex flex-col justify-end gap-1">
                   <div
-                    className="w-full bg-green-500/80 rounded-t"
+                    className="w-full bg-success rounded-t opacity-80"
                     style={{ height: `${(data.inflows / maxFlow) * 100}%` }}
                     title={`Inflows: ${formatCurrency(data.inflows, false)}`}
                   />
                   <div
-                    className="w-full bg-red-500/80 rounded-b"
+                    className="w-full bg-destructive rounded-b opacity-80"
                     style={{ height: `${(data.outflows / maxFlow) * 100}%` }}
                     title={`Outflows: ${formatCurrency(data.outflows, false)}`}
                   />
@@ -179,11 +179,11 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
           </div>
           <div className="flex items-center justify-center gap-6 mt-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green-500" />
+              <div className="w-3 h-3 rounded bg-success" />
               <span className="text-muted-foreground">Inflows</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-red-500" />
+              <div className="w-3 h-3 rounded bg-destructive" />
               <span className="text-muted-foreground">Outflows</span>
             </div>
           </div>
@@ -274,8 +274,8 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
             <tr className={cn(
               "font-bold",
               cashFlow.netCashFlow >= 0
-                ? "bg-green-50 dark:bg-green-900/20"
-                : "bg-red-50 dark:bg-red-900/20"
+                ? "bg-success-muted"
+                : "bg-destructive/10"
             )}>
               <td className="px-4 py-3 text-foreground">Net Cash Flow</td>
               <td className={cn(

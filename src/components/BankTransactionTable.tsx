@@ -65,10 +65,10 @@ interface BankTransactionTableProps {
 }
 
 const CATEGORY_COLORS: Record<TransactionCategory, string> = {
-  revenue: 'bg-green-500/10 text-green-600 border-green-500/20',
-  expense: 'bg-red-500/10 text-red-600 border-red-500/20',
-  transfer: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  ignore: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
+  revenue: 'badge-success',
+  expense: 'bg-destructive/10 text-destructive border-destructive/20',
+  transfer: 'badge-info',
+  ignore: 'bg-muted text-muted-foreground border-border',
 };
 
 const PAGE_SIZE = 20;
@@ -235,7 +235,7 @@ export function BankTransactionTable({
         if (tx.revenueSourceId) {
           return (
             <div className="flex items-center gap-1 text-sm">
-              <Link2 className="h-3 w-3 text-green-500" />
+              <Link2 className="h-3 w-3 variance-positive" />
               <span className="text-foreground">{getSourceName(tx.revenueSourceId)}</span>
             </div>
           );
@@ -243,7 +243,7 @@ export function BankTransactionTable({
         if (tx.chartAccountId) {
           return (
             <div className="flex items-center gap-1 text-sm">
-              <ArrowUpRight className="h-3 w-3 text-red-500" />
+              <ArrowUpRight className="h-3 w-3 variance-negative" />
               <span className="text-foreground">{getChartAccountName(tx.chartAccountId)}</span>
             </div>
           );
@@ -251,7 +251,7 @@ export function BankTransactionTable({
         if (tx.transferAccountId) {
           return (
             <div className="flex items-center gap-1 text-sm">
-              <ArrowLeftRight className="h-3 w-3 text-blue-500" />
+              <ArrowLeftRight className="h-3 w-3 text-info" />
               <span className="text-foreground">{getAccountName(tx.transferAccountId)}</span>
             </div>
           );

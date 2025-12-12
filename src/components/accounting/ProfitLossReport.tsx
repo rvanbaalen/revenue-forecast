@@ -82,8 +82,8 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
                   {formatCurrency(pnl.revenue, false)}
                 </p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-full">
-                <TrendingUp className="h-5 w-5 text-green-500" />
+              <div className="p-3 bg-success-muted rounded-full">
+                <TrendingUp className="h-5 w-5 variance-positive" />
               </div>
             </div>
           </CardContent>
@@ -98,15 +98,15 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
                   {formatCurrency(pnl.expenses, false)}
                 </p>
               </div>
-              <div className="p-3 bg-red-500/10 rounded-full">
-                <TrendingDown className="h-5 w-5 text-red-500" />
+              <div className="p-3 bg-destructive/10 rounded-full">
+                <TrendingDown className="h-5 w-5 variance-negative" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className={cn(
-          pnl.netIncome >= 0 ? "border-green-500/50" : "border-red-500/50"
+          pnl.netIncome >= 0 ? "border-success/50" : "border-destructive/50"
         )}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -121,11 +121,11 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
               </div>
               <div className={cn(
                 "p-3 rounded-full",
-                pnl.netIncome >= 0 ? "bg-green-500/10" : "bg-red-500/10"
+                pnl.netIncome >= 0 ? "bg-success-muted" : "bg-destructive/10"
               )}>
                 <DollarSign className={cn(
                   "h-5 w-5",
-                  pnl.netIncome >= 0 ? "text-green-500" : "text-red-500"
+                  pnl.netIncome >= 0 ? "variance-positive" : "variance-negative"
                 )} />
               </div>
             </div>
@@ -165,7 +165,7 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
                 </td>
               </tr>
             )}
-            <tr className="border-t border-border bg-green-50 dark:bg-green-900/20 font-medium">
+            <tr className="border-t border-border bg-success-muted font-medium">
               <td className="px-4 py-2 text-foreground">Total Revenue</td>
               <td className="px-4 py-2 text-right font-mono variance-positive">
                 {formatCurrency(pnl.revenue, false)}
@@ -201,7 +201,7 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
                 </td>
               </tr>
             )}
-            <tr className="border-t border-border bg-red-50 dark:bg-red-900/20 font-medium">
+            <tr className="border-t border-border bg-destructive/10 font-medium">
               <td className="px-4 py-2 text-foreground">Total Expenses</td>
               <td className="px-4 py-2 text-right font-mono variance-negative">
                 {formatCurrency(pnl.expenses, false)}
@@ -212,8 +212,8 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
             <tr className={cn(
               "border-t-2 border-border font-bold",
               pnl.netIncome >= 0
-                ? "bg-green-100 dark:bg-green-900/40"
-                : "bg-red-100 dark:bg-red-900/40"
+                ? "bg-success-muted"
+                : "bg-destructive/10"
             )}>
               <td className="px-4 py-3 text-foreground text-lg">NET INCOME</td>
               <td className={cn(

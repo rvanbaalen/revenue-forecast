@@ -41,11 +41,11 @@ const TYPE_ICONS: Record<AccountType, typeof Wallet> = {
 };
 
 const TYPE_COLORS: Record<AccountType, string> = {
-  ASSET: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  LIABILITY: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-  EQUITY: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-  REVENUE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  EXPENSE: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  ASSET: 'badge-info',
+  LIABILITY: 'bg-destructive/10 text-destructive',
+  EQUITY: 'bg-muted text-muted-foreground',
+  REVENUE: 'badge-success',
+  EXPENSE: 'badge-warning',
 };
 
 export function ChartOfAccountsTable({ onEditAccount, onAddAccount }: ChartOfAccountsTableProps) {
