@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,13 +24,26 @@ import { OFXImportModal } from '@/components/OFXImportModal';
 import { formatCurrency } from '@/utils/format';
 import type { BankTransaction } from '@/types';
 
+const bankRouteApi = getRouteApi('/bank');
+
 export function BankPage() {
   const { accounts, transactions, getUnmappedTransactions } = useBank();
   const { config } = useRevenue();
+  const { account: accountParam } = bankRouteApi.useSearch();
+  const navigate = useNavigate();
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<BankTransaction | null>(null);
-  const [activeTab, setActiveTab] = useState('accounts');
+  const [activeTab, setActiveTab] = useState(accountParam ? 'transactions' : 'accounts');
+  const [accountFilter, setAccountFilter] = useState<string>(accountParam || 'all');
+
+  // Sync account filter with URL param
+  useEffect(() => {
+    if (accountParam) {
+      setAccountFilter(accountParam);
+      setActiveTab('transactions');
+    }
+  }, [accountParam]);
 
   const unmappedTransactions = getUnmappedTransactions();
 
@@ -165,7 +179,10 @@ export function BankPage() {
                   key={account.id}
                   account={account}
                   onSelect={() => {
-                    setActiveTab('transactions');
+                    navigate({
+                      to: '/bank',
+                      search: { account: account.id.toString() },
+                    });
                   }}
                 />
               ))}
@@ -194,6 +211,14 @@ export function BankPage() {
             <CardContent>
               <BankTransactionTable
                 year={config.year}
+                initialAccountFilter={accountFilter}
+                onAccountFilterChange={(newFilter) => {
+                  setAccountFilter(newFilter);
+                  navigate({
+                    to: '/bank',
+                    search: newFilter === 'all' ? {} : { account: newFilter },
+                  });
+                }}
                 onMapTransaction={(tx) => setSelectedTransaction(tx)}
               />
             </CardContent>

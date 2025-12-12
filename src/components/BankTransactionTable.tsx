@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -51,6 +51,8 @@ interface BankTransactionTableProps {
   year?: number;
   month?: Month;
   showFilters?: boolean;
+  initialAccountFilter?: string;
+  onAccountFilterChange?: (accountId: string) => void;
   onMapTransaction?: (transaction: BankTransaction) => void;
 }
 
@@ -68,6 +70,8 @@ export function BankTransactionTable({
   year,
   month,
   showFilters = true,
+  initialAccountFilter,
+  onAccountFilterChange,
   onMapTransaction,
 }: BankTransactionTableProps) {
   const { transactions, accounts, bulkCategorize, bulkMapToSource } = useBank();
@@ -77,8 +81,17 @@ export function BankTransactionTable({
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [mappedFilter, setMappedFilter] = useState<string>('all');
-  const [accountFilter, setAccountFilter] = useState<string>(accountId?.toString() || 'all');
+  const [accountFilter, setAccountFilter] = useState<string>(
+    initialAccountFilter || accountId?.toString() || 'all'
+  );
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // Sync with initialAccountFilter prop changes
+  useEffect(() => {
+    if (initialAccountFilter) {
+      setAccountFilter(initialAccountFilter);
+    }
+  }, [initialAccountFilter]);
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([
@@ -337,6 +350,7 @@ export function BankTransactionTable({
             <Select value={accountFilter} onValueChange={(v) => {
               setAccountFilter(v);
               table.setPageIndex(0);
+              onAccountFilterChange?.(v);
             }}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Accounts" />

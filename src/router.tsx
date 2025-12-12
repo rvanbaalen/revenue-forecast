@@ -270,10 +270,19 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+interface BankSearchParams {
+  account?: string;
+}
+
 const bankRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/bank',
   component: BankPage,
+  validateSearch: (search: Record<string, unknown>): BankSearchParams => {
+    return {
+      account: typeof search.account === 'string' ? search.account : undefined,
+    };
+  },
 });
 
 // Create route tree
