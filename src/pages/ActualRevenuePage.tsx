@@ -30,8 +30,8 @@ export function ActualRevenuePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Actual Revenue</h1>
-          <p className="text-zinc-500 mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Actual Revenue</h1>
+          <p className="text-muted-foreground mt-1">
             Track real income for {config.year}
           </p>
         </div>
@@ -39,37 +39,37 @@ export function ActualRevenuePage() {
 
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="flex items-center gap-4 p-4 bg-white border border-zinc-200 rounded-lg">
-          <div className="p-2 bg-indigo-50 rounded-lg">
-            <DollarSign className="w-5 h-5 text-indigo-600" />
+        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
+          <div className="p-2 bg-secondary rounded-lg">
+            <DollarSign className="w-5 h-5 text-foreground" />
           </div>
           <div>
-            <p className="text-sm text-zinc-500">Total Actual</p>
+            <p className="text-sm text-muted-foreground">Total Actual</p>
             <p className="text-xl font-semibold tabular-nums">{formatCurrency(actualTotals.totalRevenue)}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 p-4 bg-white border border-zinc-200 rounded-lg">
-          <div className="p-2 bg-green-50 rounded-lg">
-            <Receipt className="w-5 h-5 text-green-600" />
+        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
+          <div className="p-2 bg-secondary rounded-lg">
+            <Receipt className="w-5 h-5 text-foreground" />
           </div>
           <div>
-            <p className="text-sm text-zinc-500">VAT to Reserve</p>
+            <p className="text-sm text-muted-foreground">VAT to Reserve</p>
             <p className="text-xl font-semibold tabular-nums">{formatCurrency(actualTotals.totalVat)}</p>
           </div>
         </div>
 
-        <div className={`flex items-center gap-4 p-4 bg-white border border-zinc-200 rounded-lg`}>
-          <div className={`p-2 rounded-lg ${variance.isPositive ? 'bg-green-50' : 'bg-red-50'}`}>
+        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
+          <div className={`p-2 rounded-lg ${variance.isPositive ? 'bg-secondary' : 'bg-destructive/10'}`}>
             {variance.isPositive ? (
-              <TrendingUp className="w-5 h-5 text-green-600" />
+              <TrendingUp className="w-5 h-5 text-foreground" />
             ) : (
-              <TrendingDown className="w-5 h-5 text-red-600" />
+              <TrendingDown className="w-5 h-5 text-destructive" />
             )}
           </div>
           <div>
-            <p className="text-sm text-zinc-500">vs Expected</p>
-            <p className={`text-xl font-semibold tabular-nums ${variance.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            <p className="text-sm text-muted-foreground">vs Expected</p>
+            <p className={`text-xl font-semibold tabular-nums ${variance.isPositive ? 'variance-positive' : 'variance-negative'}`}>
               {variance.display}
             </p>
           </div>
@@ -77,8 +77,8 @@ export function ActualRevenuePage() {
       </div>
 
       {/* Tip */}
-      <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-3">
-        <p className="text-sm text-indigo-700">
+      <div className="bg-secondary border border-border rounded-lg px-4 py-3">
+        <p className="text-sm text-muted-foreground">
           Click on any month header in the table below to quickly copy expected values to actual.
         </p>
       </div>

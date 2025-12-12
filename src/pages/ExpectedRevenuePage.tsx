@@ -12,8 +12,8 @@ export function ExpectedRevenuePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Expected Revenue</h1>
-          <p className="text-zinc-500 mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Expected Revenue</h1>
+          <p className="text-muted-foreground mt-1">
             Budget and forecast for {config.year}
           </p>
         </div>
@@ -21,32 +21,32 @@ export function ExpectedRevenuePage() {
 
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="flex items-center gap-4 p-4 bg-white border border-zinc-200 rounded-lg">
-          <div className="p-2 bg-indigo-50 rounded-lg">
-            <DollarSign className="w-5 h-5 text-indigo-600" />
+        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
+          <div className="p-2 bg-secondary rounded-lg">
+            <DollarSign className="w-5 h-5 text-foreground" />
           </div>
           <div>
-            <p className="text-sm text-zinc-500">Total Expected</p>
+            <p className="text-sm text-muted-foreground">Total Expected</p>
             <p className="text-xl font-semibold tabular-nums">{formatCurrency(totals.totalRevenue)}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 p-4 bg-white border border-zinc-200 rounded-lg">
-          <div className="p-2 bg-green-50 rounded-lg">
-            <Receipt className="w-5 h-5 text-green-600" />
+        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
+          <div className="p-2 bg-secondary rounded-lg">
+            <Receipt className="w-5 h-5 text-foreground" />
           </div>
           <div>
-            <p className="text-sm text-zinc-500">VAT to Reserve</p>
+            <p className="text-sm text-muted-foreground">VAT to Reserve</p>
             <p className="text-xl font-semibold tabular-nums">{formatCurrency(totals.totalVat)}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 p-4 bg-white border border-zinc-200 rounded-lg">
-          <div className="p-2 bg-amber-50 rounded-lg">
-            <TrendingUp className="w-5 h-5 text-amber-600" />
+        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
+          <div className="p-2 bg-secondary rounded-lg">
+            <TrendingUp className="w-5 h-5 text-foreground" />
           </div>
           <div>
-            <p className="text-sm text-zinc-500">Sources</p>
+            <p className="text-sm text-muted-foreground">Sources</p>
             <p className="text-xl font-semibold tabular-nums">{sources.length}</p>
           </div>
         </div>

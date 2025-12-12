@@ -80,40 +80,40 @@ function Sidebar() {
       collapsed ? "w-16" : "w-56"
     )}>
       {/* Logo */}
-      <div className="p-4 border-b border-zinc-200">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <TrendingUp className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+            <TrendingUp className="w-4 h-4 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <span className="font-semibold text-zinc-900 truncate">Revenue</span>
+            <span className="font-semibold text-foreground truncate">Revenue</span>
           )}
         </div>
       </div>
 
       {/* Year selector */}
-      <div className="p-3 border-b border-zinc-200">
+      <div className="p-3 border-b border-border">
         <div className={cn(
           "flex items-center",
           collapsed ? "justify-center" : "justify-between"
         )}>
           <button
             onClick={() => updateConfig({ year: config.year - 1 })}
-            className="p-1.5 rounded hover:bg-zinc-100 text-zinc-500"
+            className="p-1.5 rounded hover:bg-accent text-muted-foreground"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           {!collapsed && (
             <span className={cn(
               "text-sm font-medium tabular-nums",
-              config.year === time.currentYear ? "text-indigo-600" : "text-zinc-600"
+              config.year === time.currentYear ? "text-foreground" : "text-muted-foreground"
             )}>
               {config.year}
             </span>
           )}
           <button
             onClick={() => updateConfig({ year: config.year + 1 })}
-            className="p-1.5 rounded hover:bg-zinc-100 text-zinc-500"
+            className="p-1.5 rounded hover:bg-accent text-muted-foreground"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -121,7 +121,7 @@ function Sidebar() {
         {!collapsed && config.year !== time.currentYear && (
           <button
             onClick={() => updateConfig({ year: time.currentYear })}
-            className="w-full mt-2 text-xs text-indigo-600 hover:text-indigo-700"
+            className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground"
           >
             Go to {time.currentYear}
           </button>
@@ -152,7 +152,7 @@ function Sidebar() {
       </nav>
 
       {/* Import/Export */}
-      <div className="p-3 border-t border-zinc-200 space-y-1">
+      <div className="p-3 border-t border-border space-y-1">
         <input
           ref={fileInputRef}
           type="file"
@@ -185,7 +185,7 @@ function Sidebar() {
       </div>
 
       {/* Collapse toggle */}
-      <div className="p-3 border-t border-zinc-200">
+      <div className="p-3 border-t border-border">
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
@@ -211,7 +211,7 @@ function RootLayout() {
   const [sidebarCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-background">
       <Sidebar />
       <main className={cn(
         "transition-all duration-200 min-h-screen",

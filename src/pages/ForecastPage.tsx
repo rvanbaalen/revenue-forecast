@@ -111,8 +111,8 @@ export function ForecastPage() {
       <div className="fade-in space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Revenue Forecast</h1>
-          <p className="text-zinc-500 mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Revenue Forecast</h1>
+          <p className="text-muted-foreground mt-1">
             Predict future revenue based on historical data
           </p>
         </div>
@@ -148,7 +148,7 @@ export function ForecastPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   {FORECAST_METHODS.find(m => m.value === method)?.description}
                 </p>
               </div>
@@ -187,36 +187,36 @@ export function ForecastPage() {
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     "p-2 rounded-lg",
-                    trendInfo.trend === 'upward' ? 'bg-green-50' :
-                    trendInfo.trend === 'downward' ? 'bg-red-50' : 'bg-zinc-100'
+                    trendInfo.trend === 'upward' ? 'bg-secondary' :
+                    trendInfo.trend === 'downward' ? 'bg-destructive/10' : 'bg-muted'
                   )}>
                     {trendInfo.trend === 'upward' ? (
-                      <TrendingUp className="w-5 h-5 text-green-600" />
+                      <TrendingUp className="w-5 h-5 variance-positive" />
                     ) : trendInfo.trend === 'downward' ? (
-                      <TrendingDown className="w-5 h-5 text-red-600" />
+                      <TrendingDown className="w-5 h-5 variance-negative" />
                     ) : (
-                      <Minus className="w-5 h-5 text-zinc-600" />
+                      <Minus className="w-5 h-5 text-muted-foreground" />
                     )}
                   </div>
                   <div>
-                    <p className="text-sm text-zinc-500">Trend</p>
-                    <p className="font-medium text-zinc-900 capitalize">{trendInfo.trend}</p>
+                    <p className="text-sm text-muted-foreground">Trend</p>
+                    <p className="font-medium text-foreground capitalize">{trendInfo.trend}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-500">Monthly Change</p>
+                  <p className="text-sm text-muted-foreground">Monthly Change</p>
                   <p className={cn(
                     "font-medium",
-                    trendInfo.slope >= 0 ? 'text-green-600' : 'text-red-600'
+                    trendInfo.slope >= 0 ? 'variance-positive' : 'variance-negative'
                   )}>
                     {trendInfo.slope >= 0 ? '+' : ''}{formatCurrency(trendInfo.slope)}/month
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-500">Growth Rate</p>
+                  <p className="text-sm text-muted-foreground">Growth Rate</p>
                   <p className={cn(
                     "font-medium",
-                    trendInfo.growthRate >= 0 ? 'text-green-600' : 'text-red-600'
+                    trendInfo.growthRate >= 0 ? 'variance-positive' : 'variance-negative'
                   )}>
                     {trendInfo.growthRate >= 0 ? '+' : ''}{(trendInfo.growthRate * 100).toFixed(1)}%
                   </p>
@@ -224,7 +224,7 @@ export function ForecastPage() {
               </div>
               {seasonality.hasSeasonality && (
                 <div className="mt-4 pt-4 border-t">
-                  <p className="text-sm text-amber-600">
+                  <p className="text-sm text-muted-foreground">
                     Seasonality detected. Consider this when interpreting forecasts.
                   </p>
                 </div>
@@ -240,19 +240,19 @@ export function ForecastPage() {
               <CardTitle className="text-base font-medium">Revenue Trend & Forecast</CardTitle>
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-indigo-600" />
-                  <span className="text-zinc-500">Historical</span>
+                  <div className="w-3 h-3 rounded-sm bg-primary" />
+                  <span className="text-muted-foreground">Historical</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-indigo-300 border border-dashed border-indigo-500" />
-                  <span className="text-zinc-500">Forecast</span>
+                  <div className="w-3 h-3 rounded-sm bg-secondary border border-dashed border-ring" />
+                  <span className="text-muted-foreground">Forecast</span>
                 </div>
               </div>
             </div>
           </CardHeader>
           <CardContent className="py-4">
             {dataWithValues.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-zinc-400">
+              <div className="h-48 flex items-center justify-center text-muted-foreground">
                 <div className="text-center">
                   <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No {dataSource} revenue data available yet.</p>
@@ -267,10 +267,10 @@ export function ForecastPage() {
                     <TooltipTrigger asChild>
                       <div className="flex flex-col items-center flex-shrink-0 cursor-pointer group" style={{ width: '40px' }}>
                         <div
-                          className="w-8 bg-indigo-600 rounded-t transition-all group-hover:bg-indigo-500"
+                          className="w-8 bg-primary rounded-t transition-all group-hover:opacity-80"
                           style={{ height: `${Math.max((d.total / maxValue) * 200, 4)}px` }}
                         />
-                        <p className="text-xs text-zinc-400 mt-2 -rotate-45 origin-top-left whitespace-nowrap">
+                        <p className="text-xs text-muted-foreground mt-2 -rotate-45 origin-top-left whitespace-nowrap">
                           {d.label}
                         </p>
                       </div>
@@ -285,7 +285,7 @@ export function ForecastPage() {
                 {/* Divider */}
                 {forecasts.length > 0 && (
                   <div className="flex flex-col items-center justify-end flex-shrink-0 px-2">
-                    <div className="w-px h-48 border-l border-dashed border-zinc-300" />
+                    <div className="w-px h-48 border-l border-dashed border-border" />
                   </div>
                 )}
 
@@ -295,10 +295,10 @@ export function ForecastPage() {
                     <TooltipTrigger asChild>
                       <div className="flex flex-col items-center flex-shrink-0 cursor-pointer group" style={{ width: '40px' }}>
                         <div
-                          className="w-8 bg-indigo-200 rounded-t border-2 border-dashed border-indigo-400 transition-all group-hover:bg-indigo-300"
+                          className="w-8 bg-secondary rounded-t border-2 border-dashed border-ring transition-all group-hover:bg-accent"
                           style={{ height: `${Math.max((f.predicted / maxValue) * 200, 4)}px` }}
                         />
-                        <p className="text-xs text-indigo-400 mt-2 -rotate-45 origin-top-left whitespace-nowrap">
+                        <p className="text-xs text-muted-foreground mt-2 -rotate-45 origin-top-left whitespace-nowrap">
                           {formatForecastMonth(f.month)}
                         </p>
                       </div>
@@ -306,7 +306,7 @@ export function ForecastPage() {
                     <TooltipContent>
                       <p className="font-medium">{formatForecastMonth(f.month)}</p>
                       <p className="font-mono">{formatCurrency(f.predicted)}</p>
-                      <p className="text-xs text-zinc-400">Forecast</p>
+                      <p className="text-xs text-muted-foreground">Forecast</p>
                     </TooltipContent>
                   </Tooltip>
                 ))}
@@ -325,26 +325,26 @@ export function ForecastPage() {
               <table className="w-full text-sm table-clean">
                 <thead>
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-zinc-500">Month</th>
-                    <th className="px-4 py-3 text-right font-medium text-zinc-500">Predicted Revenue</th>
-                    <th className="px-4 py-3 text-left font-medium text-zinc-500">Method</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Month</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Predicted Revenue</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Method</th>
                   </tr>
                 </thead>
                 <tbody>
                   {forecasts.map((f) => (
                     <tr key={f.month}>
-                      <td className="px-4 py-3 text-zinc-700">{formatForecastMonth(f.month)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-indigo-600">
+                      <td className="px-4 py-3 text-foreground">{formatForecastMonth(f.month)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-foreground">
                         {formatCurrency(f.predicted)}
                       </td>
-                      <td className="px-4 py-3 text-zinc-500 capitalize">{f.method}</td>
+                      <td className="px-4 py-3 text-muted-foreground capitalize">{f.method}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-zinc-50 font-medium">
-                    <td className="px-4 py-3 text-zinc-700">Total Forecast</td>
-                    <td className="px-4 py-3 text-right font-mono text-indigo-600 font-semibold">
+                  <tr className="bg-muted font-medium">
+                    <td className="px-4 py-3 text-foreground">Total Forecast</td>
+                    <td className="px-4 py-3 text-right font-mono text-foreground font-semibold">
                       {formatCurrency(forecasts.reduce((sum, f) => sum + f.predicted, 0))}
                     </td>
                     <td></td>
@@ -361,9 +361,9 @@ export function ForecastPage() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-4 bg-white border border-zinc-200 rounded-lg">
-      <p className="text-zinc-500 text-xs mb-1">{label}</p>
-      <p className="text-lg font-semibold text-zinc-900 tabular-nums">{value}</p>
+    <div className="p-4 bg-card border border-border rounded-lg">
+      <p className="text-muted-foreground text-xs mb-1">{label}</p>
+      <p className="text-lg font-semibold text-foreground tabular-nums">{value}</p>
     </div>
   );
 }

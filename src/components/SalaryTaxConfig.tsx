@@ -45,9 +45,9 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
   const totalTaxPct = salaryTotal > 0 ? (totalTax / salaryTotal) * 100 : 0;
 
   return (
-    <div className="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
+    <div className="bg-muted rounded-lg p-4 border border-border">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-zinc-700">
+        <h3 className="text-sm font-medium text-foreground">
           {salary.name}
         </h3>
         <Button
@@ -62,7 +62,7 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
       </div>
 
       {taxes.length === 0 ? (
-        <p className="text-sm text-zinc-400 italic">No taxes configured</p>
+        <p className="text-sm text-muted-foreground italic">No taxes configured</p>
       ) : (
         <div className="space-y-2">
           {taxes.map((tax) => {
@@ -72,7 +72,7 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
             return (
               <div
                 key={tax.id}
-                className="flex items-center gap-2 p-2 bg-white rounded border border-zinc-200"
+                className="flex items-center gap-2 p-2 bg-card rounded border border-border"
               >
                 <Input
                   type="text"
@@ -106,21 +106,21 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
                     }
                     className="w-20 h-8 text-sm font-mono text-right"
                   />
-                  <span className="text-zinc-400 text-xs w-6">
+                  <span className="text-muted-foreground text-xs w-6">
                     {tax.type === 'percentage' ? '%' : 'Cg'}
                   </span>
                 </div>
-                <span className="text-indigo-600 text-sm font-mono w-24 text-right font-medium">
+                <span className="text-foreground text-sm font-mono w-24 text-right font-medium">
                   {formatCurrency(taxAmount, false)}
                 </span>
-                <span className="text-zinc-400 text-xs w-12 text-right">
+                <span className="text-muted-foreground text-xs w-12 text-right">
                   ({taxPct.toFixed(1)}%)
                 </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => deleteSalaryTax(tax.id)}
-                  className="h-7 w-7 text-zinc-400 hover:text-red-500"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -129,12 +129,12 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
           })}
 
           {taxes.length > 1 && (
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-zinc-200">
-              <span className="text-sm text-zinc-500">Total:</span>
-              <span className="text-indigo-600 font-mono font-semibold">
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <span className="text-sm text-muted-foreground">Total:</span>
+              <span className="text-foreground font-mono font-semibold">
                 {formatCurrency(totalTax, false)}
               </span>
-              <span className="text-zinc-400 text-xs">
+              <span className="text-muted-foreground text-xs">
                 ({totalTaxPct.toFixed(1)}%)
               </span>
             </div>

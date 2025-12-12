@@ -62,7 +62,7 @@ export function RevenueTable({
       <Card className="fade-in">
         <CardHeader className="border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium text-zinc-900">
+            <CardTitle className="text-base font-medium text-foreground">
               {dataType === 'expected' ? 'Expected Revenue' : 'Actual Revenue'}
             </CardTitle>
             <Button onClick={addSource} size="sm" variant="outline">
@@ -76,18 +76,18 @@ export function RevenueTable({
             <table className="w-full text-sm table-clean">
               <thead>
                 <tr>
-                  <th className="px-3 py-3 text-left font-medium text-zinc-500 w-32">Source</th>
-                  <th className="px-3 py-3 text-left font-medium text-zinc-500 w-24">Type</th>
-                  <th className="px-3 py-3 text-left font-medium text-zinc-500 w-20">Curr</th>
+                  <th className="px-3 py-3 text-left font-medium text-muted-foreground w-32">Source</th>
+                  <th className="px-3 py-3 text-left font-medium text-muted-foreground w-24">Type</th>
+                  <th className="px-3 py-3 text-left font-medium text-muted-foreground w-20">Curr</th>
                   {dataType === 'expected' && (
-                    <th className="px-3 py-3 text-center font-medium text-zinc-500 w-28">MRR</th>
+                    <th className="px-3 py-3 text-center font-medium text-muted-foreground w-28">MRR</th>
                   )}
                   {MONTHS.map(month => {
                     const status = getMonthStatus(month, config.year);
                     return (
                       <th key={month} className={cn(
-                        "px-2 py-3 text-right font-medium text-zinc-500 min-w-[80px]",
-                        status === 'current' && 'bg-indigo-50 text-indigo-600'
+                        "px-2 py-3 text-right font-medium text-muted-foreground min-w-[80px]",
+                        status === 'current' && 'bg-accent text-foreground'
                       )}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -97,7 +97,7 @@ export function RevenueTable({
                                   onClick={() => onMonthHeaderClick(month)}
                                   className={cn(
                                     "hover:underline transition-colors cursor-pointer",
-                                    status === 'current' && 'text-indigo-600'
+                                    status === 'current' && 'text-foreground'
                                   )}
                                 >
                                   {MONTH_LABELS[month]}
@@ -106,14 +106,14 @@ export function RevenueTable({
                                 <span>{MONTH_LABELS[month]}</span>
                               )}
                               {status === 'current' && (
-                                <div className="absolute -top-1 right-0 w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                                <div className="absolute -top-1 right-0 w-1.5 h-1.5 rounded-full bg-primary" />
                               )}
                             </div>
                           </TooltipTrigger>
                           <TooltipContent>
                             <div className="text-center">
                               <div>{MONTH_LABELS[month]} {config.year}</div>
-                              <div className="text-xs text-zinc-400">
+                              <div className="text-xs text-muted-foreground">
                                 {getRelativeTimeLabel(month, config.year)}
                               </div>
                             </div>
@@ -122,16 +122,16 @@ export function RevenueTable({
                       </th>
                     );
                   })}
-                  <th className="px-3 py-3 text-right font-medium text-zinc-500">Total</th>
-                  <th className="px-3 py-3 text-right font-medium text-zinc-500">Cg</th>
-                  <th className="px-3 py-3 text-right font-medium text-zinc-500">Tax</th>
-                  <th className="px-3 py-3 text-center font-medium text-zinc-500 w-16"></th>
+                  <th className="px-3 py-3 text-right font-medium text-muted-foreground">Total</th>
+                  <th className="px-3 py-3 text-right font-medium text-muted-foreground">Cg</th>
+                  <th className="px-3 py-3 text-right font-medium text-muted-foreground">Tax</th>
+                  <th className="px-3 py-3 text-center font-medium text-muted-foreground w-16"></th>
                 </tr>
               </thead>
               <tbody>
                 {sources.length === 0 ? (
                   <tr>
-                    <td colSpan={dataType === 'expected' ? 19 : 18} className="px-3 py-8 text-center text-zinc-400">
+                    <td colSpan={dataType === 'expected' ? 19 : 18} className="px-3 py-8 text-center text-muted-foreground">
                       No revenue sources yet. Click "Add Source" to get started.
                     </td>
                   </tr>
@@ -143,7 +143,7 @@ export function RevenueTable({
                           type="text"
                           value={source.name}
                           onChange={(e) => updateSource(source.id, { name: e.target.value })}
-                          className="h-8 text-sm border-transparent hover:border-zinc-200 focus:border-indigo-500"
+                          className="h-8 text-sm border-transparent hover:border-border focus:border-ring"
                           placeholder="Source name"
                         />
                       </td>
@@ -152,7 +152,7 @@ export function RevenueTable({
                           value={source.type}
                           onValueChange={(value) => updateSource(source.id, { type: value as 'local' | 'foreign' })}
                         >
-                          <SelectTrigger className="h-8 text-sm border-transparent hover:border-zinc-200">
+                          <SelectTrigger className="h-8 text-sm border-transparent hover:border-border">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -166,7 +166,7 @@ export function RevenueTable({
                           value={source.currency}
                           onValueChange={(value) => updateSource(source.id, { currency: value })}
                         >
-                          <SelectTrigger className="h-8 text-sm font-mono border-transparent hover:border-zinc-200">
+                          <SelectTrigger className="h-8 text-sm font-mono border-transparent hover:border-border">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -183,7 +183,7 @@ export function RevenueTable({
                               type="checkbox"
                               checked={source.isRecurring}
                               onChange={(e) => updateSource(source.id, { isRecurring: e.target.checked })}
-                              className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                              className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                             />
                             {source.isRecurring && (
                               <Input
@@ -191,7 +191,7 @@ export function RevenueTable({
                                 value={source.recurringAmount || ''}
                                 onChange={(e) => updateSource(source.id, { recurringAmount: parseFloat(e.target.value) || 0 })}
                                 placeholder="0"
-                                className="w-16 h-8 text-sm font-mono text-right border-transparent hover:border-zinc-200"
+                                className="w-16 h-8 text-sm font-mono text-right border-transparent hover:border-border"
                               />
                             )}
                           </div>
@@ -200,7 +200,7 @@ export function RevenueTable({
                       {MONTHS.map(month => (
                         <td key={month} className={getMonthCellClass(month)}>
                           {source.isRecurring && dataType === 'expected' ? (
-                            <div className="flex items-center justify-end gap-1 text-zinc-400 text-sm font-mono pr-2">
+                            <div className="flex items-center justify-end gap-1 text-muted-foreground text-sm font-mono pr-2">
                               <RefreshCw className="w-3 h-3" />
                               {formatCurrency(source.recurringAmount, false)}
                             </div>
@@ -210,18 +210,18 @@ export function RevenueTable({
                               value={source[dataType][month] || ''}
                               onChange={(e) => updateSourceRevenue(source.id, month, parseFloat(e.target.value) || 0, dataType)}
                               placeholder="-"
-                              className="w-full h-8 text-sm font-mono text-right border-transparent hover:border-zinc-200 focus:border-indigo-500"
+                              className="w-full h-8 text-sm font-mono text-right border-transparent hover:border-border focus:border-ring"
                             />
                           )}
                         </td>
                       ))}
-                      <td className="px-3 py-2 text-right font-mono text-zinc-600">
+                      <td className="px-3 py-2 text-right font-mono text-muted-foreground">
                         {formatCurrency(getSourceTotal(source, dataType), false)}
                       </td>
-                      <td className="px-3 py-2 text-right font-mono text-indigo-600 font-medium">
+                      <td className="px-3 py-2 text-right font-mono text-foreground font-medium">
                         {formatCurrency(getSourceTotalCg(source, dataType), false)}
                       </td>
-                      <td className="px-3 py-2 text-right font-mono text-zinc-500">
+                      <td className="px-3 py-2 text-right font-mono text-muted-foreground">
                         {formatCurrency(getProfitTax(source, dataType), false)}
                       </td>
                       <td className="px-3 py-2 text-center">
@@ -229,7 +229,7 @@ export function RevenueTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => deleteSource(source.id)}
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-red-500"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -240,8 +240,8 @@ export function RevenueTable({
               </tbody>
               {sources.length > 0 && (
                 <tfoot>
-                  <tr className="bg-zinc-50 font-medium">
-                    <td className="px-3 py-3 text-zinc-600" colSpan={dataType === 'expected' ? 4 : 3}>
+                  <tr className="bg-muted font-medium">
+                    <td className="px-3 py-3 text-muted-foreground" colSpan={dataType === 'expected' ? 4 : 3}>
                       Monthly Total
                     </td>
                     {MONTHS.map(month => {
@@ -251,18 +251,18 @@ export function RevenueTable({
                           key={month}
                           className={cn(
                             "px-2 py-3 text-right font-mono",
-                            status === 'current' ? 'text-indigo-600 bg-indigo-50' : 'text-zinc-600'
+                            status === 'current' ? 'text-foreground bg-accent' : 'text-muted-foreground'
                           )}
                         >
                           {formatCurrency(getMonthlyTotal(month, dataType), false)}
                         </td>
                       );
                     })}
-                    <td className="px-3 py-3 text-right font-mono text-zinc-600">-</td>
-                    <td className="px-3 py-3 text-right font-mono text-indigo-600 font-semibold">
+                    <td className="px-3 py-3 text-right font-mono text-muted-foreground">-</td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground font-semibold">
                       {formatCurrency(grandTotalCg, false)}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono text-zinc-600">
+                    <td className="px-3 py-3 text-right font-mono text-muted-foreground">
                       {formatCurrency(totalProfitTax, false)}
                     </td>
                     <td></td>

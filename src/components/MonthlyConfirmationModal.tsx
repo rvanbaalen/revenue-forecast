@@ -115,14 +115,14 @@ export function MonthlyConfirmationModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3 text-zinc-900">
+          <DialogTitle className="flex items-center gap-3 text-foreground">
             {MONTH_LABELS[month]} {config.year}
             <Badge
               className={cn(
                 "text-xs",
-                monthStatus === 'current' ? 'bg-indigo-100 text-indigo-700' :
-                monthStatus === 'past' ? 'bg-zinc-100 text-zinc-600' :
-                'bg-purple-100 text-purple-700'
+                monthStatus === 'current' ? 'bg-accent text-foreground' :
+                monthStatus === 'past' ? 'bg-muted text-muted-foreground' :
+                'bg-secondary text-secondary-foreground'
               )}
             >
               {getRelativeTimeLabel(month, config.year)}
@@ -134,10 +134,10 @@ export function MonthlyConfirmationModal({
         </DialogHeader>
 
         {/* Progress indicator */}
-        <div className="flex items-center gap-3 text-sm text-zinc-500">
-          <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-indigo-600 transition-all duration-300"
+              className="h-full bg-primary transition-all duration-300"
               style={{ width: `${sources.length > 0 ? (confirmedCount / sources.length) * 100 : 0}%` }}
             />
           </div>
@@ -158,33 +158,33 @@ export function MonthlyConfirmationModal({
                 className={cn(
                   "p-3 rounded-lg border transition-all",
                   isConfirmed
-                    ? 'border-green-200 bg-green-50/50'
-                    : 'border-zinc-200 bg-white'
+                    ? 'border-ring bg-accent/50'
+                    : 'border-border bg-card'
                 )}
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       {isConfirmed ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 variance-positive flex-shrink-0" />
                       ) : (
-                        <Circle className="h-4 w-4 text-zinc-300 flex-shrink-0" />
+                        <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       )}
-                      <span className="font-medium text-zinc-900 truncate">
+                      <span className="font-medium text-foreground truncate">
                         {source.name}
                       </span>
-                      <span className="text-xs text-zinc-400 font-mono">
+                      <span className="text-xs text-muted-foreground font-mono">
                         {source.currency}
                       </span>
                     </div>
-                    <div className="text-sm text-zinc-500 ml-6">
-                      Expected: <span className="font-mono text-zinc-700">{currency?.symbol}{formatCurrency(expected, false)}</span>
+                    <div className="text-sm text-muted-foreground ml-6">
+                      Expected: <span className="font-mono text-foreground">{currency?.symbol}{formatCurrency(expected, false)}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
-                      <span className="text-zinc-400 text-sm">{currency?.symbol}</span>
+                      <span className="text-muted-foreground text-sm">{currency?.symbol}</span>
                       <Input
                         type="number"
                         value={currentActual || ''}
@@ -205,7 +205,7 @@ export function MonthlyConfirmationModal({
                       </Button>
                     ) : isConfirmed ? (
                       <div className="w-20 flex justify-center">
-                        <Check className="h-5 w-5 text-green-600" />
+                        <Check className="h-5 w-5 variance-positive" />
                       </div>
                     ) : (
                       <Button
@@ -230,21 +230,21 @@ export function MonthlyConfirmationModal({
         {/* Totals */}
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-zinc-500">Expected Total:</span>
-            <span className="font-mono text-zinc-700">{formatCurrency(getMonthlyTotalExpected())}</span>
+            <span className="text-muted-foreground">Expected Total:</span>
+            <span className="font-mono text-foreground">{formatCurrency(getMonthlyTotalExpected())}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-zinc-500">Actual Total:</span>
-            <span className="font-mono text-indigo-600 font-medium">{formatCurrency(getMonthlyTotalActual())}</span>
+            <span className="text-muted-foreground">Actual Total:</span>
+            <span className="font-mono text-foreground font-medium">{formatCurrency(getMonthlyTotalActual())}</span>
           </div>
           {getMonthlyTotalExpected() !== getMonthlyTotalActual() && (
             <div className="flex justify-between">
-              <span className="text-zinc-500">Difference:</span>
+              <span className="text-muted-foreground">Difference:</span>
               <span className={cn(
                 "font-mono font-medium",
                 getMonthlyTotalActual() >= getMonthlyTotalExpected()
-                  ? 'text-green-600'
-                  : 'text-red-600'
+                  ? 'variance-positive'
+                  : 'variance-negative'
               )}>
                 {getMonthlyTotalActual() >= getMonthlyTotalExpected() ? '+' : ''}
                 {formatCurrency(getMonthlyTotalActual() - getMonthlyTotalExpected())}

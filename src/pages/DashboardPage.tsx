@@ -60,8 +60,8 @@ export function DashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-zinc-900">Dashboard</h1>
-            <p className="text-zinc-500 mt-1">
+            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
               {time.currentDate.toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
@@ -71,10 +71,10 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <Calendar className="w-4 h-4 text-zinc-400" />
-            <span className="font-medium text-zinc-600">{config.year}</span>
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium text-muted-foreground">{config.year}</span>
             {config.year !== time.currentYear && (
-              <span className="text-xs text-zinc-400">
+              <span className="text-xs text-muted-foreground">
                 ({config.year < time.currentYear ? 'past' : 'future'})
               </span>
             )}
@@ -84,17 +84,17 @@ export function DashboardPage() {
         {/* Hero Metrics - Net Profit focus */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Net Profit - Primary */}
-          <Card className="md:col-span-2 bg-gradient-to-br from-indigo-600 to-indigo-700 border-0 text-white">
+          <Card className="md:col-span-2 bg-primary text-primary-foreground border-0">
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-indigo-200 text-sm font-medium">Net Profit (Actual)</p>
+                  <p className="text-primary-foreground/70 text-sm font-medium">Net Profit (Actual)</p>
                   <p className="text-3xl font-bold mt-1 tabular-nums">
                     {formatCurrency(actualTotals.net)}
                   </p>
                   <div className={cn(
                     "flex items-center gap-1 mt-2 text-sm",
-                    netVariance.isPositive ? "text-emerald-300" : "text-red-300"
+                    netVariance.isPositive ? "text-primary-foreground/90" : "text-primary-foreground/70"
                   )}>
                     {netVariance.isPositive ? (
                       <TrendingUp className="w-4 h-4" />
@@ -104,7 +104,7 @@ export function DashboardPage() {
                     <span>{netVariance.display} vs expected</span>
                   </div>
                 </div>
-                <div className="p-3 bg-white/10 rounded-xl">
+                <div className="p-3 bg-primary-foreground/10 rounded-xl">
                   <Wallet className="w-6 h-6" />
                 </div>
               </div>
@@ -116,13 +116,13 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-zinc-500 text-sm font-medium">Total Revenue</p>
-                  <p className="text-2xl font-bold mt-1 tabular-nums text-zinc-900">
+                  <p className="text-muted-foreground text-sm font-medium">Total Revenue</p>
+                  <p className="text-2xl font-bold mt-1 tabular-nums text-foreground">
                     {formatCurrency(actualTotals.totalRevenue)}
                   </p>
                   <div className={cn(
                     "flex items-center gap-1 mt-2 text-sm",
-                    revenueVariance.isPositive ? "text-green-600" : "text-red-600"
+                    revenueVariance.isPositive ? "variance-positive" : "variance-negative"
                   )}>
                     {revenueVariance.isPositive ? (
                       <TrendingUp className="w-3 h-3" />
@@ -132,8 +132,8 @@ export function DashboardPage() {
                     <span>{revenueVariance.percentage >= 0 ? '+' : ''}{revenueVariance.percentage.toFixed(0)}%</span>
                   </div>
                 </div>
-                <div className="p-2 bg-indigo-50 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-indigo-600" />
+                <div className="p-2 bg-secondary rounded-lg">
+                  <TrendingUp className="w-5 h-5 text-foreground" />
                 </div>
               </div>
             </CardContent>
@@ -144,20 +144,20 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-zinc-500 text-sm font-medium">
+                  <p className="text-muted-foreground text-sm font-medium">
                     {currentMonthData ? currentMonthData.label : 'Current Month'}
                   </p>
-                  <p className="text-2xl font-bold mt-1 tabular-nums text-zinc-900">
+                  <p className="text-2xl font-bold mt-1 tabular-nums text-foreground">
                     {formatCurrency(currentMonthData?.actual || 0)}
                   </p>
                   {currentMonthData && currentMonthData.expected > 0 && (
-                    <p className="text-sm text-zinc-500 mt-2">
+                    <p className="text-sm text-muted-foreground mt-2">
                       of {formatCurrency(currentMonthData.expected)} expected
                     </p>
                   )}
                 </div>
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <Calendar className="w-5 h-5 text-green-600" />
+                <div className="p-2 bg-secondary rounded-lg">
+                  <Calendar className="w-5 h-5 text-foreground" />
                 </div>
               </div>
             </CardContent>
@@ -171,12 +171,12 @@ export function DashboardPage() {
               <CardTitle className="text-base font-medium">Monthly Revenue</CardTitle>
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-indigo-600" />
-                  <span className="text-zinc-500">Actual</span>
+                  <div className="w-3 h-3 rounded-sm bg-primary" />
+                  <span className="text-muted-foreground">Actual</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-indigo-200" />
-                  <span className="text-zinc-500">Expected</span>
+                  <div className="w-3 h-3 rounded-sm bg-secondary border" />
+                  <span className="text-muted-foreground">Expected</span>
                 </div>
               </div>
             </div>
@@ -192,13 +192,13 @@ export function DashboardPage() {
                     )}>
                       {data.status === 'current' && (
                         <div className="absolute -top-6 left-1/2 -translate-x-1/2">
-                          <div className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                         </div>
                       )}
                       <div className="flex-1 flex flex-col justify-end gap-0.5">
                         {/* Expected bar (background) */}
                         <div
-                          className="w-full bg-indigo-100 rounded-t transition-all group-hover:bg-indigo-200"
+                          className="w-full bg-secondary rounded-t transition-all group-hover:bg-accent"
                           style={{
                             height: `${Math.max((data.expected / maxMonthlyValue) * 100, 2)}%`,
                           }}
@@ -207,7 +207,7 @@ export function DashboardPage() {
                         <div
                           className={cn(
                             "w-full rounded-t transition-all absolute bottom-6",
-                            data.status === 'future' ? 'bg-zinc-300' : 'bg-indigo-600',
+                            data.status === 'future' ? 'bg-muted' : 'bg-primary',
                             "group-hover:opacity-90"
                           )}
                           style={{
@@ -217,7 +217,7 @@ export function DashboardPage() {
                       </div>
                       <p className={cn(
                         "text-xs text-center mt-1",
-                        data.status === 'current' ? 'text-indigo-600 font-medium' : 'text-zinc-400'
+                        data.status === 'current' ? 'text-foreground font-medium' : 'text-muted-foreground'
                       )}>
                         {data.label.slice(0, 3)}
                       </p>
@@ -226,8 +226,8 @@ export function DashboardPage() {
                   <TooltipContent>
                     <div className="text-sm">
                       <p className="font-medium">{data.label} {config.year}</p>
-                      <p className="text-zinc-400">Actual: {formatCurrency(data.actual)}</p>
-                      <p className="text-zinc-400">Expected: {formatCurrency(data.expected)}</p>
+                      <p className="text-muted-foreground">Actual: {formatCurrency(data.actual)}</p>
+                      <p className="text-muted-foreground">Expected: {formatCurrency(data.expected)}</p>
                     </div>
                   </TooltipContent>
                 </Tooltip>
@@ -243,12 +243,12 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-zinc-500 text-sm">VAT Reserved</p>
+                  <p className="text-muted-foreground text-sm">VAT Reserved</p>
                   <p className="text-xl font-semibold mt-1 tabular-nums">
                     {formatCurrency(actualTotals.totalVat)}
                   </p>
                 </div>
-                <Receipt className="w-5 h-5 text-zinc-400" />
+                <Receipt className="w-5 h-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -258,12 +258,12 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-zinc-500 text-sm">Profit Tax Due</p>
+                  <p className="text-muted-foreground text-sm">Profit Tax Due</p>
                   <p className="text-xl font-semibold mt-1 tabular-nums">
                     {formatCurrency(actualTotals.totalProfitTax)}
                   </p>
                 </div>
-                <TrendingDown className="w-5 h-5 text-zinc-400" />
+                <TrendingDown className="w-5 h-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -273,12 +273,12 @@ export function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-zinc-500 text-sm">Salary + Tax</p>
+                  <p className="text-muted-foreground text-sm">Salary + Tax</p>
                   <p className="text-xl font-semibold mt-1 tabular-nums">
                     {formatCurrency(totalSalaryCost)}
                   </p>
                 </div>
-                <Users className="w-5 h-5 text-zinc-400" />
+                <Users className="w-5 h-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -287,38 +287,38 @@ export function DashboardPage() {
         {/* Quick Links */}
         <div className="grid gap-4 md:grid-cols-2">
           <Link to="/expected" className="block">
-            <Card className="hover:border-indigo-200 hover:bg-indigo-50/50 transition-colors cursor-pointer">
+            <Card className="hover:border-ring hover:bg-accent/50 transition-colors cursor-pointer">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-50 rounded-lg">
-                      <TrendingUp className="w-4 h-4 text-amber-600" />
+                    <div className="p-2 bg-secondary rounded-lg">
+                      <TrendingUp className="w-4 h-4 text-foreground" />
                     </div>
                     <div>
-                      <p className="font-medium text-zinc-900">Expected Revenue</p>
-                      <p className="text-sm text-zinc-500">{sources.length} sources</p>
+                      <p className="font-medium text-foreground">Expected Revenue</p>
+                      <p className="text-sm text-muted-foreground">{sources.length} sources</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-zinc-400" />
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
           </Link>
 
           <Link to="/actual" className="block">
-            <Card className="hover:border-indigo-200 hover:bg-indigo-50/50 transition-colors cursor-pointer">
+            <Card className="hover:border-ring hover:bg-accent/50 transition-colors cursor-pointer">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-50 rounded-lg">
-                      <Receipt className="w-4 h-4 text-green-600" />
+                    <div className="p-2 bg-secondary rounded-lg">
+                      <Receipt className="w-4 h-4 text-foreground" />
                     </div>
                     <div>
-                      <p className="font-medium text-zinc-900">Actual Revenue</p>
-                      <p className="text-sm text-zinc-500">Track real income</p>
+                      <p className="font-medium text-foreground">Actual Revenue</p>
+                      <p className="text-sm text-muted-foreground">Track real income</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-zinc-400" />
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>

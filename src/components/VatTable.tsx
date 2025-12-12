@@ -32,13 +32,13 @@ export function VatTable({ dataType }: VatTableProps) {
     <Card className="fade-in mt-4">
       <CardHeader className="border-b py-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium text-zinc-900">
+          <CardTitle className="text-base font-medium text-foreground">
             VAT to Reserve
-            <span className="text-sm font-normal text-zinc-500 ml-2">
+            <span className="text-sm font-normal text-muted-foreground ml-2">
               ({config.vatRate}% on local revenue)
             </span>
           </CardTitle>
-          <span className="text-sm font-mono text-indigo-600 font-medium">
+          <span className="text-sm font-mono text-foreground font-medium">
             Total: {formatCurrency(totalVat)}
           </span>
         </div>
@@ -48,19 +48,19 @@ export function VatTable({ dataType }: VatTableProps) {
           <table className="w-full text-sm table-clean">
             <thead>
               <tr>
-                <th className="px-3 py-3 text-left font-medium text-zinc-500 w-32">Source</th>
+                <th className="px-3 py-3 text-left font-medium text-muted-foreground w-32">Source</th>
                 {MONTHS.map(month => {
                   const status = getMonthStatus(month, config.year);
                   return (
                     <th key={month} className={cn(
-                      "px-2 py-3 text-right font-medium text-zinc-500 min-w-[80px]",
-                      status === 'current' && 'bg-indigo-50 text-indigo-600'
+                      "px-2 py-3 text-right font-medium text-muted-foreground min-w-[80px]",
+                      status === 'current' && 'bg-accent text-foreground'
                     )}>
                       {MONTH_LABELS[month]}
                     </th>
                   );
                 })}
-                <th className="px-3 py-3 text-right font-medium text-zinc-500">Total</th>
+                <th className="px-3 py-3 text-right font-medium text-muted-foreground">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -72,21 +72,21 @@ export function VatTable({ dataType }: VatTableProps) {
 
                 return (
                   <tr key={source.id}>
-                    <td className="px-3 py-2 text-zinc-600">{source.name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{source.name}</td>
                     {MONTHS.map(month => {
                       const status = getMonthStatus(month, config.year);
                       const monthValue = getSourceValue(source, month, dataType);
                       const vatAmount = monthValue * rate * vatRate;
                       return (
                         <td key={month} className={cn(
-                          "px-2 py-2 text-right font-mono text-zinc-500",
-                          status === 'current' && 'bg-indigo-50'
+                          "px-2 py-2 text-right font-mono text-muted-foreground",
+                          status === 'current' && 'bg-accent'
                         )}>
                           {vatAmount > 0 ? formatCurrency(vatAmount, false) : '-'}
                         </td>
                       );
                     })}
-                    <td className="px-3 py-2 text-right font-mono text-indigo-600 font-medium">
+                    <td className="px-3 py-2 text-right font-mono text-foreground font-medium">
                       {formatCurrency(getSourceVat(source, dataType), false)}
                     </td>
                   </tr>
@@ -94,20 +94,20 @@ export function VatTable({ dataType }: VatTableProps) {
               })}
             </tbody>
             <tfoot>
-              <tr className="bg-zinc-50 font-medium">
-                <td className="px-3 py-3 text-zinc-600">Monthly Total</td>
+              <tr className="bg-muted font-medium">
+                <td className="px-3 py-3 text-muted-foreground">Monthly Total</td>
                 {MONTHS.map(month => {
                   const status = getMonthStatus(month, config.year);
                   return (
                     <td key={month} className={cn(
                       "px-2 py-3 text-right font-mono",
-                      status === 'current' ? 'text-indigo-600 bg-indigo-50' : 'text-zinc-600'
+                      status === 'current' ? 'text-foreground bg-accent' : 'text-muted-foreground'
                     )}>
                       {formatCurrency(getMonthlyVat(month, dataType), false)}
                     </td>
                   );
                 })}
-                <td className="px-3 py-3 text-right font-mono text-indigo-600 font-semibold">
+                <td className="px-3 py-3 text-right font-mono text-foreground font-semibold">
                   {formatCurrency(totalVat, false)}
                 </td>
               </tr>

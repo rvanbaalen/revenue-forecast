@@ -18,8 +18,8 @@ export function SettingsPage() {
   return (
     <div className="fade-in space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Settings</h1>
-        <p className="text-zinc-500 mt-1">Configure tax rates and currencies</p>
+        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+        <p className="text-muted-foreground mt-1">Configure tax rates and currencies</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -27,7 +27,7 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Percent className="w-4 h-4 text-indigo-600" />
+              <Percent className="w-4 h-4 text-foreground" />
               Tax Rates
             </CardTitle>
             <CardDescription>
@@ -48,7 +48,7 @@ export function SettingsPage() {
                   onChange={(e) => updateConfig({ profitTaxRate: parseFloat(e.target.value) || 0 })}
                   className="w-24 text-right font-mono"
                 />
-                <span className="text-zinc-500">%</span>
+                <span className="text-muted-foreground">%</span>
               </div>
             </div>
 
@@ -67,7 +67,7 @@ export function SettingsPage() {
                   onChange={(e) => updateConfig({ vatRate: parseFloat(e.target.value) || 0 })}
                   className="w-24 text-right font-mono"
                 />
-                <span className="text-zinc-500">%</span>
+                <span className="text-muted-foreground">%</span>
               </div>
             </div>
           </CardContent>
@@ -77,7 +77,7 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Coins className="w-4 h-4 text-indigo-600" />
+              <Coins className="w-4 h-4 text-foreground" />
               Currencies
             </CardTitle>
             <CardDescription>
@@ -88,7 +88,7 @@ export function SettingsPage() {
             {config.currencies.map((currency, index) => (
               <div
                 key={index}
-                className="flex items-center gap-3 p-3 bg-zinc-50 rounded-lg"
+                className="flex items-center gap-3 p-3 bg-muted rounded-lg"
               >
                 <Input
                   type="text"
@@ -108,7 +108,7 @@ export function SettingsPage() {
                   readOnly={currency.code === 'Cg'}
                   placeholder="$"
                 />
-                <span className="text-zinc-400">=</span>
+                <span className="text-muted-foreground">=</span>
                 <Input
                   type="number"
                   value={currency.rate}
@@ -118,19 +118,19 @@ export function SettingsPage() {
                   className="w-20 text-right font-mono"
                   readOnly={currency.code === 'Cg'}
                 />
-                <span className="text-zinc-500 text-sm">Cg</span>
+                <span className="text-muted-foreground text-sm">Cg</span>
 
                 {currency.code !== 'Cg' ? (
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => removeCurrency(index)}
-                    className="h-8 w-8 text-zinc-400 hover:text-red-500"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
                   >
                     <X className="w-4 h-4" />
                   </Button>
                 ) : (
-                  <span className="text-xs text-zinc-400 px-2">Base</span>
+                  <span className="text-xs text-muted-foreground px-2">Base</span>
                 )}
               </div>
             ))}
@@ -149,9 +149,9 @@ export function SettingsPage() {
       </div>
 
       {/* Info */}
-      <Card className="bg-indigo-50 border-indigo-100">
+      <Card className="bg-secondary border-border">
         <CardContent className="py-4">
-          <p className="text-sm text-indigo-700">
+          <p className="text-sm text-muted-foreground">
             Data is stored locally in your browser using IndexedDB.
             Use the Export function in the sidebar to backup your data.
           </p>
