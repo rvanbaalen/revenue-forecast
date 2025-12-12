@@ -1,6 +1,17 @@
 import { MONTHS, MONTH_LABELS } from '../types';
 import { formatCurrency } from '../utils/format';
 import { useRevenue } from '../context/RevenueContext';
+import { useTime } from '@/hooks/useTime';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 interface VatTableProps {
   dataType: 'expected' | 'actual';
@@ -16,68 +27,106 @@ export function VatTable({ dataType }: VatTableProps) {
     getRate,
   } = useRevenue();
 
+  const { getMonthStatus } = useTime();
+
   const vatRate = config.vatRate / 100;
-  const title = dataType === 'expected' ? 'VAT to Reserve (Expected)' : 'VAT to Reserve (Actual)';
-  const titleColor = dataType === 'expected' ? 'text-amber-400' : 'text-emerald-400';
   const totalVat = sources.reduce((sum, s) => sum + getSourceVat(s, dataType), 0);
 
-  return (
-    <section className="glass rounded-2xl p-6 mb-6 fade-in">
-      <h2 className={`text-lg font-semibold ${titleColor} mb-4`}>
-        {title} <span className="text-slate-400 text-sm font-normal">(Local Revenue Only, in Cg)</span>
-      </h2>
-      <div className="overflow-x-auto scrollbar-thin">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="vat-header">
-              <th className="px-3 py-3 text-left font-semibold text-slate-300 rounded-tl-lg">Source</th>
-              {MONTHS.map(month => (
-                <th key={month} className="px-3 py-3 text-right font-semibold text-slate-300">
-                  {MONTH_LABELS[month]}
-                </th>
-              ))}
-              <th className="px-3 py-3 text-right font-semibold text-slate-300 rounded-tr-lg">Total VAT</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sources.map(source => {
-              const isLocal = source.type === 'local';
-              const rate = getRate(source.currency);
+  // Only show if there are local sources
+  const localSources = sources.filter(s => s.type === 'local');
+  if (localSources.length === 0) return null;
 
+  return (
+    <div className="space-y-4 mt-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-medium">
+          VAT to Reserve
+          <span className="text-sm font-normal text-muted-foreground ml-2">
+            ({config.vatRate}% on local revenue)
+          </span>
+        </h2>
+        <span className="text-sm font-mono font-medium">
+          Total: {formatCurrency(totalVat)}
+        </span>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-40">Source</TableHead>
+            {MONTHS.map(month => {
+              const status = getMonthStatus(month, config.year);
               return (
-                <tr key={source.id} className="vat-row border-b border-slate-700/30">
-                  <td className="px-3 py-2 text-slate-300">{source.name}</td>
-                  {MONTHS.map(month => {
-                    const monthValue = getSourceValue(source, month, dataType);
-                    const vatAmount = isLocal ? monthValue * rate * vatRate : 0;
-                    return (
-                      <td key={month} className="px-3 py-2 text-right font-mono text-emerald-400/80">
-                        {formatCurrency(vatAmount, false)}
-                      </td>
-                    );
-                  })}
-                  <td className="px-3 py-2 text-right font-mono text-emerald-400">
-                    {formatCurrency(getSourceVat(source, dataType), false)}
-                  </td>
-                </tr>
+                <TableHead
+                  key={month}
+                  className={cn(
+                    "w-20 text-right",
+                    status === 'current' && "text-primary font-semibold"
+                  )}
+                >
+                  {MONTH_LABELS[month]}
+                </TableHead>
               );
             })}
-          </tbody>
-          <tfoot>
-            <tr className="vat-row font-semibold">
-              <td className="px-3 py-3 text-slate-300">Monthly VAT Total</td>
-              {MONTHS.map(month => (
-                <td key={month} className="px-3 py-3 text-right font-mono text-emerald-400">
+            <TableHead className="text-right">Total</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sources.map(source => {
+            const isLocal = source.type === 'local';
+            const rate = getRate(source.currency);
+
+            if (!isLocal) return null;
+
+            return (
+              <TableRow key={source.id}>
+                <TableCell className="text-muted-foreground">{source.name}</TableCell>
+                {MONTHS.map(month => {
+                  const status = getMonthStatus(month, config.year);
+                  const monthValue = getSourceValue(source, month, dataType);
+                  const vatAmount = monthValue * rate * vatRate;
+                  return (
+                    <TableCell
+                      key={month}
+                      className={cn(
+                        "text-right font-mono text-muted-foreground",
+                        status === 'current' && "bg-primary/5"
+                      )}
+                    >
+                      {vatAmount > 0 ? formatCurrency(vatAmount, false) : '—'}
+                    </TableCell>
+                  );
+                })}
+                <TableCell className="text-right font-mono font-medium">
+                  {formatCurrency(getSourceVat(source, dataType), false)}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell className="font-medium">Monthly Total</TableCell>
+            {MONTHS.map(month => {
+              const status = getMonthStatus(month, config.year);
+              return (
+                <TableCell
+                  key={month}
+                  className={cn(
+                    "text-right font-mono",
+                    status === 'current' && "text-primary font-semibold bg-primary/5"
+                  )}
+                >
                   {formatCurrency(getMonthlyVat(month, dataType), false)}
-                </td>
-              ))}
-              <td className="px-3 py-3 text-right font-mono text-emerald-400">
-                {formatCurrency(totalVat, false)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </section>
+                </TableCell>
+              );
+            })}
+            <TableCell className="text-right font-mono font-semibold">
+              {formatCurrency(totalVat, false)}
+            </TableCell>
+          </TableRow>
+        </TableFooter>
+      </Table>
+    </div>
   );
 }

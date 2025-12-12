@@ -2,6 +2,16 @@ import type { SalaryTax } from '../types';
 import { MONTHS } from '../types';
 import { formatCurrency } from '../utils/format';
 import { useRevenue } from '../context/RevenueContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus, X } from 'lucide-react';
 
 interface SalaryTaxConfigProps {
   salaryId: number;
@@ -35,21 +45,24 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
   const totalTaxPct = salaryTotal > 0 ? (totalTax / salaryTotal) * 100 : 0;
 
   return (
-    <div className="bg-slate-800/50 rounded-lg p-4 mb-4">
+    <div className="bg-muted rounded-lg p-4 border border-border">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-slate-300">
-          Tax Configuration for {salary.name}
+        <h3 className="text-sm font-medium text-foreground">
+          {salary.name}
         </h3>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => addSalaryTax(salary.id)}
-          className="px-3 py-1 text-xs font-medium text-sky-400 hover:text-sky-300 border border-sky-400/50 hover:border-sky-300 rounded transition-colors"
+          className="h-7 text-xs"
         >
-          + Add Tax
-        </button>
+          <Plus className="h-3 w-3 mr-1" />
+          Add Tax
+        </Button>
       </div>
 
       {taxes.length === 0 ? (
-        <p className="text-sm text-slate-500 italic">No taxes configured</p>
+        <p className="text-sm text-muted-foreground italic">No taxes configured</p>
       ) : (
         <div className="space-y-2">
           {taxes.map((tax) => {
@@ -59,27 +72,31 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
             return (
               <div
                 key={tax.id}
-                className="flex items-center gap-3 p-2 bg-slate-700/30 rounded"
+                className="flex items-center gap-2 p-2 bg-card rounded border border-border"
               >
-                <input
+                <Input
                   type="text"
                   value={tax.name}
                   onChange={(e) => updateSalaryTax(tax.id, { name: e.target.value })}
                   placeholder="Tax name"
-                  className="flex-1 px-2 py-1 rounded text-slate-200 text-sm bg-slate-700/50 min-w-0"
+                  className="flex-1 h-8 text-sm"
                 />
-                <select
+                <Select
                   value={tax.type}
-                  onChange={(e) =>
-                    updateSalaryTax(tax.id, { type: e.target.value as 'percentage' | 'fixed' })
+                  onValueChange={(v) =>
+                    updateSalaryTax(tax.id, { type: v as 'percentage' | 'fixed' })
                   }
-                  className="px-2 py-1 rounded text-slate-200 text-sm bg-slate-700/50"
                 >
-                  <option value="percentage">Percentage</option>
-                  <option value="fixed">Fixed/month</option>
-                </select>
+                  <SelectTrigger className="w-28 h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">Percentage</SelectItem>
+                    <SelectItem value="fixed">Fixed/month</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="flex items-center gap-1">
-                  <input
+                  <Input
                     type="number"
                     value={tax.value || ''}
                     step={0.01}
@@ -87,35 +104,37 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
                     onChange={(e) =>
                       updateSalaryTax(tax.id, { value: parseFloat(e.target.value) || 0 })
                     }
-                    className="w-20 px-2 py-1 rounded text-slate-200 text-sm font-mono text-right bg-slate-700/50"
+                    className="w-20 h-8 text-sm font-mono text-right"
                   />
-                  <span className="text-slate-400 text-xs w-6">
+                  <span className="text-muted-foreground text-xs w-6">
                     {tax.type === 'percentage' ? '%' : 'Cg'}
                   </span>
                 </div>
-                <span className="text-purple-300 text-sm font-mono w-24 text-right">
+                <span className="text-foreground text-sm font-mono w-24 text-right font-medium">
                   {formatCurrency(taxAmount, false)}
                 </span>
-                <span className="text-slate-400 text-xs w-14 text-right">
+                <span className="text-muted-foreground text-xs w-12 text-right">
                   ({taxPct.toFixed(1)}%)
                 </span>
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => deleteSalaryTax(tax.id)}
-                  className="px-2 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
                 >
-                  Remove
-                </button>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             );
           })}
 
           {taxes.length > 1 && (
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-600/50">
-              <span className="text-sm text-slate-400">Total Tax:</span>
-              <span className="text-purple-300 font-mono font-semibold">
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <span className="text-sm text-muted-foreground">Total:</span>
+              <span className="text-foreground font-mono font-semibold">
                 {formatCurrency(totalTax, false)}
               </span>
-              <span className="text-slate-400 text-xs">
+              <span className="text-muted-foreground text-xs">
                 ({totalTaxPct.toFixed(1)}%)
               </span>
             </div>
