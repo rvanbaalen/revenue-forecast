@@ -64,3 +64,48 @@ src/
 - Tables and data lists should be rendered directly without Card wrappers
 - Keep the UI clean and minimal - avoid unnecessary visual containers
 - Use borders and spacing for visual separation instead of cards
+
+## shadcn/ui Components
+
+**IMPORTANT: All components in `src/components/ui/` must be installed using the shadcn CLI. DO NOT manually write or edit these files.**
+
+### Adding a new component
+
+```bash
+npx shadcn@latest add [component]
+```
+
+Example:
+```bash
+npx shadcn@latest add button
+npx shadcn@latest add card dialog
+```
+
+### Overwriting/updating existing components
+
+Use the `--overwrite` flag to update components to their latest version:
+
+```bash
+npx shadcn@latest add [component] --overwrite
+```
+
+### Common options
+
+- `-y, --yes` - Skip confirmation prompt
+- `-o, --overwrite` - Overwrite existing files
+- `-a, --all` - Add all available components
+- `-s, --silent` - Mute output
+
+### Viewing available components
+
+```bash
+npx shadcn@latest search @shadcn
+npx shadcn@latest view button card
+```
+
+### Why use the CLI?
+
+- Ensures components are properly configured for the project
+- Maintains consistency with shadcn/ui updates
+- Automatically handles dependencies between components
+- Preserves the intended component architecture
