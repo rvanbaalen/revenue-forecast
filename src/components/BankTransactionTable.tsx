@@ -1,5 +1,14 @@
 import { useState, useMemo } from 'react';
 import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getPaginationRowModel,
+  flexRender,
+  type SortingState,
+  type ColumnDef,
+} from '@tanstack/react-table';
+import {
   Table,
   TableBody,
   TableCell,
@@ -29,6 +38,9 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import type { BankTransaction, Month, TransactionCategory } from '@/types';
 import { useBank } from '@/context/BankContext';
@@ -68,7 +80,11 @@ export function BankTransactionTable({
   const [mappedFilter, setMappedFilter] = useState<string>('all');
   const [accountFilter, setAccountFilter] = useState<string>(accountId?.toString() || 'all');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'datePosted', desc: true }
+  ]);
 
   // Filter transactions
   const filteredTransactions = useMemo(() => {
@@ -97,43 +113,8 @@ export function BankTransactionTable({
       }
 
       return true;
-    }).sort((a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime());
+    });
   }, [transactions, accountId, accountFilter, year, month, categoryFilter, mappedFilter, searchQuery]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredTransactions.length / PAGE_SIZE);
-  const paginatedTransactions = filteredTransactions.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
-
-  const toggleSelection = (id: number) => {
-    const newSelection = new Set(selectedIds);
-    if (newSelection.has(id)) {
-      newSelection.delete(id);
-    } else {
-      newSelection.add(id);
-    }
-    setSelectedIds(newSelection);
-  };
-
-  const selectAll = () => {
-    if (selectedIds.size === paginatedTransactions.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(paginatedTransactions.map(tx => tx.id)));
-    }
-  };
-
-  const handleBulkCategorize = async (category: TransactionCategory) => {
-    await bulkCategorize(Array.from(selectedIds), category);
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkMapToSource = async (sourceId: number) => {
-    await bulkMapToSource(Array.from(selectedIds), sourceId);
-    setSelectedIds(new Set());
-  };
 
   const getSourceName = (id?: number) => {
     if (!id) return null;
@@ -148,6 +129,189 @@ export function BankTransactionTable({
     });
   };
 
+  // Column definitions
+  const columns: ColumnDef<BankTransaction>[] = useMemo(() => [
+    {
+      id: 'select',
+      header: () => null,
+      cell: ({ row }) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSelection(row.original.id);
+          }}
+          className="p-1 hover:bg-accent rounded"
+        >
+          {selectedIds.has(row.original.id) ? (
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+          ) : (
+            <Circle className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: 'datePosted',
+      header: 'Date',
+      cell: ({ row }) => (
+        <span className="font-mono text-sm whitespace-nowrap">
+          {formatDate(row.original.datePosted)}
+        </span>
+      ),
+      sortingFn: (rowA, rowB) => {
+        return new Date(rowA.original.datePosted).getTime() - new Date(rowB.original.datePosted).getTime();
+      },
+    },
+    {
+      accessorKey: 'name',
+      header: 'Description',
+      cell: ({ row }) => {
+        const tx = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            {tx.amount >= 0 ? (
+              <ArrowDownLeft className="h-4 w-4 variance-positive flex-shrink-0" />
+            ) : (
+              <ArrowUpRight className="h-4 w-4 variance-negative flex-shrink-0" />
+            )}
+            <div className="min-w-0">
+              <p className="font-medium text-foreground truncate">{tx.name}</p>
+              {tx.memo && (
+                <p className="text-xs text-muted-foreground truncate">{tx.memo}</p>
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'category',
+      header: 'Category',
+      cell: ({ row }) => (
+        <Badge
+          variant="outline"
+          className={cn("capitalize", CATEGORY_COLORS[row.original.category])}
+        >
+          {row.original.category}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'revenueSourceId',
+      header: 'Mapped To',
+      cell: ({ row }) => {
+        const tx = row.original;
+        if (tx.revenueSourceId) {
+          return (
+            <div className="flex items-center gap-1 text-sm">
+              <Link2 className="h-3 w-3 text-muted-foreground" />
+              <span className="text-foreground">{getSourceName(tx.revenueSourceId)}</span>
+            </div>
+          );
+        }
+        if (tx.category === 'revenue') {
+          return (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Link2Off className="h-3 w-3" />
+              <span>Not mapped</span>
+            </div>
+          );
+        }
+        return <span className="text-sm text-muted-foreground">-</span>;
+      },
+      sortingFn: (rowA, rowB) => {
+        const nameA = getSourceName(rowA.original.revenueSourceId) || '';
+        const nameB = getSourceName(rowB.original.revenueSourceId) || '';
+        return nameA.localeCompare(nameB);
+      },
+    },
+    {
+      accessorKey: 'amount',
+      header: 'Amount',
+      cell: ({ row }) => {
+        const amount = row.original.amount;
+        return (
+          <span className={cn(
+            "font-mono font-medium",
+            amount >= 0 ? "variance-positive" : "variance-negative"
+          )}>
+            {amount >= 0 ? '+' : ''}{formatCurrency(amount, false)}
+          </span>
+        );
+      },
+    },
+    ...(onMapTransaction ? [{
+      id: 'actions',
+      header: '',
+      cell: ({ row }: { row: { original: BankTransaction } }) => {
+        const tx = row.original;
+        if (tx.category === 'revenue' && !tx.revenueSourceId) {
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => onMapTransaction(tx)}
+            >
+              Map
+            </Button>
+          );
+        }
+        return null;
+      },
+      enableSorting: false,
+    } as ColumnDef<BankTransaction>] : []),
+  ], [selectedIds, onMapTransaction, sources]);
+
+  const table = useReactTable({
+    data: filteredTransactions,
+    columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: PAGE_SIZE,
+      },
+    },
+  });
+
+  const toggleSelection = (id: number) => {
+    const newSelection = new Set(selectedIds);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedIds(newSelection);
+  };
+
+  const selectAll = () => {
+    const pageRows = table.getRowModel().rows;
+    if (selectedIds.size === pageRows.length && pageRows.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pageRows.map(row => row.original.id)));
+    }
+  };
+
+  const handleBulkCategorize = async (category: TransactionCategory) => {
+    await bulkCategorize(Array.from(selectedIds), category);
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkMapToSource = async (sourceId: number) => {
+    await bulkMapToSource(Array.from(selectedIds), sourceId);
+    setSelectedIds(new Set());
+  };
+
+  const pageRows = table.getRowModel().rows;
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -158,7 +322,10 @@ export function BankTransactionTable({
             <Input
               placeholder="Search transactions..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                table.setPageIndex(0);
+              }}
               className="pl-9"
             />
             {searchQuery && (
@@ -172,7 +339,10 @@ export function BankTransactionTable({
           </div>
 
           {!accountId && (
-            <Select value={accountFilter} onValueChange={setAccountFilter}>
+            <Select value={accountFilter} onValueChange={(v) => {
+              setAccountFilter(v);
+              table.setPageIndex(0);
+            }}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Accounts" />
               </SelectTrigger>
@@ -187,7 +357,10 @@ export function BankTransactionTable({
             </Select>
           )}
 
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <Select value={categoryFilter} onValueChange={(v) => {
+            setCategoryFilter(v);
+            table.setPageIndex(0);
+          }}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -200,7 +373,10 @@ export function BankTransactionTable({
             </SelectContent>
           </Select>
 
-          <Select value={mappedFilter} onValueChange={setMappedFilter}>
+          <Select value={mappedFilter} onValueChange={(v) => {
+            setMappedFilter(v);
+            table.setPageIndex(0);
+          }}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Mapping" />
             </SelectTrigger>
@@ -260,116 +436,89 @@ export function BankTransactionTable({
       <div className="border border-border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="w-10">
-                <button
-                  onClick={selectAll}
-                  className="p-1 hover:bg-accent rounded"
-                >
-                  {selectedIds.size === paginatedTransactions.length && paginatedTransactions.length > 0 ? (
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                  ) : (
-                    <Circle className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-              </TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Mapped To</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              {onMapTransaction && <TableHead className="w-20"></TableHead>}
-            </TableRow>
+            {table.getHeaderGroups().map(headerGroup => (
+              <TableRow key={headerGroup.id} className="bg-muted/50">
+                {headerGroup.headers.map(header => {
+                  const canSort = header.column.getCanSort();
+                  const sorted = header.column.getIsSorted();
+
+                  // Special handling for select column header
+                  if (header.id === 'select') {
+                    return (
+                      <TableHead key={header.id} className="w-10">
+                        <button
+                          onClick={selectAll}
+                          className="p-1 hover:bg-accent rounded"
+                        >
+                          {selectedIds.size === pageRows.length && pageRows.length > 0 ? (
+                            <CheckCircle2 className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Circle className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </button>
+                      </TableHead>
+                    );
+                  }
+
+                  return (
+                    <TableHead
+                      key={header.id}
+                      className={cn(
+                        header.id === 'amount' && 'text-right',
+                        header.id === 'actions' && 'w-20',
+                        canSort && 'cursor-pointer select-none hover:bg-muted/80'
+                      )}
+                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                    >
+                      <div className={cn(
+                        "flex items-center gap-1",
+                        header.id === 'amount' && 'justify-end'
+                      )}>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {canSort && (
+                          <span className="ml-1">
+                            {sorted === 'asc' ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : sorted === 'desc' ? (
+                              <ArrowDown className="h-4 w-4" />
+                            ) : (
+                              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
           </TableHeader>
           <TableBody>
-            {paginatedTransactions.length === 0 ? (
+            {pageRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={onMapTransaction ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={columns.length} className="text-center py-8 text-muted-foreground">
                   No transactions found
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedTransactions.map(tx => (
+              pageRows.map(row => (
                 <TableRow
-                  key={tx.id}
+                  key={row.id}
                   className={cn(
                     "group",
-                    selectedIds.has(tx.id) && "bg-primary/5"
+                    selectedIds.has(row.original.id) && "bg-primary/5"
                   )}
                 >
-                  <TableCell>
-                    <button
-                      onClick={() => toggleSelection(tx.id)}
-                      className="p-1 hover:bg-accent rounded"
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        cell.column.id === 'amount' && 'text-right'
+                      )}
                     >
-                      {selectedIds.has(tx.id) ? (
-                        <CheckCircle2 className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm whitespace-nowrap">
-                    {formatDate(tx.datePosted)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {tx.amount >= 0 ? (
-                        <ArrowDownLeft className="h-4 w-4 variance-positive flex-shrink-0" />
-                      ) : (
-                        <ArrowUpRight className="h-4 w-4 variance-negative flex-shrink-0" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground truncate">{tx.name}</p>
-                        {tx.memo && (
-                          <p className="text-xs text-muted-foreground truncate">{tx.memo}</p>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={cn("capitalize", CATEGORY_COLORS[tx.category])}
-                    >
-                      {tx.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {tx.revenueSourceId ? (
-                      <div className="flex items-center gap-1 text-sm">
-                        <Link2 className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-foreground">{getSourceName(tx.revenueSourceId)}</span>
-                      </div>
-                    ) : tx.category === 'revenue' ? (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Link2Off className="h-3 w-3" />
-                        <span>Not mapped</span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className={cn(
-                    "text-right font-mono font-medium",
-                    tx.amount >= 0 ? "variance-positive" : "variance-negative"
-                  )}>
-                    {tx.amount >= 0 ? '+' : ''}{formatCurrency(tx.amount, false)}
-                  </TableCell>
-                  {onMapTransaction && (
-                    <TableCell>
-                      {tx.category === 'revenue' && !tx.revenueSourceId && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => onMapTransaction(tx)}
-                        >
-                          Map
-                        </Button>
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
-                  )}
+                  ))}
                 </TableRow>
               ))
             )}
@@ -378,28 +527,30 @@ export function BankTransactionTable({
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {table.getPageCount() > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {(currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, filteredTransactions.length)} of {filteredTransactions.length}
+            Showing {table.getState().pagination.pageIndex * PAGE_SIZE + 1} to{' '}
+            {Math.min((table.getState().pagination.pageIndex + 1) * PAGE_SIZE, filteredTransactions.length)} of{' '}
+            {filteredTransactions.length}
           </p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => p - 1)}
-              disabled={currentPage === 1}
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm text-muted-foreground">
-              Page {currentPage} of {totalPages}
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
             </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => p + 1)}
-              disabled={currentPage === totalPages}
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
