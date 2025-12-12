@@ -2,9 +2,17 @@ import { MONTHS, MONTH_LABELS } from '../types';
 import { formatCurrency } from '../utils/format';
 import { useRevenue } from '../context/RevenueContext';
 import { useTime } from '@/hooks/useTime';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -28,137 +36,142 @@ export function SalaryTable() {
   const totalTaxPct = totalSalaryGross > 0 ? (totalSalaryTax / totalSalaryGross) * 100 : 0;
 
   return (
-    <Card className="fade-in">
-      <CardHeader className="border-b">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium text-foreground">
-            Salaries
-          </CardTitle>
-          <Button onClick={addSalary} size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Employee
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-sm table-clean">
-            <thead>
-              <tr>
-                <th className="px-3 py-3 text-left font-medium text-muted-foreground w-32">Employee</th>
-                {MONTHS.map(month => {
-                  const status = getMonthStatus(month, config.year);
-                  return (
-                    <th key={month} className={cn(
-                      "px-2 py-3 text-right font-medium text-muted-foreground min-w-[80px]",
-                      status === 'current' && 'bg-accent text-foreground'
-                    )}>
-                      {MONTH_LABELS[month]}
-                    </th>
-                  );
-                })}
-                <th className="px-3 py-3 text-right font-medium text-muted-foreground">Gross</th>
-                <th className="px-3 py-3 text-right font-medium text-muted-foreground">Tax</th>
-                <th className="px-3 py-3 text-right font-medium text-muted-foreground">%</th>
-                <th className="px-3 py-3 text-center font-medium text-muted-foreground w-16"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {salaries.length === 0 ? (
-                <tr>
-                  <td colSpan={17} className="px-3 py-8 text-center text-muted-foreground">
-                    No employees yet. Click "Add Employee" to get started.
-                  </td>
-                </tr>
-              ) : (
-                salaries.map(salary => {
-                  const total = getSalaryTotal(salary);
-                  const taxCg = getSalaryTaxCg(salary);
-                  const taxPct = total > 0 ? (taxCg / total) * 100 : 0;
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-medium">Salaries</h2>
+        <Button onClick={addSalary} size="sm" variant="outline">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Employee
+        </Button>
+      </div>
 
-                  return (
-                    <tr key={salary.id} className="group">
-                      <td className="px-3 py-2">
-                        <Input
-                          type="text"
-                          value={salary.name}
-                          onChange={(e) => updateSalary(salary.id, { name: e.target.value })}
-                          className="h-8 text-sm border-transparent hover:border-border focus:border-ring"
-                          placeholder="Employee name"
-                        />
-                      </td>
-                      {MONTHS.map(month => {
-                        const status = getMonthStatus(month, config.year);
-                        return (
-                          <td key={month} className={cn(
-                            "px-1 py-2",
-                            status === 'current' && 'bg-accent/50'
-                          )}>
-                            <Input
-                              type="number"
-                              value={salary.amounts[month] || ''}
-                              onChange={(e) => updateSalaryAmount(salary.id, month, parseFloat(e.target.value) || 0)}
-                              placeholder="-"
-                              className="w-full h-8 text-sm font-mono text-right border-transparent hover:border-border focus:border-ring"
-                            />
-                          </td>
-                        );
-                      })}
-                      <td className="px-3 py-2 text-right font-mono text-muted-foreground">
-                        {formatCurrency(total, false)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-foreground font-medium">
-                        {formatCurrency(taxCg, false)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-muted-foreground">
-                        {taxPct.toFixed(1)}%
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteSalary(salary.id)}
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-            {salaries.length > 0 && (
-              <tfoot>
-                <tr className="bg-muted font-medium">
-                  <td className="px-3 py-3 text-muted-foreground">Monthly Total</td>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-40">Employee</TableHead>
+            {MONTHS.map(month => {
+              const status = getMonthStatus(month, config.year);
+              return (
+                <TableHead
+                  key={month}
+                  className={cn(
+                    "w-20 text-right",
+                    status === 'current' && "text-primary font-semibold"
+                  )}
+                >
+                  {MONTH_LABELS[month]}
+                </TableHead>
+              );
+            })}
+            <TableHead className="text-right">Gross</TableHead>
+            <TableHead className="text-right">Tax</TableHead>
+            <TableHead className="text-right">%</TableHead>
+            <TableHead className="w-10"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {salaries.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                colSpan={17}
+                className="h-24 text-center text-muted-foreground"
+              >
+                No employees yet. Add one to get started.
+              </TableCell>
+            </TableRow>
+          ) : (
+            salaries.map(salary => {
+              const total = getSalaryTotal(salary);
+              const taxCg = getSalaryTaxCg(salary);
+              const taxPct = total > 0 ? (taxCg / total) * 100 : 0;
+
+              return (
+                <TableRow key={salary.id} className="group">
+                  <TableCell className="p-1">
+                    <Input
+                      type="text"
+                      value={salary.name}
+                      onChange={(e) => updateSalary(salary.id, { name: e.target.value })}
+                      className="h-8 border-transparent bg-transparent hover:bg-muted focus:bg-background"
+                      placeholder="Employee name"
+                    />
+                  </TableCell>
                   {MONTHS.map(month => {
                     const status = getMonthStatus(month, config.year);
                     return (
-                      <td key={month} className={cn(
-                        "px-2 py-3 text-right font-mono",
-                        status === 'current' ? 'text-foreground bg-accent' : 'text-muted-foreground'
-                      )}>
-                        {formatCurrency(getMonthlySalary(month), false)}
-                      </td>
+                      <TableCell
+                        key={month}
+                        className={cn(
+                          "p-1",
+                          status === 'current' && "bg-primary/5"
+                        )}
+                      >
+                        <Input
+                          type="number"
+                          value={salary.amounts[month] || ''}
+                          onChange={(e) => updateSalaryAmount(salary.id, month, parseFloat(e.target.value) || 0)}
+                          placeholder="—"
+                          className="h-8 text-sm font-mono text-right border-transparent bg-transparent hover:bg-muted focus:bg-background"
+                        />
+                      </TableCell>
                     );
                   })}
-                  <td className="px-3 py-3 text-right font-mono text-muted-foreground">
-                    {formatCurrency(totalSalaryGross, false)}
-                  </td>
-                  <td className="px-3 py-3 text-right font-mono text-foreground font-semibold">
-                    {formatCurrency(totalSalaryTax, false)}
-                  </td>
-                  <td className="px-3 py-3 text-right font-mono text-muted-foreground">
-                    {totalTaxPct.toFixed(1)}%
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </CardContent>
-    </Card>
+                  <TableCell className="text-right font-mono text-muted-foreground">
+                    {formatCurrency(total, false)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-medium">
+                    {formatCurrency(taxCg, false)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground text-sm">
+                    {taxPct.toFixed(1)}%
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteSalary(salary.id)}
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+        {salaries.length > 0 && (
+          <TableFooter>
+            <TableRow>
+              <TableCell className="font-medium">Monthly Total</TableCell>
+              {MONTHS.map(month => {
+                const status = getMonthStatus(month, config.year);
+                return (
+                  <TableCell
+                    key={month}
+                    className={cn(
+                      "text-right font-mono",
+                      status === 'current' && "text-primary font-semibold bg-primary/5"
+                    )}
+                  >
+                    {formatCurrency(getMonthlySalary(month), false)}
+                  </TableCell>
+                );
+              })}
+              <TableCell className="text-right font-mono text-muted-foreground">
+                {formatCurrency(totalSalaryGross, false)}
+              </TableCell>
+              <TableCell className="text-right font-mono font-semibold">
+                {formatCurrency(totalSalaryTax, false)}
+              </TableCell>
+              <TableCell className="text-right font-mono text-muted-foreground">
+                {totalTaxPct.toFixed(1)}%
+              </TableCell>
+              <TableCell></TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
+      </Table>
+    </div>
   );
 }

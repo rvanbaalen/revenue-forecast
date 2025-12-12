@@ -5,7 +5,15 @@ import { useRevenue } from '../context/RevenueContext';
 import { useTime } from '@/hooks/useTime';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -49,230 +57,217 @@ export function RevenueTable({
   const grandTotalCg = sources.reduce((sum, s) => sum + getSourceTotalCg(s, dataType), 0);
   const totalProfitTax = sources.reduce((sum, s) => sum + getProfitTax(s, dataType), 0);
 
-  const getMonthCellClass = (month: Month): string => {
-    const status = getMonthStatus(month, config.year);
-    return cn(
-      'px-1 py-2 transition-colors',
-      status === 'current' && 'month-current'
-    );
-  };
-
   return (
     <TooltipProvider>
-      <Card className="fade-in">
-        <CardHeader className="border-b">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium text-foreground">
-              {dataType === 'expected' ? 'Expected Revenue' : 'Actual Revenue'}
-            </CardTitle>
-            <Button onClick={addSource} size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Source
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-sm table-clean">
-              <thead>
-                <tr>
-                  <th className="px-3 py-3 text-left font-medium text-muted-foreground w-32">Source</th>
-                  <th className="px-3 py-3 text-left font-medium text-muted-foreground w-24">Type</th>
-                  <th className="px-3 py-3 text-left font-medium text-muted-foreground w-20">Curr</th>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">
+            {dataType === 'expected' ? 'Expected Revenue' : 'Actual Revenue'}
+          </h2>
+          <Button onClick={addSource} size="sm" variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Source
+          </Button>
+        </div>
+
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-40">Source</TableHead>
+              <TableHead className="w-24">Type</TableHead>
+              <TableHead className="w-20">Curr</TableHead>
+              {dataType === 'expected' && (
+                <TableHead className="w-24 text-center">MRR</TableHead>
+              )}
+              {MONTHS.map(month => {
+                const status = getMonthStatus(month, config.year);
+                const isCurrent = status === 'current';
+                return (
+                  <TableHead
+                    key={month}
+                    className={cn(
+                      "w-20 text-right",
+                      isCurrent && "text-primary font-semibold"
+                    )}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className={cn(
+                          dataType === 'actual' && onMonthHeaderClick && "cursor-pointer hover:underline"
+                        )}
+                        onClick={() => dataType === 'actual' && onMonthHeaderClick?.(month)}
+                        >
+                          {MONTH_LABELS[month]}
+                          {isCurrent && <span className="ml-1 text-xs">●</span>}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {MONTH_LABELS[month]} {config.year} • {getRelativeTimeLabel(month, config.year)}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TableHead>
+                );
+              })}
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Cg</TableHead>
+              <TableHead className="text-right">Tax</TableHead>
+              <TableHead className="w-10"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sources.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={dataType === 'expected' ? 19 : 18}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  No revenue sources. Add one to get started.
+                </TableCell>
+              </TableRow>
+            ) : (
+              sources.map(source => (
+                <TableRow key={source.id} className="group">
+                  <TableCell className="p-1">
+                    <Input
+                      type="text"
+                      value={source.name}
+                      onChange={(e) => updateSource(source.id, { name: e.target.value })}
+                      className="h-8 border-transparent bg-transparent hover:bg-muted focus:bg-background"
+                      placeholder="Source name"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Select
+                      value={source.type}
+                      onValueChange={(value) => updateSource(source.id, { type: value as 'local' | 'foreign' })}
+                    >
+                      <SelectTrigger className="h-8 border-transparent bg-transparent hover:bg-muted">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="local">Local</SelectItem>
+                        <SelectItem value="foreign">Foreign</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Select
+                      value={source.currency}
+                      onValueChange={(value) => updateSource(source.id, { currency: value })}
+                    >
+                      <SelectTrigger className="h-8 font-mono border-transparent bg-transparent hover:bg-muted">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {config.currencies.map(c => (
+                          <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   {dataType === 'expected' && (
-                    <th className="px-3 py-3 text-center font-medium text-muted-foreground w-28">MRR</th>
+                    <TableCell className="p-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={source.isRecurring}
+                          onChange={(e) => updateSource(source.id, { isRecurring: e.target.checked })}
+                          className="rounded"
+                        />
+                        {source.isRecurring && (
+                          <Input
+                            type="number"
+                            value={source.recurringAmount || ''}
+                            onChange={(e) => updateSource(source.id, { recurringAmount: parseFloat(e.target.value) || 0 })}
+                            className="w-16 h-7 text-xs font-mono text-right border-transparent bg-transparent"
+                          />
+                        )}
+                      </div>
+                    </TableCell>
                   )}
                   {MONTHS.map(month => {
                     const status = getMonthStatus(month, config.year);
                     return (
-                      <th key={month} className={cn(
-                        "px-2 py-3 text-right font-medium text-muted-foreground min-w-[80px]",
-                        status === 'current' && 'bg-accent text-foreground'
-                      )}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="relative">
-                              {dataType === 'actual' && onMonthHeaderClick ? (
-                                <button
-                                  onClick={() => onMonthHeaderClick(month)}
-                                  className={cn(
-                                    "hover:underline transition-colors cursor-pointer",
-                                    status === 'current' && 'text-foreground'
-                                  )}
-                                >
-                                  {MONTH_LABELS[month]}
-                                </button>
-                              ) : (
-                                <span>{MONTH_LABELS[month]}</span>
-                              )}
-                              {status === 'current' && (
-                                <div className="absolute -top-1 right-0 w-1.5 h-1.5 rounded-full bg-primary" />
-                              )}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <div className="text-center">
-                              <div>{MONTH_LABELS[month]} {config.year}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {getRelativeTimeLabel(month, config.year)}
-                              </div>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </th>
+                      <TableCell
+                        key={month}
+                        className={cn(
+                          "p-1",
+                          status === 'current' && "bg-primary/5"
+                        )}
+                      >
+                        {source.isRecurring && dataType === 'expected' ? (
+                          <div className="flex items-center justify-end gap-1 text-muted-foreground text-xs font-mono pr-1">
+                            <RefreshCw className="w-3 h-3" />
+                            {formatCurrency(source.recurringAmount, false)}
+                          </div>
+                        ) : (
+                          <Input
+                            type="number"
+                            value={source[dataType][month] || ''}
+                            onChange={(e) => updateSourceRevenue(source.id, month, parseFloat(e.target.value) || 0, dataType)}
+                            placeholder="—"
+                            className="h-8 text-sm font-mono text-right border-transparent bg-transparent hover:bg-muted focus:bg-background"
+                          />
+                        )}
+                      </TableCell>
                     );
                   })}
-                  <th className="px-3 py-3 text-right font-medium text-muted-foreground">Total</th>
-                  <th className="px-3 py-3 text-right font-medium text-muted-foreground">Cg</th>
-                  <th className="px-3 py-3 text-right font-medium text-muted-foreground">Tax</th>
-                  <th className="px-3 py-3 text-center font-medium text-muted-foreground w-16"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sources.length === 0 ? (
-                  <tr>
-                    <td colSpan={dataType === 'expected' ? 19 : 18} className="px-3 py-8 text-center text-muted-foreground">
-                      No revenue sources yet. Click "Add Source" to get started.
-                    </td>
-                  </tr>
-                ) : (
-                  sources.map(source => (
-                    <tr key={source.id} className="group">
-                      <td className="px-3 py-2">
-                        <Input
-                          type="text"
-                          value={source.name}
-                          onChange={(e) => updateSource(source.id, { name: e.target.value })}
-                          className="h-8 text-sm border-transparent hover:border-border focus:border-ring"
-                          placeholder="Source name"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <Select
-                          value={source.type}
-                          onValueChange={(value) => updateSource(source.id, { type: value as 'local' | 'foreign' })}
-                        >
-                          <SelectTrigger className="h-8 text-sm border-transparent hover:border-border">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="local">Local</SelectItem>
-                            <SelectItem value="foreign">Foreign</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Select
-                          value={source.currency}
-                          onValueChange={(value) => updateSource(source.id, { currency: value })}
-                        >
-                          <SelectTrigger className="h-8 text-sm font-mono border-transparent hover:border-border">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {config.currencies.map(c => (
-                              <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      {dataType === 'expected' && (
-                        <td className="px-3 py-2">
-                          <div className="flex items-center justify-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={source.isRecurring}
-                              onChange={(e) => updateSource(source.id, { isRecurring: e.target.checked })}
-                              className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
-                            />
-                            {source.isRecurring && (
-                              <Input
-                                type="number"
-                                value={source.recurringAmount || ''}
-                                onChange={(e) => updateSource(source.id, { recurringAmount: parseFloat(e.target.value) || 0 })}
-                                placeholder="0"
-                                className="w-16 h-8 text-sm font-mono text-right border-transparent hover:border-border"
-                              />
-                            )}
-                          </div>
-                        </td>
+                  <TableCell className="text-right font-mono text-muted-foreground">
+                    {formatCurrency(getSourceTotal(source, dataType), false)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-medium">
+                    {formatCurrency(getSourceTotalCg(source, dataType), false)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground text-sm">
+                    {formatCurrency(getProfitTax(source, dataType), false)}
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteSource(source.id)}
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+          {sources.length > 0 && (
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={dataType === 'expected' ? 4 : 3} className="font-medium">
+                  Monthly Total
+                </TableCell>
+                {MONTHS.map(month => {
+                  const status = getMonthStatus(month, config.year);
+                  return (
+                    <TableCell
+                      key={month}
+                      className={cn(
+                        "text-right font-mono",
+                        status === 'current' && "text-primary font-semibold bg-primary/5"
                       )}
-                      {MONTHS.map(month => (
-                        <td key={month} className={getMonthCellClass(month)}>
-                          {source.isRecurring && dataType === 'expected' ? (
-                            <div className="flex items-center justify-end gap-1 text-muted-foreground text-sm font-mono pr-2">
-                              <RefreshCw className="w-3 h-3" />
-                              {formatCurrency(source.recurringAmount, false)}
-                            </div>
-                          ) : (
-                            <Input
-                              type="number"
-                              value={source[dataType][month] || ''}
-                              onChange={(e) => updateSourceRevenue(source.id, month, parseFloat(e.target.value) || 0, dataType)}
-                              placeholder="-"
-                              className="w-full h-8 text-sm font-mono text-right border-transparent hover:border-border focus:border-ring"
-                            />
-                          )}
-                        </td>
-                      ))}
-                      <td className="px-3 py-2 text-right font-mono text-muted-foreground">
-                        {formatCurrency(getSourceTotal(source, dataType), false)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-foreground font-medium">
-                        {formatCurrency(getSourceTotalCg(source, dataType), false)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-muted-foreground">
-                        {formatCurrency(getProfitTax(source, dataType), false)}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteSource(source.id)}
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-              {sources.length > 0 && (
-                <tfoot>
-                  <tr className="bg-muted font-medium">
-                    <td className="px-3 py-3 text-muted-foreground" colSpan={dataType === 'expected' ? 4 : 3}>
-                      Monthly Total
-                    </td>
-                    {MONTHS.map(month => {
-                      const status = getMonthStatus(month, config.year);
-                      return (
-                        <td
-                          key={month}
-                          className={cn(
-                            "px-2 py-3 text-right font-mono",
-                            status === 'current' ? 'text-foreground bg-accent' : 'text-muted-foreground'
-                          )}
-                        >
-                          {formatCurrency(getMonthlyTotal(month, dataType), false)}
-                        </td>
-                      );
-                    })}
-                    <td className="px-3 py-3 text-right font-mono text-muted-foreground">-</td>
-                    <td className="px-3 py-3 text-right font-mono text-foreground font-semibold">
-                      {formatCurrency(grandTotalCg, false)}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono text-muted-foreground">
-                      {formatCurrency(totalProfitTax, false)}
-                    </td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                    >
+                      {formatCurrency(getMonthlyTotal(month, dataType), false)}
+                    </TableCell>
+                  );
+                })}
+                <TableCell className="text-right font-mono text-muted-foreground">—</TableCell>
+                <TableCell className="text-right font-mono font-semibold">
+                  {formatCurrency(grandTotalCg, false)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">
+                  {formatCurrency(totalProfitTax, false)}
+                </TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+            </TableFooter>
+          )}
+        </Table>
+      </div>
     </TooltipProvider>
   );
 }
