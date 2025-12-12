@@ -85,3 +85,122 @@ export const DEFAULT_SALARIES: Omit<Salary, 'id'>[] = [
 export const DEFAULT_SALARY_TAXES: Omit<SalaryTax, 'id'>[] = [
   { salaryId: 1, name: 'Payroll Tax', type: 'percentage', value: 15 }
 ];
+
+// ============================================
+// Bank Import Types
+// ============================================
+
+// Bank account types from OFX
+export type BankAccountType = 'CHECKING' | 'SAVINGS' | 'CREDITLINE' | 'MONEYMRKT' | 'CREDITCARD';
+
+// Transaction types from OFX
+export type BankTransactionType = 'CREDIT' | 'DEBIT' | 'INT' | 'DIV' | 'FEE' | 'SRVCHG' | 'DEP' | 'ATM' | 'POS' | 'XFER' | 'CHECK' | 'PAYMENT' | 'CASH' | 'DIRECTDEP' | 'DIRECTDEBIT' | 'REPEATPMT' | 'OTHER';
+
+// Category for transaction classification
+export type TransactionCategory = 'revenue' | 'expense' | 'transfer' | 'ignore';
+
+// Bank Account - represents a linked bank account
+export interface BankAccount {
+  id: number;
+  name: string;                    // User-friendly name ("Business Checking")
+  bankId: string;                  // Bank routing number (from OFX)
+  accountId: string;               // Masked account number for display
+  accountIdHash: string;           // Hash of full account ID for matching
+  accountType: BankAccountType;
+  currency: string;                // Currency code from OFX
+  createdAt: string;               // ISO date
+  lastImportDate?: string;         // Last successful import
+}
+
+// Bank Transaction - raw imported transaction
+export interface BankTransaction {
+  id: number;
+  accountId: number;               // FK to BankAccount
+  fitId: string;                   // Bank's unique transaction ID (for dedup)
+  type: BankTransactionType;
+  amount: number;                  // Positive = credit, Negative = debit
+  datePosted: string;              // ISO date (converted from OFX YYYYMMDD)
+  name: string;                    // Payee/payer name
+  memo?: string;                   // Transaction memo
+  checkNum?: string;               // Check number if applicable
+  refNum?: string;                 // Reference number
+
+  // Mapping fields
+  revenueSourceId?: number;        // Linked revenue source (null = unmapped)
+  month: Month;                    // Derived from datePosted
+  year: number;                    // Year of transaction
+  category: TransactionCategory;
+
+  // Status
+  isReconciled: boolean;           // User confirmed this mapping
+  importedAt: string;              // When imported to system
+  importBatchId: string;           // Group imports together
+}
+
+// Parsed OFX result (intermediate, not stored)
+export interface ParsedOFXFile {
+  account: {
+    bankId: string;
+    accountId: string;
+    accountType: BankAccountType;
+  };
+  currency: string;
+  transactions: ParsedOFXTransaction[];
+  balance?: {
+    amount: number;
+    asOf: string;
+  };
+  dateRange: {
+    start: string;
+    end: string;
+  };
+}
+
+export interface ParsedOFXTransaction {
+  fitId: string;
+  type: BankTransactionType;
+  amount: number;
+  datePosted: string;
+  name: string;
+  memo?: string;
+  checkNum?: string;
+  refNum?: string;
+}
+
+// Import summary for UI feedback
+export interface OFXImportResult {
+  success: boolean;
+  accountId: number;
+  accountName: string;
+  totalTransactions: number;
+  newTransactions: number;
+  duplicatesSkipped: number;
+  dateRange: { start: string; end: string };
+  errors: string[];
+}
+
+// Mapping rule for auto-categorization
+export interface TransactionMappingRule {
+  id: number;
+  accountId?: number;              // Optional: apply only to specific account
+  pattern: string;                 // Regex or simple match pattern
+  matchField: 'name' | 'memo' | 'both';
+  revenueSourceId?: number;        // Map to this source (if category is 'revenue')
+  category: TransactionCategory;
+  isActive: boolean;
+  priority: number;                // Higher priority rules applied first
+  createdAt: string;
+}
+
+// Monthly bank summary for reconciliation
+export interface MonthlyBankSummary {
+  month: Month;
+  year: number;
+  totalCredits: number;
+  totalDebits: number;
+  netAmount: number;
+  transactionCount: number;
+  mappedCount: number;
+  unmappedCount: number;
+  revenueBySource: Record<number, number>;  // sourceId -> total
+}

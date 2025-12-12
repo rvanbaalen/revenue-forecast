@@ -4,11 +4,14 @@ import { RouterProvider } from '@tanstack/react-router'
 import './index.css'
 import { router } from './router'
 import { RevenueProvider } from './context/RevenueContext'
+import { BankProvider } from './context/BankContext'
 
 function App() {
   return (
     <RevenueProvider>
-      <RouterProvider router={router} />
+      <BankProvider>
+        <RouterProvider router={router} />
+      </BankProvider>
     </RevenueProvider>
   )
 }

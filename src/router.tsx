@@ -14,6 +14,7 @@ import { ActualRevenuePage } from './pages/ActualRevenuePage';
 import { SalaryPage } from './pages/SalaryPage';
 import { ForecastPage } from './pages/ForecastPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { BankPage } from './pages/BankPage';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -25,6 +26,7 @@ import {
   ChevronRight,
   Download,
   Upload,
+  Building2,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { cn } from './lib/utils';
@@ -33,6 +35,7 @@ const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/expected', label: 'Expected', icon: TrendingUp },
   { path: '/actual', label: 'Actual', icon: Receipt },
+  { path: '/bank', label: 'Bank', icon: Building2 },
   { path: '/salary', label: 'Salaries', icon: Users },
   { path: '/forecast', label: 'Forecast', icon: LineChart },
   { path: '/settings', label: 'Settings', icon: Settings },
@@ -267,11 +270,18 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+const bankRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/bank',
+  component: BankPage,
+});
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
   expectedRoute,
   actualRoute,
+  bankRoute,
   salaryRoute,
   forecastRoute,
   settingsRoute,
