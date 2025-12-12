@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -52,14 +52,30 @@ export function TransactionMappingModal({
   const [matchField, setMatchField] = useState<'name' | 'memo' | 'both'>('name');
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleOpen = () => {
-    if (transaction) {
+  // Reset form state
+  const resetState = useCallback(() => {
+    setSelectedSourceId('');
+    setCreateRule(false);
+    setRulePattern('');
+    setMatchField('name');
+    setIsSaving(false);
+  }, []);
+
+  // Initialize form when transaction changes
+  useEffect(() => {
+    if (transaction && isOpen) {
       setSelectedSourceId('');
       setCreateRule(false);
       setRulePattern(transaction.name);
       setMatchField('name');
     }
-  };
+  }, [transaction, isOpen]);
+
+  // Handle close with state reset
+  const handleClose = useCallback(() => {
+    resetState();
+    onClose();
+  }, [resetState, onClose]);
 
   const handleSave = async () => {
     if (!transaction || !selectedSourceId) return;
@@ -71,7 +87,7 @@ export function TransactionMappingModal({
         parseInt(selectedSourceId),
         createRule ? { pattern: rulePattern, matchField } : undefined
       );
-      onClose();
+      handleClose();
     } catch (error) {
       console.error('Failed to map transaction:', error);
     } finally {
@@ -92,8 +108,7 @@ export function TransactionMappingModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
-      if (open) handleOpen();
-      if (!open) onClose();
+      if (!open) handleClose();
     }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -216,7 +231,7 @@ export function TransactionMappingModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
           <Button
