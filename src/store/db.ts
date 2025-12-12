@@ -1,8 +1,8 @@
-import type { AppConfig, RevenueSource, Salary, SalaryTax } from '../types';
+import type { AppConfig, RevenueSource, Salary, SalaryTax, BankAccount, BankTransaction, TransactionMappingRule } from '../types';
 import { DEFAULT_CONFIG, DEFAULT_SOURCES, DEFAULT_SALARIES, DEFAULT_SALARY_TAXES } from '../types';
 
 const DB_NAME = 'RevenueTracker2026';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 class RevenueDB {
   private db: IDBDatabase | null = null;
@@ -38,6 +38,27 @@ class RevenueDB {
         if (!database.objectStoreNames.contains('salaryTaxes')) {
           const taxStore = database.createObjectStore('salaryTaxes', { keyPath: 'id', autoIncrement: true });
           taxStore.createIndex('salaryId', 'salaryId', { unique: false });
+        }
+
+        // Version 3: Add bank-related stores
+        if (!database.objectStoreNames.contains('bankAccounts')) {
+          database.createObjectStore('bankAccounts', { keyPath: 'id', autoIncrement: true });
+        }
+
+        if (!database.objectStoreNames.contains('bankTransactions')) {
+          const txStore = database.createObjectStore('bankTransactions', { keyPath: 'id', autoIncrement: true });
+          txStore.createIndex('accountId', 'accountId', { unique: false });
+          txStore.createIndex('accountId_fitId', ['accountId', 'fitId'], { unique: true });
+          txStore.createIndex('year_month', ['year', 'month'], { unique: false });
+          txStore.createIndex('revenueSourceId', 'revenueSourceId', { unique: false });
+          txStore.createIndex('importBatchId', 'importBatchId', { unique: false });
+          txStore.createIndex('category', 'category', { unique: false });
+        }
+
+        if (!database.objectStoreNames.contains('mappingRules')) {
+          const ruleStore = database.createObjectStore('mappingRules', { keyPath: 'id', autoIncrement: true });
+          ruleStore.createIndex('accountId', 'accountId', { unique: false });
+          ruleStore.createIndex('priority', 'priority', { unique: false });
         }
 
         // Migration from v1: Convert old salary.taxType/taxValue to separate salaryTaxes
@@ -276,13 +297,231 @@ class RevenueDB {
     });
   }
 
+  // ============================================
+  // Bank Account operations
+  // ============================================
+
+  async getBankAccounts(): Promise<BankAccount[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankAccounts', 'readonly');
+      const request = tx.objectStore('bankAccounts').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async addBankAccount(account: Omit<BankAccount, 'id'>): Promise<number> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankAccounts', 'readwrite');
+      const request = tx.objectStore('bankAccounts').add(account);
+      request.onsuccess = () => resolve(request.result as number);
+    });
+  }
+
+  async updateBankAccount(account: BankAccount): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankAccounts', 'readwrite');
+      tx.objectStore('bankAccounts').put(account);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteBankAccount(id: number): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction(['bankAccounts', 'bankTransactions'], 'readwrite');
+      tx.objectStore('bankAccounts').delete(id);
+      // Also delete all transactions for this account
+      const txStore = tx.objectStore('bankTransactions');
+      const index = txStore.index('accountId');
+      index.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
+        const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async getBankAccountByHash(accountIdHash: string): Promise<BankAccount | undefined> {
+    const accounts = await this.getBankAccounts();
+    return accounts.find(a => a.accountIdHash === accountIdHash);
+  }
+
+  // ============================================
+  // Bank Transaction operations
+  // ============================================
+
+  async getBankTransactions(): Promise<BankTransaction[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readonly');
+      const request = tx.objectStore('bankTransactions').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getBankTransactionsByAccount(accountId: number): Promise<BankTransaction[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readonly');
+      const index = tx.objectStore('bankTransactions').index('accountId');
+      const request = index.getAll(IDBKeyRange.only(accountId));
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getBankTransactionsByYearMonth(year: number, month: string): Promise<BankTransaction[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readonly');
+      const index = tx.objectStore('bankTransactions').index('year_month');
+      const request = index.getAll(IDBKeyRange.only([year, month]));
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getBankTransactionsBySourceId(sourceId: number): Promise<BankTransaction[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readonly');
+      const index = tx.objectStore('bankTransactions').index('revenueSourceId');
+      const request = index.getAll(IDBKeyRange.only(sourceId));
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async addBankTransaction(transaction: Omit<BankTransaction, 'id'>): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction('bankTransactions', 'readwrite');
+      const request = tx.objectStore('bankTransactions').add(transaction);
+      request.onsuccess = () => resolve(request.result as number);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async addBankTransactions(transactions: Omit<BankTransaction, 'id'>[]): Promise<number[]> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction('bankTransactions', 'readwrite');
+      const store = tx.objectStore('bankTransactions');
+      const ids: number[] = [];
+
+      transactions.forEach(transaction => {
+        const request = store.add(transaction);
+        request.onsuccess = () => ids.push(request.result as number);
+        request.onerror = () => {
+          // Silently skip duplicates (constraint error on accountId_fitId)
+          if (request.error?.name !== 'ConstraintError') {
+            reject(request.error);
+          }
+        };
+      });
+
+      tx.oncomplete = () => resolve(ids);
+      tx.onerror = () => {
+        // Don't reject on constraint errors
+        if (tx.error?.name !== 'ConstraintError') {
+          reject(tx.error);
+        } else {
+          resolve(ids);
+        }
+      };
+    });
+  }
+
+  async updateBankTransaction(transaction: BankTransaction): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readwrite');
+      tx.objectStore('bankTransactions').put(transaction);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async updateBankTransactions(transactions: BankTransaction[]): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readwrite');
+      const store = tx.objectStore('bankTransactions');
+      transactions.forEach(t => store.put(t));
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteBankTransaction(id: number): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readwrite');
+      tx.objectStore('bankTransactions').delete(id);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async checkTransactionExists(accountId: number, fitId: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readonly');
+      const index = tx.objectStore('bankTransactions').index('accountId_fitId');
+      const request = index.get([accountId, fitId]);
+      request.onsuccess = () => resolve(!!request.result);
+    });
+  }
+
+  // ============================================
+  // Mapping Rule operations
+  // ============================================
+
+  async getMappingRules(): Promise<TransactionMappingRule[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('mappingRules', 'readonly');
+      const request = tx.objectStore('mappingRules').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getMappingRulesByAccount(accountId: number): Promise<TransactionMappingRule[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('mappingRules', 'readonly');
+      const index = tx.objectStore('mappingRules').index('accountId');
+      const request = index.getAll(IDBKeyRange.only(accountId));
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async addMappingRule(rule: Omit<TransactionMappingRule, 'id'>): Promise<number> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('mappingRules', 'readwrite');
+      const request = tx.objectStore('mappingRules').add(rule);
+      request.onsuccess = () => resolve(request.result as number);
+    });
+  }
+
+  async updateMappingRule(rule: TransactionMappingRule): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('mappingRules', 'readwrite');
+      tx.objectStore('mappingRules').put(rule);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteMappingRule(id: number): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('mappingRules', 'readwrite');
+      tx.objectStore('mappingRules').delete(id);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
   // Export all data
   async exportData(): Promise<string> {
     const config = await this.getConfig();
     const sources = await this.getSources();
     const salaries = await this.getSalaries();
     const salaryTaxes = await this.getSalaryTaxes();
-    return JSON.stringify({ config, sources, salaries, salaryTaxes }, null, 2);
+    const bankAccounts = await this.getBankAccounts();
+    const bankTransactions = await this.getBankTransactions();
+    const mappingRules = await this.getMappingRules();
+    return JSON.stringify({
+      config,
+      sources,
+      salaries,
+      salaryTaxes,
+      bankAccounts,
+      bankTransactions,
+      mappingRules
+    }, null, 2);
   }
 
   // Import data
@@ -322,6 +561,63 @@ class RevenueDB {
         }
       }
     }
+
+    // Import bank data if present
+    if (data.bankAccounts) {
+      if (clearExisting) {
+        await this.clearBankAccounts();
+      }
+      for (const account of data.bankAccounts) {
+        await this.addBankAccount(account);
+      }
+    }
+
+    if (data.bankTransactions) {
+      if (clearExisting) {
+        await this.clearBankTransactions();
+      }
+      for (const tx of data.bankTransactions) {
+        try {
+          await this.addBankTransaction(tx);
+        } catch {
+          // Skip duplicates silently
+        }
+      }
+    }
+
+    if (data.mappingRules) {
+      if (clearExisting) {
+        await this.clearMappingRules();
+      }
+      for (const rule of data.mappingRules) {
+        await this.addMappingRule(rule);
+      }
+    }
+  }
+
+  // Clear operations for import
+  private async clearBankAccounts(): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankAccounts', 'readwrite');
+      tx.objectStore('bankAccounts').clear();
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  private async clearBankTransactions(): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readwrite');
+      tx.objectStore('bankTransactions').clear();
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  private async clearMappingRules(): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('mappingRules', 'readwrite');
+      tx.objectStore('mappingRules').clear();
+      tx.oncomplete = () => resolve();
+    });
   }
 }
 
