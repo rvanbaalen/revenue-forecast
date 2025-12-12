@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.2.0...v1.3.0) (2025-12-12)
+
+
+### Features
+
+* add OFX bank file import functionality ([#19](https://github.com/rvanbaalen/revenue-forecast/issues/19)) ([ba1575e](https://github.com/rvanbaalen/revenue-forecast/commit/ba1575ef60f7981c647ecad8f18fbaa14457496f))
+* install native component versions and document shadcn component installation guidelines ([#17](https://github.com/rvanbaalen/revenue-forecast/issues/17)) ([cad2983](https://github.com/rvanbaalen/revenue-forecast/commit/cad29836f3ff97bc6eecaa554ae5e54b82439b75))
+
 ## [1.2.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.1.0...v1.2.0) (2025-12-12)
 
 
