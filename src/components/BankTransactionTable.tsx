@@ -26,11 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import {
   Search,
-  CheckCircle2,
-  Circle,
   ArrowUpRight,
   ArrowDownLeft,
   Link2,
@@ -135,19 +134,12 @@ export function BankTransactionTable({
       id: 'select',
       header: () => null,
       cell: ({ row }) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleSelection(row.original.id);
-          }}
-          className="p-1 hover:bg-accent rounded"
-        >
-          {selectedIds.has(row.original.id) ? (
-            <CheckCircle2 className="h-4 w-4 text-primary" />
-          ) : (
-            <Circle className="h-4 w-4 text-muted-foreground" />
-          )}
-        </button>
+        <Checkbox
+          checked={selectedIds.has(row.original.id)}
+          onCheckedChange={() => toggleSelection(row.original.id)}
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Select row"
+        />
       ),
       enableSorting: false,
     },
@@ -252,7 +244,10 @@ export function BankTransactionTable({
               size="sm"
               variant="outline"
               className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => onMapTransaction(tx)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMapTransaction(tx);
+              }}
             >
               Map
             </Button>
@@ -444,18 +439,15 @@ export function BankTransactionTable({
 
                   // Special handling for select column header
                   if (header.id === 'select') {
+                    const allSelected = selectedIds.size === pageRows.length && pageRows.length > 0;
+                    const someSelected = selectedIds.size > 0 && selectedIds.size < pageRows.length;
                     return (
                       <TableHead key={header.id} className="w-10">
-                        <button
-                          onClick={selectAll}
-                          className="p-1 hover:bg-accent rounded"
-                        >
-                          {selectedIds.size === pageRows.length && pageRows.length > 0 ? (
-                            <CheckCircle2 className="h-4 w-4 text-primary" />
-                          ) : (
-                            <Circle className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </button>
+                        <Checkbox
+                          checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                          onCheckedChange={selectAll}
+                          aria-label="Select all"
+                        />
                       </TableHead>
                     );
                   }
@@ -505,9 +497,10 @@ export function BankTransactionTable({
                 <TableRow
                   key={row.id}
                   className={cn(
-                    "group",
+                    "group cursor-pointer",
                     selectedIds.has(row.original.id) && "bg-primary/5"
                   )}
+                  onClick={() => toggleSelection(row.original.id)}
                 >
                   {row.getVisibleCells().map(cell => (
                     <TableCell
