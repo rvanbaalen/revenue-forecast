@@ -63,7 +63,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   id: 'main',
   profitTaxRate: 16,
   vatRate: 6,
-  year: 2026,
+  year: new Date().getFullYear(), // Use current year as default
   currencies: [
     { code: 'Cg', symbol: 'ƒ', rate: 1 },
     { code: 'USD', symbol: '$', rate: 1.79 },

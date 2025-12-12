@@ -3,6 +3,21 @@ import type { Month } from '../types';
 import { MONTH_LABELS } from '../types';
 import { formatCurrency } from '../utils/format';
 import { useRevenue } from '../context/RevenueContext';
+import { useTime } from '@/hooks/useTime';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { Check, Copy, Save, CheckCircle2, Circle } from 'lucide-react';
 
 interface MonthlyConfirmationModalProps {
   isOpen: boolean;
@@ -24,8 +39,12 @@ export function MonthlyConfirmationModal({
     getRate,
   } = useRevenue();
 
+  const { getMonthStatus, getRelativeTimeLabel } = useTime();
+
   // Track edited values locally before confirming
   const [editedValues, setEditedValues] = useState<Record<number, number>>({});
+
+  const monthStatus = getMonthStatus(month, config.year);
 
   // Reset edited values when modal opens or month changes
   useEffect(() => {
@@ -38,8 +57,6 @@ export function MonthlyConfirmationModal({
       setEditedValues(initialValues);
     }
   }, [isOpen, month, sources, getSourceValue]);
-
-  if (!isOpen) return null;
 
   const handleValueChange = (sourceId: number, value: number) => {
     setEditedValues(prev => ({ ...prev, [sourceId]: value }));
@@ -88,33 +105,39 @@ export function MonthlyConfirmationModal({
     return expected === actual;
   });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+  const confirmedCount = sources.filter(source => {
+    const expected = getSourceValue(source, month, 'expected');
+    const actual = editedValues[source.id] ?? getSourceValue(source, month, 'actual');
+    return expected === actual;
+  }).length;
 
-      {/* Modal */}
-      <div className="relative glass rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto fade-in">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-emerald-400">
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-3 text-emerald-400">
             Confirm Revenue - {MONTH_LABELS[month]} {config.year}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 transition-colors text-2xl leading-none"
-          >
-            &times;
-          </button>
+            <Badge variant={monthStatus} className="text-xs">
+              {getRelativeTimeLabel(month, config.year)}
+            </Badge>
+          </DialogTitle>
+          <DialogDescription>
+            Review and confirm actual revenue for each source. Click "Use Expected" to copy the expected value, or enter the actual amount manually.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Progress indicator */}
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 transition-all duration-300"
+              style={{ width: `${(confirmedCount / sources.length) * 100}%` }}
+            />
+          </div>
+          <span>{confirmedCount}/{sources.length} confirmed</span>
         </div>
 
-        <p className="text-slate-400 text-sm mb-4">
-          Review and confirm actual revenue for each source. Click "Use Expected" to copy the expected value, or enter the actual amount manually.
-        </p>
-
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3">
           {sources.map(source => {
             const expected = getSourceValue(source, month, 'expected');
             const currentActual = editedValues[source.id] ?? getSourceValue(source, month, 'actual');
@@ -125,30 +148,35 @@ export function MonthlyConfirmationModal({
             return (
               <div
                 key={source.id}
-                className={`p-4 rounded-xl border transition-colors ${
+                className={cn(
+                  "p-4 rounded-xl border transition-all",
                   isConfirmed
                     ? 'border-emerald-500/30 bg-emerald-500/5'
                     : 'border-slate-700/50 bg-slate-800/30'
-                }`}
+                )}
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
+                      {isConfirmed ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-slate-500" />
+                      )}
                       <span className="font-medium text-slate-200 truncate">
                         {source.name}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        source.type === 'local'
-                          ? 'bg-sky-500/20 text-sky-300'
-                          : 'bg-purple-500/20 text-purple-300'
-                      }`}>
+                      <Badge
+                        variant={source.type === 'local' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
                         {source.type}
-                      </span>
+                      </Badge>
                       <span className="text-xs text-slate-500 font-mono">
                         {source.currency}
                       </span>
                     </div>
-                    <div className="text-sm text-slate-400">
+                    <div className="text-sm text-slate-400 ml-6">
                       Expected: <span className="font-mono text-amber-300">{currency?.symbol}{formatCurrency(expected, false)}</span>
                     </div>
                   </div>
@@ -156,33 +184,38 @@ export function MonthlyConfirmationModal({
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
                       <span className="text-slate-400 text-sm">{currency?.symbol}</span>
-                      <input
+                      <Input
                         type="number"
                         value={currentActual || ''}
                         onChange={(e) => handleValueChange(source.id, parseFloat(e.target.value) || 0)}
                         placeholder="0"
-                        className="w-28 px-3 py-2 rounded-lg text-slate-200 text-sm font-mono currency-input text-right"
+                        className="w-28 h-9 text-sm font-mono text-right"
                       />
                     </div>
 
                     {hasChanged ? (
-                      <button
+                      <Button
+                        size="sm"
                         onClick={() => handleSaveSource(source.id)}
-                        className="btn-primary px-3 py-2 rounded-lg text-xs font-medium text-white whitespace-nowrap"
+                        className="whitespace-nowrap"
                       >
+                        <Save className="h-3 w-3 mr-1" />
                         Save
-                      </button>
+                      </Button>
                     ) : isConfirmed ? (
-                      <span className="text-emerald-400 text-sm px-3 py-2">
-                        ✓
-                      </span>
+                      <div className="w-24 flex justify-center">
+                        <Check className="h-5 w-5 text-emerald-400" />
+                      </div>
                     ) : (
-                      <button
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleConfirmSource(source.id)}
-                        className="btn-primary px-3 py-2 rounded-lg text-xs font-medium text-white whitespace-nowrap"
+                        className="whitespace-nowrap"
                       >
+                        <Copy className="h-3 w-3 mr-1" />
                         Use Expected
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -191,9 +224,11 @@ export function MonthlyConfirmationModal({
           })}
         </div>
 
+        <Separator />
+
         {/* Totals */}
-        <div className="border-t border-slate-700/50 pt-4 mb-6">
-          <div className="flex justify-between text-sm mb-2">
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
             <span className="text-slate-400">Expected Total (Cg):</span>
             <span className="font-mono text-amber-300">{formatCurrency(getMonthlyTotalExpected())}</span>
           </div>
@@ -201,29 +236,44 @@ export function MonthlyConfirmationModal({
             <span className="text-slate-400">Actual Total (Cg):</span>
             <span className="font-mono text-emerald-300">{formatCurrency(getMonthlyTotalActual())}</span>
           </div>
+          {getMonthlyTotalExpected() !== getMonthlyTotalActual() && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">Difference:</span>
+              <span className={cn(
+                "font-mono",
+                getMonthlyTotalActual() >= getMonthlyTotalExpected()
+                  ? 'text-emerald-400'
+                  : 'text-red-400'
+              )}>
+                {getMonthlyTotalActual() >= getMonthlyTotalExpected() ? '+' : ''}
+                {formatCurrency(getMonthlyTotalActual() - getMonthlyTotalExpected())}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between gap-4">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-700/50 transition-colors"
-          >
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
             Close
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleConfirmAll}
             disabled={allConfirmed}
-            className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${
-              allConfirmed
-                ? 'bg-slate-600 cursor-not-allowed'
-                : 'btn-primary'
-            }`}
           >
-            {allConfirmed ? 'All Confirmed' : 'Confirm All as Expected'}
-          </button>
-        </div>
-      </div>
-    </div>
+            {allConfirmed ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                All Confirmed
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4 mr-2" />
+                Confirm All as Expected
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
