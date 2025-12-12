@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUpDown } from 'lucide-react';
 import { useRevenue } from '@/context/RevenueContext';
 import { BankTransactionTable } from '@/components/BankTransactionTable';
 import { TransactionMappingModal } from '@/components/TransactionMappingModal';
@@ -47,27 +45,17 @@ export function BankTransactionsPage() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ArrowUpDown className="h-5 w-5" />
-            Transactions
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <BankTransactionTable
-            year={config.year}
-            filters={{
-              account: search.account || 'all',
-              category: (search.category as TransactionCategory) || 'all',
-              mapped: search.mapped || 'all',
-              search: search.q || '',
-            }}
-            onFiltersChange={handleFilterChange}
-            onMapTransaction={(tx) => setSelectedTransaction(tx)}
-          />
-        </CardContent>
-      </Card>
+      <BankTransactionTable
+        year={config.year}
+        filters={{
+          account: search.account || 'all',
+          category: (search.category as TransactionCategory) || 'all',
+          mapped: search.mapped || 'all',
+          search: search.q || '',
+        }}
+        onFiltersChange={handleFilterChange}
+        onMapTransaction={(tx) => setSelectedTransaction(tx)}
+      />
 
       <TransactionMappingModal
         isOpen={!!selectedTransaction}

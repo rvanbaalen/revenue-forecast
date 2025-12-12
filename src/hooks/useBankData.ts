@@ -296,7 +296,61 @@ export function useBankData() {
       .map(t => ({
         ...t,
         revenueSourceId: sourceId,
+        transferAccountId: undefined,
         category: 'revenue' as TransactionCategory,
+        isReconciled: true,
+      }));
+
+    await db.updateBankTransactions(txnsToUpdate);
+    await loadData();
+  }, [transactions, loadData]);
+
+  const mapTransactionToTransfer = useCallback(async (
+    transactionId: number,
+    transferAccountId: number | undefined,
+    createRule?: { pattern: string; matchField: 'name' | 'memo' | 'both' }
+  ): Promise<void> => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+
+    // Update transaction
+    await db.updateBankTransaction({
+      ...transaction,
+      transferAccountId,
+      revenueSourceId: undefined,
+      category: 'transfer',
+      isReconciled: true,
+    });
+
+    // Create mapping rule if requested
+    if (createRule && transferAccountId) {
+      const maxPriority = Math.max(0, ...mappingRules.map(r => r.priority));
+      await db.addMappingRule({
+        accountId: transaction.accountId,
+        pattern: createRule.pattern,
+        matchField: createRule.matchField,
+        transferAccountId,
+        category: 'transfer',
+        isActive: true,
+        priority: maxPriority + 1,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    await loadData();
+  }, [transactions, mappingRules, loadData]);
+
+  const bulkMapToTransfer = useCallback(async (
+    transactionIds: number[],
+    transferAccountId: number
+  ): Promise<void> => {
+    const txnsToUpdate = transactions
+      .filter(t => transactionIds.includes(t.id))
+      .map(t => ({
+        ...t,
+        transferAccountId,
+        revenueSourceId: undefined,
+        category: 'transfer' as TransactionCategory,
         isReconciled: true,
       }));
 
@@ -351,7 +405,8 @@ export function useBankData() {
             updatedTransactions.push({
               ...tx,
               category: rule.category,
-              revenueSourceId: rule.revenueSourceId,
+              revenueSourceId: rule.category === 'revenue' ? rule.revenueSourceId : undefined,
+              transferAccountId: rule.category === 'transfer' ? rule.transferAccountId : undefined,
             });
             break;
           }
@@ -360,7 +415,8 @@ export function useBankData() {
             updatedTransactions.push({
               ...tx,
               category: rule.category,
-              revenueSourceId: rule.revenueSourceId,
+              revenueSourceId: rule.category === 'revenue' ? rule.revenueSourceId : undefined,
+              transferAccountId: rule.category === 'transfer' ? rule.transferAccountId : undefined,
             });
             break;
           }
@@ -536,8 +592,10 @@ export function useBankData() {
     updateTransactions,
     deleteTransaction,
     mapTransactionToSource,
+    mapTransactionToTransfer,
     bulkCategorize,
     bulkMapToSource,
+    bulkMapToTransfer,
 
     // Mapping rule operations
     addMappingRule,

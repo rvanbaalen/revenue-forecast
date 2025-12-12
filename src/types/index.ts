@@ -127,6 +127,7 @@ export interface BankTransaction {
 
   // Mapping fields
   revenueSourceId?: number;        // Linked revenue source (null = unmapped)
+  transferAccountId?: number;      // Linked transfer account (for transfers between accounts)
   month: Month;                    // Derived from datePosted
   year: number;                    // Year of transaction
   category: TransactionCategory;
@@ -186,6 +187,7 @@ export interface TransactionMappingRule {
   pattern: string;                 // Regex or simple match pattern
   matchField: 'name' | 'memo' | 'both';
   revenueSourceId?: number;        // Map to this source (if category is 'revenue')
+  transferAccountId?: number;      // Map to this account (if category is 'transfer')
   category: TransactionCategory;
   isActive: boolean;
   priority: number;                // Higher priority rules applied first

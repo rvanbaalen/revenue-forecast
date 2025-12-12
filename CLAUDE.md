@@ -57,3 +57,10 @@ src/
 - Use `useCallback` for functions passed to child components
 - Keep components under 200 lines when possible
 - Extract complex logic into custom hooks
+
+## UI Preferences
+
+- **Do NOT wrap content in Card components** unless explicitly requested
+- Tables and data lists should be rendered directly without Card wrappers
+- Keep the UI clean and minimal - avoid unnecessary visual containers
+- Use borders and spacing for visual separation instead of cards

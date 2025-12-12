@@ -32,6 +32,7 @@ import {
   Search,
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowLeftRight,
   Link2,
   Link2Off,
   ChevronLeft,
@@ -44,7 +45,6 @@ import {
 import type { BankTransaction, Month, TransactionCategory } from '@/types';
 import { useBank } from '@/context/BankContext';
 import { useRevenue } from '@/context/RevenueContext';
-import { formatCurrency } from '@/utils/format';
 
 interface TransactionFilters {
   account: string;
@@ -81,7 +81,7 @@ export function BankTransactionTable({
   onFiltersChange,
   onMapTransaction,
 }: BankTransactionTableProps) {
-  const { transactions, accounts, bulkCategorize, bulkMapToSource } = useBank();
+  const { transactions, accounts, bulkCategorize, bulkMapToSource, bulkMapToTransfer } = useBank();
   const { sources } = useRevenue();
 
   // Use controlled filters from props or internal state
@@ -123,9 +123,10 @@ export function BankTransactionTable({
       // Category filter
       if (categoryFilter !== 'all' && tx.category !== categoryFilter) return false;
 
-      // Mapped filter
-      if (mappedFilter === 'mapped' && !tx.revenueSourceId) return false;
-      if (mappedFilter === 'unmapped' && tx.revenueSourceId) return false;
+      // Mapped filter (consider both revenue sources and transfer accounts as "mapped")
+      const isMapped = tx.revenueSourceId || tx.transferAccountId;
+      if (mappedFilter === 'mapped' && !isMapped) return false;
+      if (mappedFilter === 'unmapped' && isMapped) return false;
 
       // Search filter
       if (searchQuery) {
@@ -142,6 +143,11 @@ export function BankTransactionTable({
   const getSourceName = (id?: number) => {
     if (!id) return null;
     return sources.find(s => s.id === id)?.name || 'Unknown Source';
+  };
+
+  const getAccountName = (id?: number) => {
+    if (!id) return null;
+    return accounts.find(a => a.id === id)?.name || 'Unknown Account';
   };
 
   const formatDate = (dateStr: string) => {
@@ -226,6 +232,14 @@ export function BankTransactionTable({
             </div>
           );
         }
+        if (tx.transferAccountId) {
+          return (
+            <div className="flex items-center gap-1 text-sm">
+              <ArrowLeftRight className="h-3 w-3 text-blue-500" />
+              <span className="text-foreground">{getAccountName(tx.transferAccountId)}</span>
+            </div>
+          );
+        }
         if (tx.category === 'revenue') {
           return (
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -234,11 +248,19 @@ export function BankTransactionTable({
             </div>
           );
         }
+        if (tx.category === 'transfer') {
+          return (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <ArrowLeftRight className="h-3 w-3" />
+              <span>Not linked</span>
+            </div>
+          );
+        }
         return <span className="text-sm text-muted-foreground">-</span>;
       },
       sortingFn: (rowA, rowB) => {
-        const nameA = getSourceName(rowA.original.revenueSourceId) || '';
-        const nameB = getSourceName(rowB.original.revenueSourceId) || '';
+        const nameA = getSourceName(rowA.original.revenueSourceId) || getAccountName(rowA.original.transferAccountId) || '';
+        const nameB = getSourceName(rowB.original.revenueSourceId) || getAccountName(rowB.original.transferAccountId) || '';
         return nameA.localeCompare(nameB);
       },
     },
@@ -247,12 +269,16 @@ export function BankTransactionTable({
       header: 'Amount',
       cell: ({ row }) => {
         const amount = row.original.amount;
+        const formatted = amount.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
         return (
           <span className={cn(
             "font-mono font-medium",
             amount >= 0 ? "variance-positive" : "variance-negative"
           )}>
-            {amount >= 0 ? '+' : ''}{formatCurrency(amount, false)}
+            {amount >= 0 ? '+' : ''}{formatted}
           </span>
         );
       },
@@ -326,6 +352,11 @@ export function BankTransactionTable({
 
   const handleBulkMapToSource = async (sourceId: number) => {
     await bulkMapToSource(Array.from(selectedIds), sourceId);
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkMapToTransfer = async (transferAccountId: number) => {
+    await bulkMapToTransfer(Array.from(selectedIds), transferAccountId);
     setSelectedIds(new Set());
   };
 
@@ -444,6 +475,18 @@ export function BankTransactionTable({
               {sources.map(source => (
                 <SelectItem key={source.id} value={source.id.toString()}>
                   {source.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select onValueChange={(v) => handleBulkMapToTransfer(parseInt(v))}>
+            <SelectTrigger className="w-[180px] h-8">
+              <SelectValue placeholder="Link Transfer" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map(account => (
+                <SelectItem key={account.id} value={account.id.toString()}>
+                  {account.name}
                 </SelectItem>
               ))}
             </SelectContent>
