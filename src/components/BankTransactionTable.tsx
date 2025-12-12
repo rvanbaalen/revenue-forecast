@@ -44,6 +44,7 @@ import {
 import type { BankTransaction, Month, TransactionFlowType } from '@/types';
 import { useBank } from '@/context/BankContext';
 import { useAccountingContext } from '@/context/AccountingContext';
+import { CategorySelect } from '@/components/CategorySelect';
 
 interface TransactionFilters {
   account: string;
@@ -505,18 +506,12 @@ export function BankTransactionTable({
                 Clear
               </Button>
               <div className="h-4 w-px bg-border" />
-              <Select onValueChange={(v) => handleBulkMapToExpense(v)}>
-                <SelectTrigger className="w-[180px] h-8">
-                  <SelectValue placeholder="Set Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {assignableCategories.map(account => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategorySelect
+                value=""
+                onValueChange={(v) => handleBulkMapToExpense(v)}
+                placeholder="Set Category"
+                className="w-[200px] h-8"
+              />
               <Select onValueChange={(v) => handleBulkMapToTransfer(parseInt(v))}>
                 <SelectTrigger className="w-[160px] h-8">
                   <SelectValue placeholder="Mark as Transfer" />

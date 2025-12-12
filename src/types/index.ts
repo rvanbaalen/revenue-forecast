@@ -340,6 +340,8 @@ export const DEFAULT_CHART_OF_ACCOUNTS: Omit<ChartAccount, 'createdAt' | 'update
   { id: '2000', code: '2000', name: 'Liabilities', type: 'LIABILITY', isSystem: true, isActive: true },
   { id: '2100', code: '2100', name: 'Credit Cards', type: 'LIABILITY', parentId: '2000', subtype: 'Credit Card', isSystem: true, isActive: true },
   { id: '2110', code: '2110', name: 'Credit Card', type: 'LIABILITY', parentId: '2100', subtype: 'Credit Card', isSystem: false, isActive: true },
+  { id: '2200', code: '2200', name: 'Tax Liabilities', type: 'LIABILITY', parentId: '2000', isSystem: true, isActive: true },
+  { id: '2210', code: '2210', name: 'VAT Payable', type: 'LIABILITY', parentId: '2200', isSystem: false, isActive: true },
 
   // EQUITY (3000s)
   { id: '3000', code: '3000', name: 'Equity', type: 'EQUITY', isSystem: true, isActive: true },
@@ -393,6 +395,11 @@ export const DEFAULT_CHART_OF_ACCOUNTS: Omit<ChartAccount, 'createdAt' | 'update
 
   // Cost of Goods Sold (5700s)
   { id: '5700', code: '5700', name: 'Cost of Goods Sold', type: 'EXPENSE', parentId: '5000', subtype: 'COGS', isSystem: true, isActive: true },
+
+  // Taxes (5800s)
+  { id: '5800', code: '5800', name: 'Taxes', type: 'EXPENSE', parentId: '5000', subtype: 'Tax', isSystem: true, isActive: true },
+  { id: '5810', code: '5810', name: 'VAT Expense', type: 'EXPENSE', parentId: '5800', subtype: 'Tax', isSystem: false, isActive: true },
+  { id: '5820', code: '5820', name: 'Corporate Tax', type: 'EXPENSE', parentId: '5800', subtype: 'Tax', isSystem: false, isActive: true },
 
   // Other Expenses (5900s)
   { id: '5900', code: '5900', name: 'Other Expenses', type: 'EXPENSE', parentId: '5000', isSystem: true, isActive: true },

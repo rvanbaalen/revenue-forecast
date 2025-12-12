@@ -26,8 +26,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Calendar,
-  TrendingUp,
-  TrendingDown,
   ArrowLeftRight,
 } from 'lucide-react';
 import type { BankTransaction } from '@/types';
@@ -36,6 +34,7 @@ import { useRevenue } from '@/context/RevenueContext';
 import { useAccountingContext } from '@/context/AccountingContext';
 import { formatCurrency } from '@/utils/format';
 import { MONTH_LABELS } from '@/types';
+import { CategorySelect } from '@/components/CategorySelect';
 
 interface TransactionMappingModalProps {
   isOpen: boolean;
@@ -60,13 +59,6 @@ export function TransactionMappingModal({
   const [rulePattern, setRulePattern] = useState('');
   const [matchField, setMatchField] = useState<'name' | 'memo' | 'both'>('name');
   const [isSaving, setIsSaving] = useState(false);
-
-  // Get all assignable categories (revenue + expense accounts from chart of accounts)
-  const assignableCategories = chartAccounts.filter(a =>
-    (a.type === 'REVENUE' || a.type === 'EXPENSE') &&
-    a.isActive &&
-    !a.parentId?.match(/^[1-5]000$/) // Exclude top-level parent accounts
-  );
 
   // Determine default tab based on transaction type
   useEffect(() => {
@@ -112,7 +104,7 @@ export function TransactionMappingModal({
 
       if (selectedTab === 'category' && selectedCategoryId) {
         // Determine category type based on chart account
-        const chartAccount = assignableCategories.find(a => a.id === selectedCategoryId);
+        const chartAccount = chartAccounts.find(a => a.id === selectedCategoryId);
         const categoryType = chartAccount?.type === 'REVENUE' ? 'revenue' : 'expense';
 
         // Update transaction with chart account category
@@ -281,59 +273,15 @@ export function TransactionMappingModal({
           <TabsContent value="category" className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {/* Revenue categories */}
-                  {assignableCategories.filter(a => a.type === 'REVENUE').length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" />
-                        Revenue Categories
-                      </div>
-                      {assignableCategories
-                        .filter(a => a.type === 'REVENUE')
-                        .map(account => (
-                          <SelectItem key={account.id} value={account.id}>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs text-muted-foreground">
-                                {account.code}
-                              </span>
-                              <span>{account.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                    </>
-                  )}
-                  {/* Expense categories */}
-                  {assignableCategories.filter(a => a.type === 'EXPENSE').length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                        <TrendingDown className="h-3 w-3" />
-                        Expense Categories
-                      </div>
-                      {assignableCategories
-                        .filter(a => a.type === 'EXPENSE')
-                        .map(account => (
-                          <SelectItem key={account.id} value={account.id}>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs text-muted-foreground">
-                                {account.code}
-                              </span>
-                              <span>{account.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+              <CategorySelect
+                value={selectedCategoryId}
+                onValueChange={setSelectedCategoryId}
+                placeholder="Select a category"
+              />
             </div>
 
             {/* Optional revenue source linking */}
-            {assignableCategories.find(a => a.id === selectedCategoryId)?.type === 'REVENUE' && sources.length > 0 && (
+            {chartAccounts.find(a => a.id === selectedCategoryId)?.type === 'REVENUE' && sources.length > 0 && (
               <div className="space-y-2">
                 <Label htmlFor="source">Link to Revenue Source (optional)</Label>
                 <Select value={selectedSourceId || 'none'} onValueChange={(v) => setSelectedSourceId(v === 'none' ? '' : v)}>
