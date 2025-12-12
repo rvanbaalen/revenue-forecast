@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.1.0...v1.2.0) (2025-12-12)
+
+
+### Features
+
+* Add time awareness and migrate to shadcn/ui ([#14](https://github.com/rvanbaalen/revenue-forecast/issues/14)) ([c0dc174](https://github.com/rvanbaalen/revenue-forecast/commit/c0dc174fcfa38aa7f710032be9179dfe53eec9a0))
+
 ## [1.1.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.0.2...v1.1.0) (2025-12-11)
 
 
