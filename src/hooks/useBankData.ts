@@ -132,8 +132,18 @@ export function useBankData() {
 
         const { month, year } = extractMonthYear(tx.datePosted);
 
-        // Apply mapping rules
-        let category: TransactionCategory = tx.amount >= 0 ? 'revenue' : 'expense';
+        // Determine default category based on account type and amount
+        // For credit cards: positive = payment (transfer), negative = purchase (expense)
+        // For checking/savings: positive = income (revenue), negative = expense
+        const isCreditCard = account.accountType === 'CREDITCARD' || account.accountType === 'CREDITLINE';
+        let category: TransactionCategory;
+        if (isCreditCard) {
+          // Credit card: positive amounts are payments TO the card (transfer), negative are purchases (expense)
+          category = tx.amount >= 0 ? 'transfer' : 'expense';
+        } else {
+          // Checking/Savings: positive amounts are income (revenue), negative are expenses
+          category = tx.amount >= 0 ? 'revenue' : 'expense';
+        }
         let revenueSourceId: number | undefined;
         let chartAccountId: string | undefined;
         let transferAccountId: number | undefined;

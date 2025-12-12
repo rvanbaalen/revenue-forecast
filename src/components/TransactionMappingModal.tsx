@@ -71,8 +71,8 @@ export function TransactionMappingModal({
       const isCreditCard = bankAccount?.accountType === 'CREDITCARD' || bankAccount?.accountType === 'CREDITLINE';
 
       if (isCreditCard) {
-        // For credit cards: positive amount = charge (expense), negative = payment (transfer)
-        setSelectedTab(transaction.amount > 0 ? 'expense' : 'transfer');
+        // For credit cards: positive amount = payment (transfer), negative = charge (expense)
+        setSelectedTab(transaction.amount >= 0 ? 'transfer' : 'expense');
       } else {
         // For checking: positive = income (revenue), negative = spending (expense)
         setSelectedTab(transaction.amount >= 0 ? 'revenue' : 'expense');
