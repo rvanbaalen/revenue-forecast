@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -46,13 +46,20 @@ import { useBank } from '@/context/BankContext';
 import { useRevenue } from '@/context/RevenueContext';
 import { formatCurrency } from '@/utils/format';
 
+interface TransactionFilters {
+  account: string;
+  category: string;
+  mapped: string;
+  search: string;
+}
+
 interface BankTransactionTableProps {
   accountId?: number;
   year?: number;
   month?: Month;
   showFilters?: boolean;
-  initialAccountFilter?: string;
-  onAccountFilterChange?: (accountId: string) => void;
+  filters?: Partial<TransactionFilters>;
+  onFiltersChange?: (filters: Partial<TransactionFilters>) => void;
   onMapTransaction?: (transaction: BankTransaction) => void;
 }
 
@@ -70,28 +77,32 @@ export function BankTransactionTable({
   year,
   month,
   showFilters = true,
-  initialAccountFilter,
-  onAccountFilterChange,
+  filters,
+  onFiltersChange,
   onMapTransaction,
 }: BankTransactionTableProps) {
   const { transactions, accounts, bulkCategorize, bulkMapToSource } = useBank();
   const { sources } = useRevenue();
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [mappedFilter, setMappedFilter] = useState<string>('all');
-  const [accountFilter, setAccountFilter] = useState<string>(
-    initialAccountFilter || accountId?.toString() || 'all'
-  );
+  // Use controlled filters from props or internal state
+  const accountFilter = filters?.account || accountId?.toString() || 'all';
+  const categoryFilter = filters?.category || 'all';
+  const mappedFilter = filters?.mapped || 'all';
+  const searchQuery = filters?.search || '';
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // Sync with initialAccountFilter prop changes
-  useEffect(() => {
-    if (initialAccountFilter) {
-      setAccountFilter(initialAccountFilter);
+  // Helper to update filters
+  const updateFilters = (updates: Partial<TransactionFilters>) => {
+    if (onFiltersChange) {
+      onFiltersChange({
+        account: accountFilter,
+        category: categoryFilter,
+        mapped: mappedFilter,
+        search: searchQuery,
+        ...updates,
+      });
     }
-  }, [initialAccountFilter]);
+  };
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([
@@ -331,14 +342,14 @@ export function BankTransactionTable({
               placeholder="Search transactions..."
               value={searchQuery}
               onChange={(e) => {
-                setSearchQuery(e.target.value);
+                updateFilters({ search: e.target.value });
                 table.setPageIndex(0);
               }}
               className="pl-9"
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => updateFilters({ search: '' })}
                 className="absolute right-3 top-1/2 -translate-y-1/2"
               >
                 <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -348,9 +359,8 @@ export function BankTransactionTable({
 
           {!accountId && (
             <Select value={accountFilter} onValueChange={(v) => {
-              setAccountFilter(v);
+              updateFilters({ account: v });
               table.setPageIndex(0);
-              onAccountFilterChange?.(v);
             }}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Accounts" />
@@ -367,7 +377,7 @@ export function BankTransactionTable({
           )}
 
           <Select value={categoryFilter} onValueChange={(v) => {
-            setCategoryFilter(v);
+            updateFilters({ category: v });
             table.setPageIndex(0);
           }}>
             <SelectTrigger className="w-[140px]">
@@ -383,7 +393,7 @@ export function BankTransactionTable({
           </Select>
 
           <Select value={mappedFilter} onValueChange={(v) => {
-            setMappedFilter(v);
+            updateFilters({ mapped: v });
             table.setPageIndex(0);
           }}>
             <SelectTrigger className="w-[140px]">

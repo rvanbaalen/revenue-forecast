@@ -2,6 +2,7 @@ import {
   createRouter,
   createRootRoute,
   createRoute,
+  redirect,
   Outlet,
   Link,
   useRouterState,
@@ -14,7 +15,7 @@ import { ActualRevenuePage } from './pages/ActualRevenuePage';
 import { SalaryPage } from './pages/SalaryPage';
 import { ForecastPage } from './pages/ForecastPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { BankPage } from './pages/BankPage';
+import { BankLayout, BankAccountsPage, BankTransactionsPage, BankMappingRulesPage } from './pages/bank';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -135,7 +136,8 @@ function Sidebar() {
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = currentPath === item.path;
+          // Check for exact match or nested routes (e.g., /bank/*)
+          const isActive = currentPath === item.path || currentPath.startsWith(item.path + '/');
           return (
             <Link
               key={item.path}
@@ -270,19 +272,50 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
-interface BankSearchParams {
-  account?: string;
-}
-
+// Bank routes with nested structure
 const bankRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/bank',
-  component: BankPage,
-  validateSearch: (search: Record<string, unknown>): BankSearchParams => {
+  component: BankLayout,
+  beforeLoad: ({ location }) => {
+    // Redirect /bank to /bank/accounts
+    if (location.pathname === '/bank') {
+      throw redirect({ to: '/bank/accounts' });
+    }
+  },
+});
+
+const bankAccountsRoute = createRoute({
+  getParentRoute: () => bankRoute,
+  path: '/accounts',
+  component: BankAccountsPage,
+});
+
+interface BankTransactionsSearchParams {
+  account?: string;
+  category?: string;
+  mapped?: string;
+  q?: string;
+}
+
+const bankTransactionsRoute = createRoute({
+  getParentRoute: () => bankRoute,
+  path: '/transactions',
+  component: BankTransactionsPage,
+  validateSearch: (search: Record<string, unknown>): BankTransactionsSearchParams => {
     return {
       account: typeof search.account === 'string' ? search.account : undefined,
+      category: typeof search.category === 'string' ? search.category : undefined,
+      mapped: typeof search.mapped === 'string' ? search.mapped : undefined,
+      q: typeof search.q === 'string' ? search.q : undefined,
     };
   },
+});
+
+const bankMappingRoute = createRoute({
+  getParentRoute: () => bankRoute,
+  path: '/transactions/mapping',
+  component: BankMappingRulesPage,
 });
 
 // Create route tree
@@ -290,7 +323,11 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   expectedRoute,
   actualRoute,
-  bankRoute,
+  bankRoute.addChildren([
+    bankAccountsRoute,
+    bankTransactionsRoute,
+    bankMappingRoute,
+  ]),
   salaryRoute,
   forecastRoute,
   settingsRoute,
