@@ -48,7 +48,7 @@ export function TransactionMappingModal({
   transaction,
   onClose,
 }: TransactionMappingModalProps) {
-  const { mapTransactionToSource, mapTransactionToTransfer, updateTransaction, accounts } = useBank();
+  const { mapTransactionToSource, mapTransactionToTransfer, updateTransaction, accounts, addMappingRule, mappingRules } = useBank();
   const { sources } = useRevenue();
   const { getExpenseAccounts, getChartAccountForBankAccount, createJournalEntryFromTransaction } = useAccountingContext();
 
@@ -121,6 +121,21 @@ export function TransactionMappingModal({
           transferAccountId: undefined,
           isReconciled: true,
         });
+
+        // Create mapping rule if requested
+        if (createRule && rulePattern) {
+          const maxPriority = Math.max(0, ...mappingRules.map(r => r.priority));
+          await addMappingRule({
+            accountId: transaction.accountId,
+            pattern: rulePattern,
+            matchField,
+            chartAccountId: selectedExpenseAccountId,
+            category: 'expense',
+            isActive: true,
+            priority: maxPriority + 1,
+            createdAt: new Date().toISOString(),
+          });
+        }
 
         // Create journal entry if we have a linked chart account for the bank
         if (bankChartAccount) {
@@ -348,7 +363,7 @@ export function TransactionMappingModal({
         </Tabs>
 
         {/* Create mapping rule option */}
-        {(selectedTab === 'revenue' || selectedTab === 'expense') && (
+        {(selectedTab === 'revenue' || selectedTab === 'expense' || selectedTab === 'transfer') && (
           <div className="space-y-3 pt-2">
             <div className="flex items-center gap-2">
               <input

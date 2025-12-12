@@ -377,6 +377,25 @@ export function useBankData() {
     await loadData();
   }, [transactions, loadData]);
 
+  const bulkMapToExpense = useCallback(async (
+    transactionIds: number[],
+    chartAccountId: string
+  ): Promise<void> => {
+    const txnsToUpdate = transactions
+      .filter(t => transactionIds.includes(t.id))
+      .map(t => ({
+        ...t,
+        chartAccountId,
+        revenueSourceId: undefined,
+        transferAccountId: undefined,
+        category: 'expense' as TransactionCategory,
+        isReconciled: true,
+      }));
+
+    await db.updateBankTransactions(txnsToUpdate);
+    await loadData();
+  }, [transactions, loadData]);
+
   // ============================================
   // Mapping Rule Operations
   // ============================================
@@ -617,6 +636,7 @@ export function useBankData() {
     bulkCategorize,
     bulkMapToSource,
     bulkMapToTransfer,
+    bulkMapToExpense,
 
     // Mapping rule operations
     addMappingRule,

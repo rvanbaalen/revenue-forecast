@@ -82,7 +82,7 @@ export function BankTransactionTable({
   onFiltersChange,
   onMapTransaction,
 }: BankTransactionTableProps) {
-  const { transactions, accounts, bulkCategorize, bulkMapToSource, bulkMapToTransfer } = useBank();
+  const { transactions, accounts, bulkCategorize, bulkMapToSource, bulkMapToTransfer, bulkMapToExpense } = useBank();
   const { sources } = useRevenue();
   const { getAccountById } = useAccountingContext();
 
@@ -312,22 +312,24 @@ export function BankTransactionTable({
       header: '',
       cell: ({ row }: { row: { original: BankTransaction } }) => {
         const tx = row.original;
-        if (tx.category === 'revenue' && !tx.revenueSourceId) {
-          return (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMapTransaction(tx);
-              }}
-            >
-              Map
-            </Button>
-          );
-        }
-        return null;
+        // Show categorize button for all transactions - allows re-categorization
+        const isUncategorized = !tx.revenueSourceId && !tx.chartAccountId && !tx.transferAccountId && tx.category !== 'ignore';
+        return (
+          <Button
+            size="sm"
+            variant={isUncategorized ? "default" : "ghost"}
+            className={cn(
+              "h-7 text-xs",
+              !isUncategorized && "opacity-0 group-hover:opacity-100 transition-opacity"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMapTransaction(tx);
+            }}
+          >
+            {isUncategorized ? 'Categorize' : 'Edit'}
+          </Button>
+        );
       },
       enableSorting: false,
     } as ColumnDef<BankTransaction>] : []),
@@ -383,6 +385,15 @@ export function BankTransactionTable({
     await bulkMapToTransfer(Array.from(selectedIds), transferAccountId);
     setSelectedIds(new Set());
   };
+
+  const handleBulkMapToExpense = async (chartAccountId: string) => {
+    await bulkMapToExpense(Array.from(selectedIds), chartAccountId);
+    setSelectedIds(new Set());
+  };
+
+  // Get expense accounts from accounting context
+  const { getExpenseAccounts } = useAccountingContext();
+  const expenseAccounts = getExpenseAccounts();
 
   const pageRows = table.getRowModel().rows;
 
@@ -467,56 +478,77 @@ export function BankTransactionTable({
         </div>
       )}
 
-      {/* Bulk actions */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-          <span className="text-sm font-medium">
-            {selectedIds.size} selected
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSelectedIds(new Set())}
-          >
-            Clear
-          </Button>
-          <Select onValueChange={(v) => handleBulkCategorize(v as TransactionCategory)}>
-            <SelectTrigger className="w-[140px] h-8">
-              <SelectValue placeholder="Set Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="revenue">Revenue</SelectItem>
-              <SelectItem value="expense">Expense</SelectItem>
-              <SelectItem value="transfer">Transfer</SelectItem>
-              <SelectItem value="ignore">Ignore</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select onValueChange={(v) => handleBulkMapToSource(parseInt(v))}>
-            <SelectTrigger className="w-[180px] h-8">
-              <SelectValue placeholder="Map to Source" />
-            </SelectTrigger>
-            <SelectContent>
-              {sources.map(source => (
-                <SelectItem key={source.id} value={source.id.toString()}>
-                  {source.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select onValueChange={(v) => handleBulkMapToTransfer(parseInt(v))}>
-            <SelectTrigger className="w-[180px] h-8">
-              <SelectValue placeholder="Link Transfer" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map(account => (
-                <SelectItem key={account.id} value={account.id.toString()}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Fixed bulk actions bar at bottom */}
+      <div className={cn(
+        "fixed bottom-0 left-0 right-0 z-50 transform transition-transform duration-200 ease-out",
+        selectedIds.size > 0 ? "translate-y-0" : "translate-y-full"
+      )}>
+        <div className="bg-background border-t border-border shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm font-medium">
+                {selectedIds.size} selected
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
+              <div className="h-4 w-px bg-border" />
+              <Select onValueChange={(v) => handleBulkCategorize(v as TransactionCategory)}>
+                <SelectTrigger className="w-[140px] h-8">
+                  <SelectValue placeholder="Set Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="revenue">Revenue</SelectItem>
+                  <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="transfer">Transfer</SelectItem>
+                  <SelectItem value="ignore">Ignore</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select onValueChange={(v) => handleBulkMapToSource(parseInt(v))}>
+                <SelectTrigger className="w-[160px] h-8">
+                  <SelectValue placeholder="Revenue Source" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sources.map(source => (
+                    <SelectItem key={source.id} value={source.id.toString()}>
+                      {source.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={(v) => handleBulkMapToExpense(v)}>
+                <SelectTrigger className="w-[160px] h-8">
+                  <SelectValue placeholder="Expense Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {expenseAccounts.map(account => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={(v) => handleBulkMapToTransfer(parseInt(v))}>
+                <SelectTrigger className="w-[160px] h-8">
+                  <SelectValue placeholder="Transfer To" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map(account => (
+                    <SelectItem key={account.id} value={account.id.toString()}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Table */}
       <div className="border border-border rounded-lg overflow-hidden">
@@ -592,6 +624,7 @@ export function BankTransactionTable({
                     selectedIds.has(row.original.id) && "bg-primary/5"
                   )}
                   onClick={() => toggleSelection(row.original.id)}
+                  onDoubleClick={() => onMapTransaction?.(row.original)}
                 >
                   {row.getVisibleCells().map(cell => (
                     <TableCell
