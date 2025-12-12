@@ -135,6 +135,8 @@ export function useBankData() {
         // Apply mapping rules
         let category: TransactionCategory = tx.amount >= 0 ? 'revenue' : 'expense';
         let revenueSourceId: number | undefined;
+        let chartAccountId: string | undefined;
+        let transferAccountId: number | undefined;
 
         for (const rule of applicableRules) {
           const textToMatch = rule.matchField === 'name' ? tx.name :
@@ -145,14 +147,18 @@ export function useBankData() {
             const regex = new RegExp(rule.pattern, 'i');
             if (regex.test(textToMatch)) {
               category = rule.category;
-              revenueSourceId = rule.revenueSourceId;
+              revenueSourceId = rule.category === 'revenue' ? rule.revenueSourceId : undefined;
+              chartAccountId = rule.category === 'expense' ? rule.chartAccountId : undefined;
+              transferAccountId = rule.category === 'transfer' ? rule.transferAccountId : undefined;
               break;
             }
           } catch {
             // Invalid regex, try simple string match
             if (textToMatch.toLowerCase().includes(rule.pattern.toLowerCase())) {
               category = rule.category;
-              revenueSourceId = rule.revenueSourceId;
+              revenueSourceId = rule.category === 'revenue' ? rule.revenueSourceId : undefined;
+              chartAccountId = rule.category === 'expense' ? rule.chartAccountId : undefined;
+              transferAccountId = rule.category === 'transfer' ? rule.transferAccountId : undefined;
               break;
             }
           }
@@ -172,6 +178,8 @@ export function useBankData() {
           year,
           category,
           revenueSourceId,
+          chartAccountId,
+          transferAccountId,
           isReconciled: false,
           importedAt,
           importBatchId,
@@ -407,6 +415,7 @@ export function useBankData() {
               category: rule.category,
               revenueSourceId: rule.category === 'revenue' ? rule.revenueSourceId : undefined,
               transferAccountId: rule.category === 'transfer' ? rule.transferAccountId : undefined,
+              chartAccountId: rule.category === 'expense' ? rule.chartAccountId : undefined,
             });
             break;
           }
@@ -417,6 +426,7 @@ export function useBankData() {
               category: rule.category,
               revenueSourceId: rule.category === 'revenue' ? rule.revenueSourceId : undefined,
               transferAccountId: rule.category === 'transfer' ? rule.transferAccountId : undefined,
+              chartAccountId: rule.category === 'expense' ? rule.chartAccountId : undefined,
             });
             break;
           }

@@ -45,6 +45,7 @@ import {
 import type { BankTransaction, Month, TransactionCategory } from '@/types';
 import { useBank } from '@/context/BankContext';
 import { useRevenue } from '@/context/RevenueContext';
+import { useAccountingContext } from '@/context/AccountingContext';
 
 interface TransactionFilters {
   account: string;
@@ -83,6 +84,7 @@ export function BankTransactionTable({
 }: BankTransactionTableProps) {
   const { transactions, accounts, bulkCategorize, bulkMapToSource, bulkMapToTransfer } = useBank();
   const { sources } = useRevenue();
+  const { getAccountById } = useAccountingContext();
 
   // Use controlled filters from props or internal state
   const accountFilter = filters?.account || accountId?.toString() || 'all';
@@ -123,8 +125,8 @@ export function BankTransactionTable({
       // Category filter
       if (categoryFilter !== 'all' && tx.category !== categoryFilter) return false;
 
-      // Mapped filter (consider both revenue sources and transfer accounts as "mapped")
-      const isMapped = tx.revenueSourceId || tx.transferAccountId;
+      // Mapped filter (consider revenue sources, chart accounts, and transfer accounts as "mapped")
+      const isMapped = tx.revenueSourceId || tx.chartAccountId || tx.transferAccountId;
       if (mappedFilter === 'mapped' && !isMapped) return false;
       if (mappedFilter === 'unmapped' && isMapped) return false;
 
@@ -148,6 +150,12 @@ export function BankTransactionTable({
   const getAccountName = (id?: number) => {
     if (!id) return null;
     return accounts.find(a => a.id === id)?.name || 'Unknown Account';
+  };
+
+  const getChartAccountName = (chartAccountId?: string) => {
+    if (!chartAccountId) return null;
+    const account = getAccountById(chartAccountId);
+    return account?.name || 'Unknown Category';
   };
 
   const formatDate = (dateStr: string) => {
@@ -227,8 +235,16 @@ export function BankTransactionTable({
         if (tx.revenueSourceId) {
           return (
             <div className="flex items-center gap-1 text-sm">
-              <Link2 className="h-3 w-3 text-muted-foreground" />
+              <Link2 className="h-3 w-3 text-green-500" />
               <span className="text-foreground">{getSourceName(tx.revenueSourceId)}</span>
+            </div>
+          );
+        }
+        if (tx.chartAccountId) {
+          return (
+            <div className="flex items-center gap-1 text-sm">
+              <ArrowUpRight className="h-3 w-3 text-red-500" />
+              <span className="text-foreground">{getChartAccountName(tx.chartAccountId)}</span>
             </div>
           );
         }
@@ -248,6 +264,14 @@ export function BankTransactionTable({
             </div>
           );
         }
+        if (tx.category === 'expense') {
+          return (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <ArrowUpRight className="h-3 w-3" />
+              <span>Not categorized</span>
+            </div>
+          );
+        }
         if (tx.category === 'transfer') {
           return (
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -259,8 +283,8 @@ export function BankTransactionTable({
         return <span className="text-sm text-muted-foreground">-</span>;
       },
       sortingFn: (rowA, rowB) => {
-        const nameA = getSourceName(rowA.original.revenueSourceId) || getAccountName(rowA.original.transferAccountId) || '';
-        const nameB = getSourceName(rowB.original.revenueSourceId) || getAccountName(rowB.original.transferAccountId) || '';
+        const nameA = getSourceName(rowA.original.revenueSourceId) || getChartAccountName(rowA.original.chartAccountId) || getAccountName(rowA.original.transferAccountId) || '';
+        const nameB = getSourceName(rowB.original.revenueSourceId) || getChartAccountName(rowB.original.chartAccountId) || getAccountName(rowB.original.transferAccountId) || '';
         return nameA.localeCompare(nameB);
       },
     },
@@ -307,7 +331,7 @@ export function BankTransactionTable({
       },
       enableSorting: false,
     } as ColumnDef<BankTransaction>] : []),
-  ], [selectedIds, onMapTransaction, sources]);
+  ], [selectedIds, onMapTransaction, sources, getAccountById]);
 
   const table = useReactTable({
     data: filteredTransactions,

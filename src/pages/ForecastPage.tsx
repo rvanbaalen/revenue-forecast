@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useRevenue } from '../context/RevenueContext';
-import { MONTHS, MONTH_LABELS } from '../types';
+import { useAccountingContext } from '../context/AccountingContext';
+import { MONTHS, MONTH_LABELS, type Month } from '../types';
 import { formatCurrency } from '../utils/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -27,7 +29,7 @@ import {
   calculateGrowthRate,
   type ForecastMethod,
 } from '../utils/forecast';
-import { TrendingUp, TrendingDown, Minus, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, BarChart3, Wallet, Target } from 'lucide-react';
 
 const FORECAST_METHODS: { value: ForecastMethod; label: string; description: string }[] = [
   { value: 'simple', label: 'Simple Moving Average', description: 'Average of recent periods' },
@@ -38,10 +40,12 @@ const FORECAST_METHODS: { value: ForecastMethod; label: string; description: str
 
 export function ForecastPage() {
   const { config, sources, getSourceValue, getRate } = useRevenue();
+  const { getTotalExpenseBudget, getBalanceSheet } = useAccountingContext();
 
   const [method, setMethod] = useState<ForecastMethod>('weighted');
   const [forecastPeriods, setForecastPeriods] = useState(6);
   const [dataSource, setDataSource] = useState<'expected' | 'actual'>('actual');
+  const [includeExpenses, setIncludeExpenses] = useState(true);
 
   // Calculate monthly totals
   const monthlyData = useMemo(() => {
@@ -66,6 +70,71 @@ export function ForecastPage() {
     if (dataWithValues.length === 0) return [];
     return generateForecast(dataWithValues, forecastPeriods, method);
   }, [dataWithValues, forecastPeriods, method]);
+
+  // Calculate expense budgets for forecast periods
+  const expenseForecast = useMemo(() => {
+    // Get average monthly expense budget for future projections
+    const monthlyBudgets = MONTHS.map(m => getTotalExpenseBudget(m));
+    const avgExpenseBudget = monthlyBudgets.reduce((a, b) => a + b, 0) / 12;
+
+    // For forecast periods, use the corresponding month's budget if available,
+    // otherwise use average
+    return forecasts.map(f => {
+      const [, monthStr] = f.month.split('-');
+      const monthIndex = parseInt(monthStr) - 1;
+      const month = MONTHS[monthIndex % 12] as Month;
+      const budget = getTotalExpenseBudget(month);
+      return {
+        month: f.month,
+        expenses: budget > 0 ? budget : avgExpenseBudget,
+      };
+    });
+  }, [forecasts, getTotalExpenseBudget]);
+
+  // Calculate net income projections
+  const netIncomeProjections = useMemo(() => {
+    return forecasts.map((f, i) => ({
+      month: f.month,
+      revenue: f.predicted,
+      expenses: expenseForecast[i]?.expenses || 0,
+      netIncome: f.predicted - (expenseForecast[i]?.expenses || 0),
+    }));
+  }, [forecasts, expenseForecast]);
+
+  // Cash runway calculation
+  const runwayAnalysis = useMemo(() => {
+    const balanceSheet = getBalanceSheet();
+    const currentCash = balanceSheet.assets - balanceSheet.liabilities;
+
+    // Calculate cumulative cash position over forecast period
+    let cumulativeCash = currentCash;
+    const cashPositions = netIncomeProjections.map(p => {
+      cumulativeCash += p.netIncome;
+      return {
+        month: p.month,
+        cashPosition: cumulativeCash,
+      };
+    });
+
+    // Calculate average monthly net income
+    const avgMonthlyNet = netIncomeProjections.length > 0
+      ? netIncomeProjections.reduce((sum, p) => sum + p.netIncome, 0) / netIncomeProjections.length
+      : 0;
+
+    // Calculate runway
+    let runwayMonths: number | 'infinite' = 'infinite';
+    if (avgMonthlyNet < 0) {
+      runwayMonths = Math.floor(currentCash / Math.abs(avgMonthlyNet));
+    }
+
+    return {
+      currentCash,
+      avgMonthlyNet,
+      runwayMonths,
+      cashPositions,
+      finalCash: cashPositions.length > 0 ? cashPositions[cashPositions.length - 1].cashPosition : currentCash,
+    };
+  }, [netIncomeProjections, getBalanceSheet]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -123,7 +192,7 @@ export function ForecastPage() {
             <CardTitle className="text-base font-medium">Forecast Settings</CardTitle>
           </CardHeader>
           <CardContent className="py-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>Data Source</Label>
                 <Select value={dataSource} onValueChange={(v) => setDataSource(v as 'expected' | 'actual')}>
@@ -161,6 +230,19 @@ export function ForecastPage() {
                   min={1}
                   max={24}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Options</Label>
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox
+                    id="includeExpenses"
+                    checked={includeExpenses}
+                    onCheckedChange={(checked) => setIncludeExpenses(checked === true)}
+                  />
+                  <Label htmlFor="includeExpenses" className="cursor-pointer text-sm font-normal">
+                    Include expense budget
+                  </Label>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -315,38 +397,126 @@ export function ForecastPage() {
           </CardContent>
         </Card>
 
+        {/* Cash Runway Analysis */}
+        {includeExpenses && forecasts.length > 0 && (
+          <Card>
+            <CardHeader className="border-b py-4">
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <Wallet className="h-4 w-4" />
+                Cash Runway Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="py-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Current Cash Position</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {formatCurrency(runwayAnalysis.currentCash)}
+                  </p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Avg Monthly Net Income</p>
+                  <p className={cn(
+                    "text-xl font-bold",
+                    runwayAnalysis.avgMonthlyNet >= 0 ? "variance-positive" : "variance-negative"
+                  )}>
+                    {formatCurrency(runwayAnalysis.avgMonthlyNet)}
+                  </p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Cash Runway</p>
+                  <p className={cn(
+                    "text-xl font-bold",
+                    runwayAnalysis.runwayMonths === 'infinite' ? "variance-positive" : "text-foreground"
+                  )}>
+                    {runwayAnalysis.runwayMonths === 'infinite'
+                      ? 'Cash Positive'
+                      : `${runwayAnalysis.runwayMonths} months`}
+                  </p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Projected Cash ({forecastPeriods}mo)</p>
+                  <p className={cn(
+                    "text-xl font-bold",
+                    runwayAnalysis.finalCash >= 0 ? "variance-positive" : "variance-negative"
+                  )}>
+                    {formatCurrency(runwayAnalysis.finalCash)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Forecast Table */}
         {forecasts.length > 0 && (
           <Card>
             <CardHeader className="border-b py-4">
-              <CardTitle className="text-base font-medium">Forecast Details</CardTitle>
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Forecast Details
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-sm table-clean">
                 <thead>
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Month</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Predicted Revenue</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Revenue</th>
+                    {includeExpenses && (
+                      <>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">Expenses</th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">Net Income</th>
+                      </>
+                    )}
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Method</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {forecasts.map((f) => (
-                    <tr key={f.month}>
-                      <td className="px-4 py-3 text-foreground">{formatForecastMonth(f.month)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-foreground">
-                        {formatCurrency(f.predicted)}
+                  {netIncomeProjections.map((p, i) => (
+                    <tr key={p.month}>
+                      <td className="px-4 py-3 text-foreground">{formatForecastMonth(p.month)}</td>
+                      <td className="px-4 py-3 text-right font-mono variance-positive">
+                        {formatCurrency(p.revenue)}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground capitalize">{f.method}</td>
+                      {includeExpenses && (
+                        <>
+                          <td className="px-4 py-3 text-right font-mono variance-negative">
+                            {formatCurrency(p.expenses)}
+                          </td>
+                          <td className={cn(
+                            "px-4 py-3 text-right font-mono font-medium",
+                            p.netIncome >= 0 ? "variance-positive" : "variance-negative"
+                          )}>
+                            {formatCurrency(p.netIncome)}
+                          </td>
+                        </>
+                      )}
+                      <td className="px-4 py-3 text-muted-foreground capitalize">{forecasts[i]?.method}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted font-medium">
-                    <td className="px-4 py-3 text-foreground">Total Forecast</td>
-                    <td className="px-4 py-3 text-right font-mono text-foreground font-semibold">
-                      {formatCurrency(forecasts.reduce((sum, f) => sum + f.predicted, 0))}
+                    <td className="px-4 py-3 text-foreground">Total</td>
+                    <td className="px-4 py-3 text-right font-mono variance-positive font-semibold">
+                      {formatCurrency(netIncomeProjections.reduce((sum, p) => sum + p.revenue, 0))}
                     </td>
+                    {includeExpenses && (
+                      <>
+                        <td className="px-4 py-3 text-right font-mono variance-negative font-semibold">
+                          {formatCurrency(netIncomeProjections.reduce((sum, p) => sum + p.expenses, 0))}
+                        </td>
+                        <td className={cn(
+                          "px-4 py-3 text-right font-mono font-semibold",
+                          netIncomeProjections.reduce((sum, p) => sum + p.netIncome, 0) >= 0
+                            ? "variance-positive"
+                            : "variance-negative"
+                        )}>
+                          {formatCurrency(netIncomeProjections.reduce((sum, p) => sum + p.netIncome, 0))}
+                        </td>
+                      </>
+                    )}
                     <td></td>
                   </tr>
                 </tfoot>

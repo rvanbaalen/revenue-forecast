@@ -40,6 +40,7 @@ import {
 import type { TransactionMappingRule, TransactionCategory } from '@/types';
 import { useBank } from '@/context/BankContext';
 import { useRevenue } from '@/context/RevenueContext';
+import { useAccountingContext } from '@/context/AccountingContext';
 
 const CATEGORY_COLORS: Record<TransactionCategory, string> = {
   revenue: 'bg-green-500/10 text-green-600 border-green-500/20',
@@ -53,12 +54,16 @@ interface RuleFormData {
   matchField: 'name' | 'memo' | 'both';
   category: TransactionCategory;
   revenueSourceId?: number;
+  chartAccountId?: string;
   accountId?: number;
 }
 
 export function MappingRulesTable() {
   const { mappingRules, accounts, addMappingRule, updateMappingRule, deleteMappingRule, applyMappingRules } = useBank();
   const { sources } = useRevenue();
+  const { getExpenseAccounts, getAccountById } = useAccountingContext();
+
+  const expenseAccounts = getExpenseAccounts();
 
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [editingRule, setEditingRule] = useState<TransactionMappingRule | null>(null);
@@ -132,6 +137,7 @@ export function MappingRulesTable() {
       matchField: rule.matchField,
       category: rule.category,
       revenueSourceId: rule.revenueSourceId,
+      chartAccountId: rule.chartAccountId,
       accountId: rule.accountId,
     });
     setEditingRule(rule);
@@ -140,6 +146,12 @@ export function MappingRulesTable() {
   const getSourceName = (id?: number) => {
     if (!id) return null;
     return sources.find(s => s.id === id)?.name || 'Unknown';
+  };
+
+  const getChartAccountName = (chartAccountId?: string) => {
+    if (!chartAccountId) return null;
+    const account = getAccountById(chartAccountId);
+    return account?.name || 'Unknown';
   };
 
   const getAccountName = (id?: number) => {
@@ -237,8 +249,13 @@ export function MappingRulesTable() {
                   <TableCell>
                     {rule.revenueSourceId ? (
                       <div className="flex items-center gap-1 text-sm">
-                        <Link2 className="h-3 w-3 text-muted-foreground" />
+                        <Link2 className="h-3 w-3 text-green-500" />
                         {getSourceName(rule.revenueSourceId)}
+                      </div>
+                    ) : rule.chartAccountId ? (
+                      <div className="flex items-center gap-1 text-sm">
+                        <Link2 className="h-3 w-3 text-red-500" />
+                        {getChartAccountName(rule.chartAccountId)}
                       </div>
                     ) : (
                       <span className="text-sm text-muted-foreground">-</span>
@@ -351,7 +368,8 @@ export function MappingRulesTable() {
                   value={formData.revenueSourceId?.toString() || 'none'}
                   onValueChange={(v) => setFormData({
                     ...formData,
-                    revenueSourceId: v === 'none' ? undefined : parseInt(v)
+                    revenueSourceId: v === 'none' ? undefined : parseInt(v),
+                    chartAccountId: undefined,
                   })}
                 >
                   <SelectTrigger id="source">
@@ -362,6 +380,35 @@ export function MappingRulesTable() {
                     {sources.map(source => (
                       <SelectItem key={source.id} value={source.id.toString()}>
                         {source.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {formData.category === 'expense' && (
+              <div className="space-y-2">
+                <Label htmlFor="expenseCategory">Expense Category (Optional)</Label>
+                <Select
+                  value={formData.chartAccountId || 'none'}
+                  onValueChange={(v) => setFormData({
+                    ...formData,
+                    chartAccountId: v === 'none' ? undefined : v,
+                    revenueSourceId: undefined,
+                  })}
+                >
+                  <SelectTrigger id="expenseCategory">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No category (just categorize)</SelectItem>
+                    {expenseAccounts.map(account => (
+                      <SelectItem key={account.id} value={account.id}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-muted-foreground">{account.code}</span>
+                          <span>{account.name}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
