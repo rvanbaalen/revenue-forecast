@@ -9,6 +9,7 @@ import type {
   MonthlyBankSummary,
   Month,
   TransactionCategory,
+  RevenueSource,
 } from '../types';
 
 const MONTHS_ARRAY: Month[] = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -437,6 +438,59 @@ export function useBankData() {
     return MONTHS_ARRAY.map(month => getMonthlyBankSummary(year, month));
   }, [getMonthlyBankSummary]);
 
+  /**
+   * Sync mapped bank transactions to actual revenue data.
+   * This calculates the total for each source/month from bank transactions
+   * and updates the actual revenue data accordingly.
+   */
+  const syncBankToActual = useCallback(async (
+    year: number,
+    sources: RevenueSource[],
+    updateSourceRevenue: (id: number, month: Month, value: number, type: 'expected' | 'actual') => Promise<void>
+  ): Promise<{ sourcesUpdated: number; totalAmount: number }> => {
+    // Get all mapped revenue transactions for the year
+    const mappedTransactions = transactions.filter(
+      t => t.year === year &&
+           t.category === 'revenue' &&
+           t.revenueSourceId !== undefined
+    );
+
+    // Group by source and month
+    const totals: Record<number, Record<Month, number>> = {};
+
+    for (const tx of mappedTransactions) {
+      if (!tx.revenueSourceId) continue;
+
+      if (!totals[tx.revenueSourceId]) {
+        totals[tx.revenueSourceId] = {} as Record<Month, number>;
+      }
+
+      totals[tx.revenueSourceId][tx.month] =
+        (totals[tx.revenueSourceId][tx.month] || 0) + tx.amount;
+    }
+
+    // Update each source's actual data
+    let sourcesUpdated = 0;
+    let totalAmount = 0;
+
+    for (const source of sources) {
+      const sourceTotals = totals[source.id];
+      if (!sourceTotals) continue;
+
+      sourcesUpdated++;
+
+      for (const month of MONTHS_ARRAY) {
+        const amount = sourceTotals[month] || 0;
+        if (amount !== (source.actual[month] || 0)) {
+          totalAmount += amount;
+          await updateSourceRevenue(source.id, month, amount, 'actual');
+        }
+      }
+    }
+
+    return { sourcesUpdated, totalAmount };
+  }, [transactions]);
+
   // ============================================
   // Statistics
   // ============================================
@@ -495,6 +549,7 @@ export function useBankData() {
     getActualRevenueFromBank,
     getMonthlyBankSummary,
     getAllMonthlySummaries,
+    syncBankToActual,
 
     // Statistics
     getAccountStats,
