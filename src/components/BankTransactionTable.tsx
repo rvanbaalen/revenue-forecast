@@ -33,7 +33,6 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   ArrowLeftRight,
-  Link2,
   Link2Off,
   ChevronLeft,
   ChevronRight,
@@ -42,17 +41,25 @@ import {
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
-import type { BankTransaction, Month, TransactionCategory } from '@/types';
+import type { BankTransaction, Month, TransactionFlowType } from '@/types';
 import { useBank } from '@/context/BankContext';
-import { useRevenue } from '@/context/RevenueContext';
 import { useAccountingContext } from '@/context/AccountingContext';
 
 interface TransactionFilters {
   account: string;
-  category: string;
+  flowType: string;       // credit/debit/charge/payment or 'all'
+  category: string;       // chartAccountId or 'all' or 'uncategorized'
   mapped: string;
   search: string;
 }
+
+// Flow type labels and colors
+const FLOW_TYPE_CONFIG: Record<TransactionFlowType, { label: string; color: string }> = {
+  credit: { label: 'Credit', color: 'badge-success' },
+  debit: { label: 'Debit', color: 'bg-destructive/10 text-destructive border-destructive/20' },
+  charge: { label: 'Charge', color: 'badge-warning' },
+  payment: { label: 'Payment', color: 'badge-info' },
+};
 
 interface BankTransactionTableProps {
   accountId?: number;
@@ -63,13 +70,6 @@ interface BankTransactionTableProps {
   onFiltersChange?: (filters: Partial<TransactionFilters>) => void;
   onMapTransaction?: (transaction: BankTransaction) => void;
 }
-
-const CATEGORY_COLORS: Record<TransactionCategory, string> = {
-  revenue: 'badge-success',
-  expense: 'bg-destructive/10 text-destructive border-destructive/20',
-  transfer: 'badge-info',
-  ignore: 'bg-muted text-muted-foreground border-border',
-};
 
 const PAGE_SIZE = 20;
 
@@ -82,12 +82,21 @@ export function BankTransactionTable({
   onFiltersChange,
   onMapTransaction,
 }: BankTransactionTableProps) {
-  const { transactions, accounts, bulkCategorize, bulkMapToSource, bulkMapToTransfer, bulkMapToExpense } = useBank();
-  const { sources } = useRevenue();
-  const { getAccountById } = useAccountingContext();
+  const { transactions, accounts, bulkMapToTransfer, bulkMapToExpense, bulkIgnore } = useBank();
+  const { getAccountById, chartAccounts } = useAccountingContext();
+
+  // Get all assignable categories (revenue + expense accounts)
+  const assignableCategories = useMemo(() => {
+    return chartAccounts.filter(a =>
+      (a.type === 'REVENUE' || a.type === 'EXPENSE') &&
+      a.isActive &&
+      !a.parentId?.match(/^[1-5]000$/) // Exclude top-level parent accounts
+    );
+  }, [chartAccounts]);
 
   // Use controlled filters from props or internal state
   const accountFilter = filters?.account || accountId?.toString() || 'all';
+  const flowTypeFilter = filters?.flowType || 'all';
   const categoryFilter = filters?.category || 'all';
   const mappedFilter = filters?.mapped || 'all';
   const searchQuery = filters?.search || '';
@@ -98,6 +107,7 @@ export function BankTransactionTable({
     if (onFiltersChange) {
       onFiltersChange({
         account: accountFilter,
+        flowType: flowTypeFilter,
         category: categoryFilter,
         mapped: mappedFilter,
         search: searchQuery,
@@ -122,11 +132,22 @@ export function BankTransactionTable({
       if (year && tx.year !== year) return false;
       if (month && tx.month !== month) return false;
 
-      // Category filter
-      if (categoryFilter !== 'all' && tx.category !== categoryFilter) return false;
+      // Flow type filter (credit/debit/charge/payment)
+      if (flowTypeFilter !== 'all' && tx.flowType !== flowTypeFilter) return false;
 
-      // Mapped filter (consider revenue sources, chart accounts, and transfer accounts as "mapped")
-      const isMapped = tx.revenueSourceId || tx.chartAccountId || tx.transferAccountId;
+      // Category filter (chart account)
+      if (categoryFilter === 'uncategorized') {
+        if (tx.chartAccountId || tx.transferAccountId || tx.isIgnored) return false;
+      } else if (categoryFilter === 'transfers') {
+        if (!tx.transferAccountId) return false;
+      } else if (categoryFilter === 'ignored') {
+        if (!tx.isIgnored) return false;
+      } else if (categoryFilter !== 'all') {
+        if (tx.chartAccountId !== categoryFilter) return false;
+      }
+
+      // Mapped filter (consider chart accounts and transfer accounts as "mapped")
+      const isMapped = tx.chartAccountId || tx.transferAccountId || tx.isIgnored;
       if (mappedFilter === 'mapped' && !isMapped) return false;
       if (mappedFilter === 'unmapped' && isMapped) return false;
 
@@ -140,22 +161,11 @@ export function BankTransactionTable({
 
       return true;
     });
-  }, [transactions, accountId, accountFilter, year, month, categoryFilter, mappedFilter, searchQuery]);
-
-  const getSourceName = (id?: number) => {
-    if (!id) return null;
-    return sources.find(s => s.id === id)?.name || 'Unknown Source';
-  };
+  }, [transactions, accountId, accountFilter, year, month, flowTypeFilter, categoryFilter, mappedFilter, searchQuery]);
 
   const getAccountName = (id?: number) => {
     if (!id) return null;
     return accounts.find(a => a.id === id)?.name || 'Unknown Account';
-  };
-
-  const getChartAccountName = (chartAccountId?: string) => {
-    if (!chartAccountId) return null;
-    const account = getAccountById(chartAccountId);
-    return account?.name || 'Unknown Category';
   };
 
   const formatDate = (dateStr: string) => {
@@ -216,76 +226,57 @@ export function BankTransactionTable({
       },
     },
     {
-      accessorKey: 'category',
-      header: 'Category',
-      cell: ({ row }) => (
-        <Badge
-          variant="outline"
-          className={cn("capitalize", CATEGORY_COLORS[row.original.category])}
-        >
-          {row.original.category}
-        </Badge>
-      ),
+      accessorKey: 'flowType',
+      header: 'Type',
+      cell: ({ row }) => {
+        const flowType = row.original.flowType;
+        const config = flowType ? FLOW_TYPE_CONFIG[flowType] : null;
+        return config ? (
+          <Badge variant="outline" className={config.color}>
+            {config.label}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
     },
     {
-      accessorKey: 'revenueSourceId',
-      header: 'Mapped To',
+      accessorKey: 'chartAccountId',
+      header: 'Category',
       cell: ({ row }) => {
         const tx = row.original;
-        if (tx.revenueSourceId) {
+        if (tx.isIgnored) {
           return (
-            <div className="flex items-center gap-1 text-sm">
-              <Link2 className="h-3 w-3 variance-positive" />
-              <span className="text-foreground">{getSourceName(tx.revenueSourceId)}</span>
-            </div>
+            <span className="text-sm text-muted-foreground italic">Ignored</span>
           );
         }
         if (tx.chartAccountId) {
+          const account = getAccountById(tx.chartAccountId);
           return (
-            <div className="flex items-center gap-1 text-sm">
-              <ArrowUpRight className="h-3 w-3 variance-negative" />
-              <span className="text-foreground">{getChartAccountName(tx.chartAccountId)}</span>
-            </div>
+            <span className="text-sm text-foreground">{account?.name || 'Unknown'}</span>
           );
         }
         if (tx.transferAccountId) {
           return (
             <div className="flex items-center gap-1 text-sm">
               <ArrowLeftRight className="h-3 w-3 text-info" />
-              <span className="text-foreground">{getAccountName(tx.transferAccountId)}</span>
+              <span className="text-foreground">Transfer: {getAccountName(tx.transferAccountId)}</span>
             </div>
           );
         }
-        if (tx.category === 'revenue') {
-          return (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Link2Off className="h-3 w-3" />
-              <span>Not mapped</span>
-            </div>
-          );
-        }
-        if (tx.category === 'expense') {
-          return (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <ArrowUpRight className="h-3 w-3" />
-              <span>Not categorized</span>
-            </div>
-          );
-        }
-        if (tx.category === 'transfer') {
-          return (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <ArrowLeftRight className="h-3 w-3" />
-              <span>Not linked</span>
-            </div>
-          );
-        }
-        return <span className="text-sm text-muted-foreground">-</span>;
+        // Uncategorized
+        return (
+          <span className="text-sm text-muted-foreground italic">Uncategorized</span>
+        );
       },
       sortingFn: (rowA, rowB) => {
-        const nameA = getSourceName(rowA.original.revenueSourceId) || getChartAccountName(rowA.original.chartAccountId) || getAccountName(rowA.original.transferAccountId) || '';
-        const nameB = getSourceName(rowB.original.revenueSourceId) || getChartAccountName(rowB.original.chartAccountId) || getAccountName(rowB.original.transferAccountId) || '';
-        return nameA.localeCompare(nameB);
+        const getLabel = (tx: BankTransaction) => {
+          if (tx.isIgnored) return 'zzz_ignored';
+          if (tx.chartAccountId) return getAccountById(tx.chartAccountId)?.name || '';
+          if (tx.transferAccountId) return getAccountName(tx.transferAccountId) || '';
+          return 'zzz_uncategorized';
+        };
+        return getLabel(rowA.original).localeCompare(getLabel(rowB.original));
       },
     },
     {
@@ -333,7 +324,7 @@ export function BankTransactionTable({
       },
       enableSorting: false,
     } as ColumnDef<BankTransaction>] : []),
-  ], [selectedIds, onMapTransaction, sources, getAccountById]);
+  ], [selectedIds, onMapTransaction, getAccountById]);
 
   const table = useReactTable({
     data: filteredTransactions,
@@ -371,16 +362,6 @@ export function BankTransactionTable({
     }
   };
 
-  const handleBulkCategorize = async (category: TransactionCategory) => {
-    await bulkCategorize(Array.from(selectedIds), category);
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkMapToSource = async (sourceId: number) => {
-    await bulkMapToSource(Array.from(selectedIds), sourceId);
-    setSelectedIds(new Set());
-  };
-
   const handleBulkMapToTransfer = async (transferAccountId: number) => {
     await bulkMapToTransfer(Array.from(selectedIds), transferAccountId);
     setSelectedIds(new Set());
@@ -391,9 +372,10 @@ export function BankTransactionTable({
     setSelectedIds(new Set());
   };
 
-  // Get expense accounts from accounting context
-  const { getExpenseAccounts } = useAccountingContext();
-  const expenseAccounts = getExpenseAccounts();
+  const handleBulkIgnore = async () => {
+    await bulkIgnore(Array.from(selectedIds));
+    setSelectedIds(new Set());
+  };
 
   const pageRows = table.getRowModel().rows;
 
@@ -442,19 +424,44 @@ export function BankTransactionTable({
             </Select>
           )}
 
+          <Select value={flowTypeFilter} onValueChange={(v) => {
+            updateFilters({ flowType: v });
+            table.setPageIndex(0);
+          }}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="credit">Credit</SelectItem>
+              <SelectItem value="debit">Debit</SelectItem>
+              <SelectItem value="charge">Charge</SelectItem>
+              <SelectItem value="payment">Payment</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Select value={categoryFilter} onValueChange={(v) => {
             updateFilters({ category: v });
             table.setPageIndex(0);
           }}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="revenue">Revenue</SelectItem>
-              <SelectItem value="expense">Expense</SelectItem>
-              <SelectItem value="transfer">Transfer</SelectItem>
-              <SelectItem value="ignore">Ignored</SelectItem>
+              <SelectItem value="uncategorized">Uncategorized</SelectItem>
+              <SelectItem value="transfers">Transfers</SelectItem>
+              <SelectItem value="ignored">Ignored</SelectItem>
+              {assignableCategories.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Categories</div>
+                  {assignableCategories.map(account => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
 
@@ -498,35 +505,12 @@ export function BankTransactionTable({
                 Clear
               </Button>
               <div className="h-4 w-px bg-border" />
-              <Select onValueChange={(v) => handleBulkCategorize(v as TransactionCategory)}>
-                <SelectTrigger className="w-[140px] h-8">
+              <Select onValueChange={(v) => handleBulkMapToExpense(v)}>
+                <SelectTrigger className="w-[180px] h-8">
                   <SelectValue placeholder="Set Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="revenue">Revenue</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
-                  <SelectItem value="transfer">Transfer</SelectItem>
-                  <SelectItem value="ignore">Ignore</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select onValueChange={(v) => handleBulkMapToSource(parseInt(v))}>
-                <SelectTrigger className="w-[160px] h-8">
-                  <SelectValue placeholder="Revenue Source" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sources.map(source => (
-                    <SelectItem key={source.id} value={source.id.toString()}>
-                      {source.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select onValueChange={(v) => handleBulkMapToExpense(v)}>
-                <SelectTrigger className="w-[160px] h-8">
-                  <SelectValue placeholder="Expense Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {expenseAccounts.map(account => (
+                  {assignableCategories.map(account => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.name}
                     </SelectItem>
@@ -535,7 +519,7 @@ export function BankTransactionTable({
               </Select>
               <Select onValueChange={(v) => handleBulkMapToTransfer(parseInt(v))}>
                 <SelectTrigger className="w-[160px] h-8">
-                  <SelectValue placeholder="Transfer To" />
+                  <SelectValue placeholder="Mark as Transfer" />
                 </SelectTrigger>
                 <SelectContent>
                   {accounts.map(account => (
@@ -545,6 +529,14 @@ export function BankTransactionTable({
                   ))}
                 </SelectContent>
               </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleBulkIgnore}
+              >
+                <Link2Off className="h-3 w-3 mr-1" />
+                Mark Ignored
+              </Button>
             </div>
           </div>
         </div>

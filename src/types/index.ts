@@ -93,10 +93,16 @@ export const DEFAULT_SALARY_TAXES: Omit<SalaryTax, 'id'>[] = [
 // Bank account types from OFX
 export type BankAccountType = 'CHECKING' | 'SAVINGS' | 'CREDITLINE' | 'MONEYMRKT' | 'CREDITCARD';
 
-// Transaction types from OFX
+// Transaction types from OFX (raw, granular)
 export type BankTransactionType = 'CREDIT' | 'DEBIT' | 'INT' | 'DIV' | 'FEE' | 'SRVCHG' | 'DEP' | 'ATM' | 'POS' | 'XFER' | 'CHECK' | 'PAYMENT' | 'CASH' | 'DIRECTDEP' | 'DIRECTDEBIT' | 'REPEATPMT' | 'OTHER';
 
-// Category for transaction classification
+// Simplified transaction flow type based on account type
+// Checking/Savings: credit (money in) / debit (money out)
+// Credit Card: charge (purchase) / payment (paying off)
+export type TransactionFlowType = 'credit' | 'debit' | 'charge' | 'payment';
+
+// Transaction classification - derived from chartAccountId and transferAccountId
+// DEPRECATED: Use chartAccountId for actual category, this is for filtering/display
 export type TransactionCategory = 'revenue' | 'expense' | 'transfer' | 'ignore';
 
 // Bank Account - represents a linked bank account
@@ -125,29 +131,42 @@ export interface BankTransaction {
   id: number;
   accountId: number;               // FK to BankAccount
   fitId: string;                   // Bank's unique transaction ID (for dedup)
-  type: BankTransactionType;
-  amount: number;                  // Positive = credit, Negative = debit
+  type: BankTransactionType;       // Raw OFX type (CREDIT, DEBIT, POS, etc.)
+  flowType: TransactionFlowType;   // Simplified: credit/debit (checking) or charge/payment (credit card)
+  amount: number;                  // Positive = credit/payment, Negative = debit/charge
   datePosted: string;              // ISO date (converted from OFX YYYYMMDD)
   name: string;                    // Payee/payer name
   memo?: string;                   // Transaction memo
   checkNum?: string;               // Check number if applicable
   refNum?: string;                 // Reference number
 
-  // Mapping fields
-  revenueSourceId?: number;        // Linked revenue source (null = unmapped)
-  transferAccountId?: number;      // Linked transfer account (for transfers between accounts)
+  // Time fields
   month: Month;                    // Derived from datePosted
   year: number;                    // Year of transaction
-  category: TransactionCategory;
+
+  // Category - links to Chart of Accounts (the actual category)
+  chartAccountId?: string;         // Links to ChartAccount (Revenue or Expense category)
+
+  // For revenue tracking integration
+  revenueSourceId?: number;        // Optional link to revenue source for forecasting
+
+  // For transfers between accounts
+  transferAccountId?: number;      // Linked transfer account (for transfers between accounts)
+
+  // Status flags
+  isIgnored: boolean;              // Exclude from all reports and calculations
+  isReconciled: boolean;           // User confirmed this categorization
 
   // Accounting integration
-  chartAccountId?: string;         // Linked expense/revenue category (ChartAccount)
   journalEntryId?: string;         // Generated journal entry ID
 
-  // Status
-  isReconciled: boolean;           // User confirmed this mapping
+  // Import metadata
   importedAt: string;              // When imported to system
   importBatchId: string;           // Group imports together
+
+  // DEPRECATED: Use chartAccountId type to determine classification
+  // Kept for backwards compatibility during migration
+  category: TransactionCategory;
 }
 
 // Parsed OFX result (intermediate, not stored)

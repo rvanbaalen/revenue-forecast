@@ -48,38 +48,43 @@ export function TransactionMappingModal({
   transaction,
   onClose,
 }: TransactionMappingModalProps) {
-  const { mapTransactionToSource, mapTransactionToTransfer, updateTransaction, accounts, addMappingRule, mappingRules } = useBank();
+  const { mapTransactionToTransfer, updateTransaction, accounts, addMappingRule, mappingRules } = useBank();
   const { sources } = useRevenue();
-  const { getExpenseAccounts, getChartAccountForBankAccount, createJournalEntryFromTransaction } = useAccountingContext();
+  const { chartAccounts, getChartAccountForBankAccount, createJournalEntryFromTransaction } = useAccountingContext();
 
-  const [selectedTab, setSelectedTab] = useState<'revenue' | 'expense' | 'transfer' | 'ignore'>('expense');
+  const [selectedTab, setSelectedTab] = useState<'category' | 'transfer' | 'ignore'>('category');
   const [selectedSourceId, setSelectedSourceId] = useState<string>('');
-  const [selectedExpenseAccountId, setSelectedExpenseAccountId] = useState<string>('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedTransferAccountId, setSelectedTransferAccountId] = useState<string>('');
   const [createRule, setCreateRule] = useState(false);
   const [rulePattern, setRulePattern] = useState('');
   const [matchField, setMatchField] = useState<'name' | 'memo' | 'both'>('name');
   const [isSaving, setIsSaving] = useState(false);
 
-  const expenseAccounts = getExpenseAccounts();
+  // Get all assignable categories (revenue + expense accounts from chart of accounts)
+  const assignableCategories = chartAccounts.filter(a =>
+    (a.type === 'REVENUE' || a.type === 'EXPENSE') &&
+    a.isActive &&
+    !a.parentId?.match(/^[1-5]000$/) // Exclude top-level parent accounts
+  );
 
-  // Determine default tab based on transaction amount
+  // Determine default tab based on transaction type
   useEffect(() => {
     if (transaction && isOpen) {
       // Get the bank account type to understand semantics
       const bankAccount = accounts.find(a => a.id === transaction.accountId);
       const isCreditCard = bankAccount?.accountType === 'CREDITCARD' || bankAccount?.accountType === 'CREDITLINE';
 
-      if (isCreditCard) {
-        // For credit cards in OFX: positive = charge/purchase (expense), negative = payment (transfer)
-        setSelectedTab(transaction.amount > 0 ? 'expense' : 'transfer');
+      if (isCreditCard && transaction.amount < 0) {
+        // Credit card payments (negative) are typically transfers
+        setSelectedTab('transfer');
       } else {
-        // For checking: positive = income (revenue), negative = spending (expense)
-        setSelectedTab(transaction.amount >= 0 ? 'revenue' : 'expense');
+        // All other transactions should be categorized
+        setSelectedTab('category');
       }
 
       setSelectedSourceId('');
-      setSelectedExpenseAccountId('');
+      setSelectedCategoryId(transaction.chartAccountId || '');
       setSelectedTransferAccountId('');
       setCreateRule(false);
       setRulePattern(transaction.name);
@@ -89,7 +94,7 @@ export function TransactionMappingModal({
 
   const handleClose = useCallback(() => {
     setSelectedSourceId('');
-    setSelectedExpenseAccountId('');
+    setSelectedCategoryId('');
     setSelectedTransferAccountId('');
     setCreateRule(false);
     setRulePattern('');
@@ -105,20 +110,19 @@ export function TransactionMappingModal({
     try {
       const bankChartAccount = getChartAccountForBankAccount(transaction.accountId);
 
-      if (selectedTab === 'revenue' && selectedSourceId) {
-        await mapTransactionToSource(
-          transaction.id,
-          parseInt(selectedSourceId),
-          createRule ? { pattern: rulePattern, matchField } : undefined
-        );
-      } else if (selectedTab === 'expense' && selectedExpenseAccountId) {
-        // Update transaction with expense category
+      if (selectedTab === 'category' && selectedCategoryId) {
+        // Determine category type based on chart account
+        const chartAccount = assignableCategories.find(a => a.id === selectedCategoryId);
+        const categoryType = chartAccount?.type === 'REVENUE' ? 'revenue' : 'expense';
+
+        // Update transaction with chart account category
         await updateTransaction({
           ...transaction,
-          category: 'expense',
-          chartAccountId: selectedExpenseAccountId,
-          revenueSourceId: undefined,
+          category: categoryType,
+          chartAccountId: selectedCategoryId,
+          revenueSourceId: selectedSourceId ? parseInt(selectedSourceId) : undefined,
           transferAccountId: undefined,
+          isIgnored: false,
           isReconciled: true,
         });
 
@@ -129,8 +133,8 @@ export function TransactionMappingModal({
             accountId: transaction.accountId,
             pattern: rulePattern,
             matchField,
-            chartAccountId: selectedExpenseAccountId,
-            category: 'expense',
+            chartAccountId: selectedCategoryId,
+            category: categoryType,
             isActive: true,
             priority: maxPriority + 1,
             createdAt: new Date().toISOString(),
@@ -138,7 +142,7 @@ export function TransactionMappingModal({
         }
 
         // Create journal entry if we have a linked chart account for the bank
-        if (bankChartAccount) {
+        if (bankChartAccount && categoryType === 'expense') {
           try {
             await createJournalEntryFromTransaction(
               {
@@ -148,7 +152,7 @@ export function TransactionMappingModal({
                 datePosted: transaction.datePosted,
                 accountId: transaction.accountId,
               },
-              selectedExpenseAccountId,
+              selectedCategoryId,
               bankChartAccount.id
             );
           } catch (err) {
@@ -168,6 +172,7 @@ export function TransactionMappingModal({
           revenueSourceId: undefined,
           transferAccountId: undefined,
           chartAccountId: undefined,
+          isIgnored: true,
           isReconciled: true,
         });
       }
@@ -190,8 +195,7 @@ export function TransactionMappingModal({
   };
 
   const canSave = () => {
-    if (selectedTab === 'revenue') return !!selectedSourceId;
-    if (selectedTab === 'expense') return !!selectedExpenseAccountId;
+    if (selectedTab === 'category') return !!selectedCategoryId;
     if (selectedTab === 'transfer') return !!selectedTransferAccountId;
     if (selectedTab === 'ignore') return true;
     return false;
@@ -262,14 +266,9 @@ export function TransactionMappingModal({
 
         {/* Category selection tabs */}
         <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as typeof selectedTab)}>
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="revenue" className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              Revenue
-            </TabsTrigger>
-            <TabsTrigger value="expense" className="flex items-center gap-1">
-              <TrendingDown className="h-3 w-3" />
-              Expense
+          <TabsList className="grid grid-cols-3 w-full">
+            <TabsTrigger value="category" className="flex items-center gap-1">
+              Category
             </TabsTrigger>
             <TabsTrigger value="transfer" className="flex items-center gap-1">
               <ArrowLeftRight className="h-3 w-3" />
@@ -278,55 +277,88 @@ export function TransactionMappingModal({
             <TabsTrigger value="ignore">Ignore</TabsTrigger>
           </TabsList>
 
-          {/* Revenue tab */}
-          <TabsContent value="revenue" className="space-y-4 mt-4">
+          {/* Category tab - unified revenue and expense categories */}
+          <TabsContent value="category" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="source">Revenue Source</Label>
-              <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
-                <SelectTrigger id="source">
-                  <SelectValue placeholder="Select a revenue source" />
+              <Label htmlFor="category">Category</Label>
+              <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sources.map(source => (
-                    <SelectItem key={source.id} value={source.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <span>{source.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ({source.currency})
-                        </span>
+                  {/* Revenue categories */}
+                  {assignableCategories.filter(a => a.type === 'REVENUE').length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        Revenue Categories
                       </div>
-                    </SelectItem>
-                  ))}
+                      {assignableCategories
+                        .filter(a => a.type === 'REVENUE')
+                        .map(account => (
+                          <SelectItem key={account.id} value={account.id}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {account.code}
+                              </span>
+                              <span>{account.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
+                  {/* Expense categories */}
+                  {assignableCategories.filter(a => a.type === 'EXPENSE').length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                        <TrendingDown className="h-3 w-3" />
+                        Expense Categories
+                      </div>
+                      {assignableCategories
+                        .filter(a => a.type === 'EXPENSE')
+                        .map(account => (
+                          <SelectItem key={account.id} value={account.id}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {account.code}
+                              </span>
+                              <span>{account.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-          </TabsContent>
 
-          {/* Expense tab */}
-          <TabsContent value="expense" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="expense">Expense Category</Label>
-              <Select value={selectedExpenseAccountId} onValueChange={setSelectedExpenseAccountId}>
-                <SelectTrigger id="expense">
-                  <SelectValue placeholder="Select an expense category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {expenseAccounts.map(account => (
-                    <SelectItem key={account.id} value={account.id}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {account.code}
-                        </span>
-                        <span>{account.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                This will create a journal entry recording the expense.
-              </p>
-            </div>
+            {/* Optional revenue source linking */}
+            {assignableCategories.find(a => a.id === selectedCategoryId)?.type === 'REVENUE' && sources.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="source">Link to Revenue Source (optional)</Label>
+                <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
+                  <SelectTrigger id="source">
+                    <SelectValue placeholder="Select a revenue source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No link</SelectItem>
+                    {sources.map(source => (
+                      <SelectItem key={source.id} value={source.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <span>{source.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({source.currency})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Linking to a revenue source enables expected vs actual tracking.
+                </p>
+              </div>
+            )}
           </TabsContent>
 
           {/* Transfer tab */}
@@ -363,7 +395,7 @@ export function TransactionMappingModal({
         </Tabs>
 
         {/* Create mapping rule option */}
-        {(selectedTab === 'revenue' || selectedTab === 'expense' || selectedTab === 'transfer') && (
+        {(selectedTab === 'category' || selectedTab === 'transfer') && (
           <div className="space-y-3 pt-2">
             <div className="flex items-center gap-2">
               <input
