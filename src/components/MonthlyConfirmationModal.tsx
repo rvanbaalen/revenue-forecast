@@ -115,29 +115,36 @@ export function MonthlyConfirmationModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3 text-emerald-400">
-            Confirm Revenue - {MONTH_LABELS[month]} {config.year}
-            <Badge variant={monthStatus} className="text-xs">
+          <DialogTitle className="flex items-center gap-3 text-zinc-900">
+            {MONTH_LABELS[month]} {config.year}
+            <Badge
+              className={cn(
+                "text-xs",
+                monthStatus === 'current' ? 'bg-indigo-100 text-indigo-700' :
+                monthStatus === 'past' ? 'bg-zinc-100 text-zinc-600' :
+                'bg-purple-100 text-purple-700'
+              )}
+            >
               {getRelativeTimeLabel(month, config.year)}
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            Review and confirm actual revenue for each source. Click "Use Expected" to copy the expected value, or enter the actual amount manually.
+            Confirm actual revenue for each source. Click "Use Expected" to copy values.
           </DialogDescription>
         </DialogHeader>
 
         {/* Progress indicator */}
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div className="flex items-center gap-3 text-sm text-zinc-500">
+          <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-emerald-500 transition-all duration-300"
-              style={{ width: `${(confirmedCount / sources.length) * 100}%` }}
+              className="h-full bg-indigo-600 transition-all duration-300"
+              style={{ width: `${sources.length > 0 ? (confirmedCount / sources.length) * 100 : 0}%` }}
             />
           </div>
-          <span>{confirmedCount}/{sources.length} confirmed</span>
+          <span className="font-medium">{confirmedCount}/{sources.length}</span>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {sources.map(source => {
             const expected = getSourceValue(source, month, 'expected');
             const currentActual = editedValues[source.id] ?? getSourceValue(source, month, 'actual');
@@ -149,47 +156,41 @@ export function MonthlyConfirmationModal({
               <div
                 key={source.id}
                 className={cn(
-                  "p-4 rounded-xl border transition-all",
+                  "p-3 rounded-lg border transition-all",
                   isConfirmed
-                    ? 'border-emerald-500/30 bg-emerald-500/5'
-                    : 'border-slate-700/50 bg-slate-800/30'
+                    ? 'border-green-200 bg-green-50/50'
+                    : 'border-zinc-200 bg-white'
                 )}
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2">
                       {isConfirmed ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
                       ) : (
-                        <Circle className="h-4 w-4 text-slate-500" />
+                        <Circle className="h-4 w-4 text-zinc-300 flex-shrink-0" />
                       )}
-                      <span className="font-medium text-slate-200 truncate">
+                      <span className="font-medium text-zinc-900 truncate">
                         {source.name}
                       </span>
-                      <Badge
-                        variant={source.type === 'local' ? 'default' : 'secondary'}
-                        className="text-xs"
-                      >
-                        {source.type}
-                      </Badge>
-                      <span className="text-xs text-slate-500 font-mono">
+                      <span className="text-xs text-zinc-400 font-mono">
                         {source.currency}
                       </span>
                     </div>
-                    <div className="text-sm text-slate-400 ml-6">
-                      Expected: <span className="font-mono text-amber-300">{currency?.symbol}{formatCurrency(expected, false)}</span>
+                    <div className="text-sm text-zinc-500 ml-6">
+                      Expected: <span className="font-mono text-zinc-700">{currency?.symbol}{formatCurrency(expected, false)}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
-                      <span className="text-slate-400 text-sm">{currency?.symbol}</span>
+                      <span className="text-zinc-400 text-sm">{currency?.symbol}</span>
                       <Input
                         type="number"
                         value={currentActual || ''}
                         onChange={(e) => handleValueChange(source.id, parseFloat(e.target.value) || 0)}
                         placeholder="0"
-                        className="w-28 h-9 text-sm font-mono text-right"
+                        className="w-24 h-8 text-sm font-mono text-right"
                       />
                     </div>
 
@@ -197,21 +198,21 @@ export function MonthlyConfirmationModal({
                       <Button
                         size="sm"
                         onClick={() => handleSaveSource(source.id)}
-                        className="whitespace-nowrap"
+                        className="h-8"
                       >
                         <Save className="h-3 w-3 mr-1" />
                         Save
                       </Button>
                     ) : isConfirmed ? (
-                      <div className="w-24 flex justify-center">
-                        <Check className="h-5 w-5 text-emerald-400" />
+                      <div className="w-20 flex justify-center">
+                        <Check className="h-5 w-5 text-green-600" />
                       </div>
                     ) : (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleConfirmSource(source.id)}
-                        className="whitespace-nowrap"
+                        className="h-8"
                       >
                         <Copy className="h-3 w-3 mr-1" />
                         Use Expected
@@ -227,23 +228,23 @@ export function MonthlyConfirmationModal({
         <Separator />
 
         {/* Totals */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-400">Expected Total (Cg):</span>
-            <span className="font-mono text-amber-300">{formatCurrency(getMonthlyTotalExpected())}</span>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-zinc-500">Expected Total:</span>
+            <span className="font-mono text-zinc-700">{formatCurrency(getMonthlyTotalExpected())}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-400">Actual Total (Cg):</span>
-            <span className="font-mono text-emerald-300">{formatCurrency(getMonthlyTotalActual())}</span>
+          <div className="flex justify-between">
+            <span className="text-zinc-500">Actual Total:</span>
+            <span className="font-mono text-indigo-600 font-medium">{formatCurrency(getMonthlyTotalActual())}</span>
           </div>
           {getMonthlyTotalExpected() !== getMonthlyTotalActual() && (
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Difference:</span>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Difference:</span>
               <span className={cn(
-                "font-mono",
+                "font-mono font-medium",
                 getMonthlyTotalActual() >= getMonthlyTotalExpected()
-                  ? 'text-emerald-400'
-                  : 'text-red-400'
+                  ? 'text-green-600'
+                  : 'text-red-600'
               )}>
                 {getMonthlyTotalActual() >= getMonthlyTotalExpected() ? '+' : ''}
                 {formatCurrency(getMonthlyTotalActual() - getMonthlyTotalExpected())}
@@ -253,7 +254,7 @@ export function MonthlyConfirmationModal({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Close
           </Button>
           <Button
@@ -268,7 +269,7 @@ export function MonthlyConfirmationModal({
             ) : (
               <>
                 <Copy className="h-4 w-4 mr-2" />
-                Confirm All as Expected
+                Use All Expected
               </>
             )}
           </Button>

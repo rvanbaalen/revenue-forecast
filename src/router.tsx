@@ -4,51 +4,224 @@ import {
   createRoute,
   Outlet,
   Link,
+  useRouterState,
 } from '@tanstack/react-router';
+import { useRevenue } from './context/RevenueContext';
+import { useTime } from './hooks/useTime';
 import { DashboardPage } from './pages/DashboardPage';
 import { ExpectedRevenuePage } from './pages/ExpectedRevenuePage';
 import { ActualRevenuePage } from './pages/ActualRevenuePage';
 import { SalaryPage } from './pages/SalaryPage';
 import { ForecastPage } from './pages/ForecastPage';
+import { SettingsPage } from './pages/SettingsPage';
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Receipt,
+  Users,
+  LineChart,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Upload,
+} from 'lucide-react';
+import { useRef, useState } from 'react';
+import { cn } from './lib/utils';
 
-// Root layout with navigation
-function RootLayout() {
+const NAV_ITEMS = [
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/expected', label: 'Expected', icon: TrendingUp },
+  { path: '/actual', label: 'Actual', icon: Receipt },
+  { path: '/salary', label: 'Salaries', icon: Users },
+  { path: '/forecast', label: 'Forecast', icon: LineChart },
+  { path: '/settings', label: 'Settings', icon: Settings },
+];
+
+function Sidebar() {
+  const routerState = useRouterState();
+  const currentPath = routerState.location.pathname;
+  const { config, updateConfig, exportData, importData } = useRevenue();
+  const { time } = useTime();
+  const [collapsed, setCollapsed] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = async () => {
+    const data = await exportData();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `revenue-${config.year}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        await importData(event.target?.result as string);
+      } catch {
+        alert('Failed to import data');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   return (
-    <div className="text-slate-200 min-h-screen">
-      <nav className="glass sticky top-0 z-40 border-b border-slate-700/50">
-        <div className="max-w-[1900px] mx-auto px-4 md:px-8">
-          <div className="flex items-center gap-1 py-3 overflow-x-auto scrollbar-thin">
-            <NavLink to="/">Dashboard</NavLink>
-            <NavLink to="/expected">Expected Revenue</NavLink>
-            <NavLink to="/actual">Actual Revenue</NavLink>
-            <NavLink to="/salary">Salaries</NavLink>
-            <NavLink to="/forecast">Forecast</NavLink>
+    <aside className={cn(
+      "sidebar fixed left-0 top-0 h-screen flex flex-col transition-all duration-200 z-50",
+      collapsed ? "w-16" : "w-56"
+    )}>
+      {/* Logo */}
+      <div className="p-4 border-b border-zinc-200">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <TrendingUp className="w-4 h-4 text-white" />
           </div>
+          {!collapsed && (
+            <span className="font-semibold text-zinc-900 truncate">Revenue</span>
+          )}
         </div>
+      </div>
+
+      {/* Year selector */}
+      <div className="p-3 border-b border-zinc-200">
+        <div className={cn(
+          "flex items-center",
+          collapsed ? "justify-center" : "justify-between"
+        )}>
+          <button
+            onClick={() => updateConfig({ year: config.year - 1 })}
+            className="p-1.5 rounded hover:bg-zinc-100 text-zinc-500"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          {!collapsed && (
+            <span className={cn(
+              "text-sm font-medium tabular-nums",
+              config.year === time.currentYear ? "text-indigo-600" : "text-zinc-600"
+            )}>
+              {config.year}
+            </span>
+          )}
+          <button
+            onClick={() => updateConfig({ year: config.year + 1 })}
+            className="p-1.5 rounded hover:bg-zinc-100 text-zinc-500"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+        {!collapsed && config.year !== time.currentYear && (
+          <button
+            onClick={() => updateConfig({ year: time.currentYear })}
+            className="w-full mt-2 text-xs text-indigo-600 hover:text-indigo-700"
+          >
+            Go to {time.currentYear}
+          </button>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive = currentPath === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "nav-link",
+                isActive && "nav-link-active",
+                collapsed && "justify-center px-2"
+              )}
+              title={collapsed ? item.label : undefined}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {!collapsed && <span>{item.label}</span>}
+            </Link>
+          );
+        })}
       </nav>
-      <main className="p-4 md:p-8">
-        <div className="max-w-[1900px] mx-auto">
+
+      {/* Import/Export */}
+      <div className="p-3 border-t border-zinc-200 space-y-1">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleImport}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(
+            "nav-link w-full",
+            collapsed && "justify-center px-2"
+          )}
+          title={collapsed ? "Import" : undefined}
+        >
+          <Upload className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Import</span>}
+        </button>
+        <button
+          onClick={handleExport}
+          className={cn(
+            "nav-link w-full",
+            collapsed && "justify-center px-2"
+          )}
+          title={collapsed ? "Export" : undefined}
+        >
+          <Download className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Export</span>}
+        </button>
+      </div>
+
+      {/* Collapse toggle */}
+      <div className="p-3 border-t border-zinc-200">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className={cn(
+            "nav-link w-full",
+            collapsed && "justify-center px-2"
+          )}
+        >
+          {collapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <>
+              <ChevronLeft className="w-4 h-4" />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function RootLayout() {
+  const [sidebarCollapsed] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-zinc-50">
+      <Sidebar />
+      <main className={cn(
+        "transition-all duration-200 min-h-screen",
+        sidebarCollapsed ? "ml-16" : "ml-56"
+      )}>
+        <div className="p-6 max-w-[1600px]">
           <Outlet />
         </div>
       </main>
     </div>
-  );
-}
-
-function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
-  return (
-    <Link
-      to={to}
-      className="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
-      activeProps={{
-        className: 'bg-sky-500/20 text-sky-300',
-      }}
-      inactiveProps={{
-        className: 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50',
-      }}
-    >
-      {children}
-    </Link>
   );
 }
 
@@ -88,6 +261,12 @@ const forecastRoute = createRoute({
   component: ForecastPage,
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: SettingsPage,
+});
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -95,6 +274,7 @@ const routeTree = rootRoute.addChildren([
   actualRoute,
   salaryRoute,
   forecastRoute,
+  settingsRoute,
 ]);
 
 // Create router

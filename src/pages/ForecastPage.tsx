@@ -2,6 +2,23 @@ import { useState, useMemo } from 'react';
 import { useRevenue } from '../context/RevenueContext';
 import { MONTHS, MONTH_LABELS } from '../types';
 import { formatCurrency } from '../utils/format';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import {
   generateForecast,
   getStatistics,
@@ -10,11 +27,12 @@ import {
   calculateGrowthRate,
   type ForecastMethod,
 } from '../utils/forecast';
+import { TrendingUp, TrendingDown, Minus, BarChart3 } from 'lucide-react';
 
 const FORECAST_METHODS: { value: ForecastMethod; label: string; description: string }[] = [
   { value: 'simple', label: 'Simple Moving Average', description: 'Average of recent periods' },
-  { value: 'weighted', label: 'Weighted Moving Average', description: 'Recent months weighted more heavily' },
-  { value: 'exponential', label: 'Exponential Smoothing', description: 'Exponentially weighted with dampened trend' },
+  { value: 'weighted', label: 'Weighted Moving Average', description: 'Recent months weighted more' },
+  { value: 'exponential', label: 'Exponential Smoothing', description: 'Exponentially weighted' },
   { value: 'linear', label: 'Linear Regression', description: 'Trend-based projection' },
 ];
 
@@ -89,206 +107,263 @@ export function ForecastPage() {
   const maxValue = Math.max(...allValues, 1);
 
   return (
-    <>
-      <h1 className="text-2xl font-bold text-sky-400 mb-6">Revenue Forecast</h1>
-
-      {/* Controls */}
-      <section className="glass rounded-2xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-slate-300 mb-4">Forecast Settings</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm text-slate-400 mb-2">Data Source</label>
-            <select
-              value={dataSource}
-              onChange={(e) => setDataSource(e.target.value as 'expected' | 'actual')}
-              className="w-full px-3 py-2 rounded-lg text-slate-200 text-sm"
-            >
-              <option value="actual">Actual Revenue</option>
-              <option value="expected">Expected Revenue</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm text-slate-400 mb-2">Forecast Method</label>
-            <select
-              value={method}
-              onChange={(e) => setMethod(e.target.value as ForecastMethod)}
-              className="w-full px-3 py-2 rounded-lg text-slate-200 text-sm"
-            >
-              {FORECAST_METHODS.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
-            <p className="text-xs text-slate-500 mt-1">
-              {FORECAST_METHODS.find(m => m.value === method)?.description}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm text-slate-400 mb-2">Forecast Periods</label>
-            <input
-              type="number"
-              value={forecastPeriods}
-              onChange={(e) => setForecastPeriods(Math.max(1, Math.min(24, parseInt(e.target.value) || 1)))}
-              min={1}
-              max={24}
-              className="w-full px-3 py-2 rounded-lg text-slate-200 text-sm"
-            />
-          </div>
+    <TooltipProvider>
+      <div className="fade-in space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900">Revenue Forecast</h1>
+          <p className="text-zinc-500 mt-1">
+            Predict future revenue based on historical data
+          </p>
         </div>
-      </section>
 
-      {/* Statistics Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
-        <StatCard label="Months with Data" value={dataWithValues.length.toString()} />
-        <StatCard label="Total Revenue" value={formatCurrency(stats.total)} />
-        <StatCard label="Monthly Average" value={formatCurrency(stats.avg)} />
-        <StatCard label="Std Deviation" value={formatCurrency(stats.stdDev)} />
-        <StatCard label="Min Month" value={formatCurrency(stats.min)} />
-        <StatCard label="Max Month" value={formatCurrency(stats.max)} />
-      </div>
-
-      {/* Trend Analysis */}
-      {trendInfo && (
-        <section className="glass rounded-2xl p-6 mb-6">
-          <h2 className="text-lg font-semibold text-slate-300 mb-4">Trend Analysis</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${
-                trendInfo.trend === 'upward' ? 'bg-emerald-500' :
-                trendInfo.trend === 'downward' ? 'bg-red-500' : 'bg-slate-500'
-              }`} />
-              <div>
-                <p className="text-sm text-slate-400">Trend Direction</p>
-                <p className="font-medium text-slate-200 capitalize">{trendInfo.trend}</p>
+        {/* Controls */}
+        <Card>
+          <CardHeader className="border-b py-4">
+            <CardTitle className="text-base font-medium">Forecast Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="py-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Data Source</Label>
+                <Select value={dataSource} onValueChange={(v) => setDataSource(v as 'expected' | 'actual')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="actual">Actual Revenue</SelectItem>
+                    <SelectItem value="expected">Expected Revenue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Forecast Method</Label>
+                <Select value={method} onValueChange={(v) => setMethod(v as ForecastMethod)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FORECAST_METHODS.map(m => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-zinc-500">
+                  {FORECAST_METHODS.find(m => m.value === method)?.description}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Forecast Periods (months)</Label>
+                <Input
+                  type="number"
+                  value={forecastPeriods}
+                  onChange={(e) => setForecastPeriods(Math.max(1, Math.min(24, parseInt(e.target.value) || 1)))}
+                  min={1}
+                  max={24}
+                />
               </div>
             </div>
-            <div>
-              <p className="text-sm text-slate-400">Monthly Change</p>
-              <p className={`font-medium ${trendInfo.slope >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {trendInfo.slope >= 0 ? '+' : ''}{formatCurrency(trendInfo.slope)}/month
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-400">Avg Growth Rate</p>
-              <p className={`font-medium ${trendInfo.growthRate >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {trendInfo.growthRate >= 0 ? '+' : ''}{(trendInfo.growthRate * 100).toFixed(1)}%
-              </p>
-            </div>
-          </div>
-          {seasonality.hasSeasonality && (
-            <div className="mt-4 pt-4 border-t border-slate-700/50">
-              <p className="text-sm text-amber-400">
-                Seasonality detected in your data. Consider this when interpreting forecasts.
-              </p>
-            </div>
-          )}
-        </section>
-      )}
+          </CardContent>
+        </Card>
 
-      {/* Visual Chart */}
-      <section className="glass rounded-2xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-slate-300 mb-4">Revenue Trend & Forecast</h2>
-        <div className="h-64 flex items-end gap-1 overflow-x-auto pb-4">
-          {/* Historical data bars */}
-          {dataWithValues.map((d) => (
-            <div key={d.month} className="flex flex-col items-center flex-shrink-0" style={{ width: '40px' }}>
-              <div
-                className="w-8 bg-sky-500/80 rounded-t transition-all hover:bg-sky-400"
-                style={{ height: `${(d.total / maxValue) * 200}px` }}
-                title={`${d.label}: ${formatCurrency(d.total)}`}
-              />
-              <p className="text-xs text-slate-400 mt-2 rotate-45 origin-left whitespace-nowrap">
-                {d.label}
-              </p>
-            </div>
-          ))}
-
-          {/* Divider */}
-          {forecasts.length > 0 && (
-            <div className="flex flex-col items-center justify-end flex-shrink-0 px-2">
-              <div className="w-px h-48 bg-slate-600 border-l border-dashed" />
-              <p className="text-xs text-slate-500 mt-2">Forecast</p>
-            </div>
-          )}
-
-          {/* Forecast bars */}
-          {forecasts.map((f) => (
-            <div key={f.month} className="flex flex-col items-center flex-shrink-0" style={{ width: '40px' }}>
-              <div
-                className="w-8 bg-emerald-500/60 rounded-t border-2 border-dashed border-emerald-400/50 transition-all hover:bg-emerald-400/60"
-                style={{ height: `${(f.predicted / maxValue) * 200}px` }}
-                title={`${formatForecastMonth(f.month)}: ${formatCurrency(f.predicted)} (forecast)`}
-              />
-              <p className="text-xs text-emerald-400/70 mt-2 rotate-45 origin-left whitespace-nowrap">
-                {formatForecastMonth(f.month)}
-              </p>
-            </div>
-          ))}
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <StatCard label="Data Points" value={dataWithValues.length.toString()} />
+          <StatCard label="Total" value={formatCurrency(stats.total)} />
+          <StatCard label="Average" value={formatCurrency(stats.avg)} />
+          <StatCard label="Std Dev" value={formatCurrency(stats.stdDev)} />
+          <StatCard label="Min" value={formatCurrency(stats.min)} />
+          <StatCard label="Max" value={formatCurrency(stats.max)} />
         </div>
-        <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-700/50">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-sky-500/80 rounded" />
-            <span className="text-sm text-slate-400">Historical</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-emerald-500/60 rounded border-2 border-dashed border-emerald-400/50" />
-            <span className="text-sm text-slate-400">Forecast</span>
-          </div>
-        </div>
-      </section>
 
-      {/* Forecast Table */}
-      {forecasts.length > 0 && (
-        <section className="glass rounded-2xl p-6 mb-6">
-          <h2 className="text-lg font-semibold text-slate-300 mb-4">Forecast Details</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-700/50">
-                  <th className="px-4 py-3 text-left text-slate-400 font-medium">Month</th>
-                  <th className="px-4 py-3 text-right text-slate-400 font-medium">Predicted Revenue (Cg)</th>
-                  <th className="px-4 py-3 text-left text-slate-400 font-medium">Method</th>
-                </tr>
-              </thead>
-              <tbody>
-                {forecasts.map((f) => (
-                  <tr key={f.month} className="border-b border-slate-700/30 hover:bg-slate-800/30">
-                    <td className="px-4 py-3 text-slate-200">{formatForecastMonth(f.month)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-emerald-300">
-                      {formatCurrency(f.predicted)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400 capitalize">{f.method}</td>
-                  </tr>
+        {/* Trend Analysis */}
+        {trendInfo && (
+          <Card>
+            <CardHeader className="border-b py-4">
+              <CardTitle className="text-base font-medium">Trend Analysis</CardTitle>
+            </CardHeader>
+            <CardContent className="py-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-2 rounded-lg",
+                    trendInfo.trend === 'upward' ? 'bg-green-50' :
+                    trendInfo.trend === 'downward' ? 'bg-red-50' : 'bg-zinc-100'
+                  )}>
+                    {trendInfo.trend === 'upward' ? (
+                      <TrendingUp className="w-5 h-5 text-green-600" />
+                    ) : trendInfo.trend === 'downward' ? (
+                      <TrendingDown className="w-5 h-5 text-red-600" />
+                    ) : (
+                      <Minus className="w-5 h-5 text-zinc-600" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm text-zinc-500">Trend</p>
+                    <p className="font-medium text-zinc-900 capitalize">{trendInfo.trend}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Monthly Change</p>
+                  <p className={cn(
+                    "font-medium",
+                    trendInfo.slope >= 0 ? 'text-green-600' : 'text-red-600'
+                  )}>
+                    {trendInfo.slope >= 0 ? '+' : ''}{formatCurrency(trendInfo.slope)}/month
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Growth Rate</p>
+                  <p className={cn(
+                    "font-medium",
+                    trendInfo.growthRate >= 0 ? 'text-green-600' : 'text-red-600'
+                  )}>
+                    {trendInfo.growthRate >= 0 ? '+' : ''}{(trendInfo.growthRate * 100).toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+              {seasonality.hasSeasonality && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm text-amber-600">
+                    Seasonality detected. Consider this when interpreting forecasts.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Chart */}
+        <Card>
+          <CardHeader className="border-b py-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-medium">Revenue Trend & Forecast</CardTitle>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-indigo-600" />
+                  <span className="text-zinc-500">Historical</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-indigo-300 border border-dashed border-indigo-500" />
+                  <span className="text-zinc-500">Forecast</span>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="py-4">
+            {dataWithValues.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-zinc-400">
+                <div className="text-center">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No {dataSource} revenue data available yet.</p>
+                  <p className="text-sm">Add revenue data to generate forecasts.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="h-64 flex items-end gap-1 overflow-x-auto pb-8">
+                {/* Historical data bars */}
+                {dataWithValues.map((d) => (
+                  <Tooltip key={d.month}>
+                    <TooltipTrigger asChild>
+                      <div className="flex flex-col items-center flex-shrink-0 cursor-pointer group" style={{ width: '40px' }}>
+                        <div
+                          className="w-8 bg-indigo-600 rounded-t transition-all group-hover:bg-indigo-500"
+                          style={{ height: `${Math.max((d.total / maxValue) * 200, 4)}px` }}
+                        />
+                        <p className="text-xs text-zinc-400 mt-2 -rotate-45 origin-top-left whitespace-nowrap">
+                          {d.label}
+                        </p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="font-medium">{d.label}</p>
+                      <p className="font-mono">{formatCurrency(d.total)}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 ))}
-                <tr className="font-semibold">
-                  <td className="px-4 py-3 text-slate-200">Total Forecast</td>
-                  <td className="px-4 py-3 text-right font-mono text-emerald-400">
-                    {formatCurrency(forecasts.reduce((sum, f) => sum + f.predicted, 0))}
-                  </td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
 
-      {dataWithValues.length === 0 && (
-        <section className="glass rounded-2xl p-8 text-center">
-          <p className="text-slate-400 mb-2">No {dataSource} revenue data available yet.</p>
-          <p className="text-sm text-slate-500">
-            Add some {dataSource} revenue data to generate forecasts.
-          </p>
-        </section>
-      )}
-    </>
+                {/* Divider */}
+                {forecasts.length > 0 && (
+                  <div className="flex flex-col items-center justify-end flex-shrink-0 px-2">
+                    <div className="w-px h-48 border-l border-dashed border-zinc-300" />
+                  </div>
+                )}
+
+                {/* Forecast bars */}
+                {forecasts.map((f) => (
+                  <Tooltip key={f.month}>
+                    <TooltipTrigger asChild>
+                      <div className="flex flex-col items-center flex-shrink-0 cursor-pointer group" style={{ width: '40px' }}>
+                        <div
+                          className="w-8 bg-indigo-200 rounded-t border-2 border-dashed border-indigo-400 transition-all group-hover:bg-indigo-300"
+                          style={{ height: `${Math.max((f.predicted / maxValue) * 200, 4)}px` }}
+                        />
+                        <p className="text-xs text-indigo-400 mt-2 -rotate-45 origin-top-left whitespace-nowrap">
+                          {formatForecastMonth(f.month)}
+                        </p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="font-medium">{formatForecastMonth(f.month)}</p>
+                      <p className="font-mono">{formatCurrency(f.predicted)}</p>
+                      <p className="text-xs text-zinc-400">Forecast</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Forecast Table */}
+        {forecasts.length > 0 && (
+          <Card>
+            <CardHeader className="border-b py-4">
+              <CardTitle className="text-base font-medium">Forecast Details</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full text-sm table-clean">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-500">Month</th>
+                    <th className="px-4 py-3 text-right font-medium text-zinc-500">Predicted Revenue</th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-500">Method</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {forecasts.map((f) => (
+                    <tr key={f.month}>
+                      <td className="px-4 py-3 text-zinc-700">{formatForecastMonth(f.month)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-indigo-600">
+                        {formatCurrency(f.predicted)}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500 capitalize">{f.method}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-zinc-50 font-medium">
+                    <td className="px-4 py-3 text-zinc-700">Total Forecast</td>
+                    <td className="px-4 py-3 text-right font-mono text-indigo-600 font-semibold">
+                      {formatCurrency(forecasts.reduce((sum, f) => sum + f.predicted, 0))}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="glass rounded-xl p-4">
-      <p className="text-slate-400 text-xs mb-1">{label}</p>
-      <p className="text-lg font-bold text-slate-200">{value}</p>
+    <div className="p-4 bg-white border border-zinc-200 rounded-lg">
+      <p className="text-zinc-500 text-xs mb-1">{label}</p>
+      <p className="text-lg font-semibold text-zinc-900 tabular-nums">{value}</p>
     </div>
   );
 }
