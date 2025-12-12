@@ -336,12 +336,12 @@ export function TransactionMappingModal({
             {assignableCategories.find(a => a.id === selectedCategoryId)?.type === 'REVENUE' && sources.length > 0 && (
               <div className="space-y-2">
                 <Label htmlFor="source">Link to Revenue Source (optional)</Label>
-                <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
+                <Select value={selectedSourceId || 'none'} onValueChange={(v) => setSelectedSourceId(v === 'none' ? '' : v)}>
                   <SelectTrigger id="source">
                     <SelectValue placeholder="Select a revenue source" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No link</SelectItem>
+                    <SelectItem value="none">No link</SelectItem>
                     {sources.map(source => (
                       <SelectItem key={source.id} value={source.id.toString()}>
                         <div className="flex items-center gap-2">
