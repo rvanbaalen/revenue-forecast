@@ -115,6 +115,9 @@ export interface BankAccount {
   chartAccountId?: string;         // Link to ChartAccount
   openingBalance?: number;         // Opening balance amount
   openingBalanceDate?: string;     // Date of opening balance
+
+  // Credit card specific
+  creditLimit?: number;            // Credit limit for credit card accounts
 }
 
 // Bank Transaction - raw imported transaction
