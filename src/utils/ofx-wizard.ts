@@ -195,6 +195,35 @@ export interface MappingImportData {
 }
 
 // ============================================
+// Mapping Rules (New Compact Format)
+// ============================================
+
+export interface MappingRuleInput {
+  pattern: string;
+  matchType: 'exact' | 'contains' | 'startsWith' | 'endsWith';
+  matchField: 'name' | 'memo' | 'both';
+  categoryName: string;
+  categoryType: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE';
+  revenueSource?: string; // For REVENUE transactions
+}
+
+export interface MappingRulesImportData {
+  revenue_sources?: {
+    name: string;
+    type: 'local' | 'foreign';
+    description?: string;
+  }[];
+  rules: {
+    pattern: string;
+    match_type?: 'exact' | 'contains' | 'startsWith' | 'endsWith'; // defaults to 'contains'
+    match_field?: 'name' | 'memo' | 'both'; // defaults to 'name'
+    category_name: string;
+    category_type: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE';
+    revenue_source?: string;
+  }[];
+}
+
+// ============================================
 // Transaction Analysis Helpers
 // ============================================
 
@@ -546,6 +575,151 @@ Respond with valid JSON wrapped in a code block:
 Now categorize all transactions, identify revenue sources, and provide your JSON response:`;
 }
 
+/**
+ * Generate a prompt for an LLM to create MAPPING RULES (compact format)
+ * Instead of mapping each transaction individually, this creates reusable rules
+ * that can apply to multiple transactions and future imports.
+ */
+export function generateMappingRulesPrompt(
+  transactions: ParsedOFXTransaction[],
+  categories: SuggestedCategory[]
+): string {
+  // Build category list
+  const revenueCategories = categories.filter(c => c.type === 'REVENUE');
+  const expenseCategories = categories.filter(c => c.type === 'EXPENSE');
+
+  // Get unique transaction patterns with stats
+  const { nameMemoPairs } = extractUniqueTransactionInfo(transactions);
+  const patterns = analyzeTransactionPatterns(transactions);
+
+  // Group by income vs expense based on amount direction
+  const incomePatterns = nameMemoPairs.filter(p => p.totalAmount >= 0);
+  const expensePatterns = nameMemoPairs.filter(p => p.totalAmount < 0);
+
+  // Format patterns for display
+  const formatPatternList = (items: typeof nameMemoPairs, limit = 50) =>
+    items
+      .slice(0, limit)
+      .map(item => {
+        const memo = item.memo ? ` | memo: "${item.memo}"` : '';
+        const avgAmount = Math.abs(item.totalAmount / item.count).toFixed(2);
+        return `- "${item.name}"${memo} [${item.count}x, avg: ${avgAmount}]`;
+      })
+      .join('\n');
+
+  const hasMoreIncome = incomePatterns.length > 50;
+  const hasMoreExpense = expensePatterns.length > 50;
+
+  return `# Task: Create Transaction Categorization RULES
+
+You are helping create reusable categorization RULES for bank transactions. Instead of categorizing each transaction individually, create RULES that match patterns and can apply to multiple transactions.
+
+## Available Categories
+
+**Revenue Categories (income):**
+${revenueCategories.map(c => `- "${c.name}": ${c.description || 'No description'}`).join('\n') || '(none defined)'}
+
+**Expense Categories (spending):**
+${expenseCategories.map(c => `- "${c.name}": ${c.description || 'No description'}`).join('\n') || '(none defined)'}
+
+**Special Categories:**
+- TRANSFER: For transfers between accounts (e.g., "Transfer to Savings", "Credit Card Payment")
+- IGNORE: For transactions that should be excluded from reports
+
+## Transaction Summary
+- Total transactions: ${transactions.length}
+- Income transactions: ${patterns.creditCount} (total: ${patterns.totalCredits.toFixed(2)})
+- Expense transactions: ${patterns.debitCount} (total: ${patterns.totalDebits.toFixed(2)})
+
+## Unique Transaction Patterns
+
+### Income Patterns (${incomePatterns.length} unique)
+${formatPatternList(incomePatterns)}${hasMoreIncome ? `\n... and ${incomePatterns.length - 50} more` : ''}
+
+### Expense Patterns (${expensePatterns.length} unique)
+${formatPatternList(expensePatterns)}${hasMoreExpense ? `\n... and ${expensePatterns.length - 50} more` : ''}
+
+## Instructions
+
+1. Analyze the transaction patterns above
+2. Create RULES that match groups of similar transactions
+3. Use pattern matching to cover multiple transactions with one rule
+4. Identify revenue sources for income transactions
+
+## Rule Format
+
+Each rule has:
+- **pattern**: Text to match (e.g., "STRIPE", "AMAZON", "UBER EATS")
+- **match_type**: How to match (default: "contains")
+  - "exact": Pattern must match exactly
+  - "contains": Pattern can appear anywhere in text
+  - "startsWith": Text must start with pattern
+  - "endsWith": Text must end with pattern
+- **match_field**: What to match against (default: "name")
+  - "name": Match transaction name only
+  - "memo": Match memo only
+  - "both": Match either name or memo
+- **category_name**: The category to assign
+- **category_type**: One of REVENUE, EXPENSE, TRANSFER, IGNORE
+- **revenue_source**: (For REVENUE only) Name of the revenue source
+
+## Output Format
+
+Respond with valid JSON wrapped in a code block:
+
+\`\`\`json
+{
+  "revenue_sources": [
+    {
+      "name": "Stripe Payments",
+      "type": "local",
+      "description": "Online payment processor"
+    },
+    {
+      "name": "International Clients",
+      "type": "foreign",
+      "description": "Payments from overseas clients"
+    }
+  ],
+  "rules": [
+    {
+      "pattern": "STRIPE",
+      "match_type": "contains",
+      "category_name": "Service Revenue",
+      "category_type": "REVENUE",
+      "revenue_source": "Stripe Payments"
+    },
+    {
+      "pattern": "AMAZON WEB SERVICES",
+      "match_type": "contains",
+      "category_name": "Cloud Hosting",
+      "category_type": "EXPENSE"
+    },
+    {
+      "pattern": "TRANSFER",
+      "match_type": "contains",
+      "category_name": "Transfer",
+      "category_type": "TRANSFER"
+    }
+  ]
+}
+\`\`\`
+
+## Guidelines
+
+- Create rules that are GENERAL enough to match multiple transactions
+- Use "contains" for common vendor names (e.g., "UBER" matches "UBER EATS" and "UBER RIDE")
+- Use "startsWith" when transaction names have a common prefix
+- Use "exact" only for very specific transaction names
+- Create revenue sources for distinct income streams (clients, platforms, products)
+- Use "type": "local" for domestic sources, "foreign" for international
+- Aim for ${Math.min(30, Math.ceil(nameMemoPairs.length / 3))} to ${Math.min(50, nameMemoPairs.length)} rules to cover the patterns
+- Rules are applied in order, so put more specific patterns before general ones
+- If a revenue transaction doesn't have a specific source, use "Misc" as revenue_source
+
+Now analyze the patterns and create your categorization rules:`;
+}
+
 // ============================================
 // JSON Parsing and Validation
 // ============================================
@@ -858,6 +1032,259 @@ export function parseMappingResponse(
       warnings: [],
     };
   }
+}
+
+/**
+ * Parse and validate mapping RULES JSON from LLM response
+ */
+export function parseMappingRulesResponse(jsonString: string): {
+  success: boolean;
+  rules: MappingRuleInput[];
+  revenueSources: SuggestedRevenueSource[];
+  error?: string;
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+
+  try {
+    // Try to extract JSON from potential markdown code blocks
+    let cleanJson = jsonString.trim();
+
+    const jsonMatch = cleanJson.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      cleanJson = jsonMatch[1].trim();
+    }
+
+    const objectMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      cleanJson = objectMatch[0];
+    }
+
+    const data = JSON.parse(cleanJson) as MappingRulesImportData;
+
+    if (!data.rules || !Array.isArray(data.rules)) {
+      return {
+        success: false,
+        rules: [],
+        revenueSources: [],
+        error: 'Invalid format: expected "rules" array',
+        warnings: [],
+      };
+    }
+
+    // Parse revenue sources
+    const revenueSources: SuggestedRevenueSource[] = [];
+    const revenueSourceNames = new Set<string>();
+
+    if (data.revenue_sources && Array.isArray(data.revenue_sources)) {
+      for (const source of data.revenue_sources) {
+        if (source.name && !revenueSourceNames.has(source.name.toLowerCase())) {
+          revenueSourceNames.add(source.name.toLowerCase());
+          revenueSources.push({
+            name: source.name,
+            type: source.type === 'foreign' ? 'foreign' : 'local',
+            description: source.description,
+          });
+        }
+      }
+    }
+
+    // Always ensure "Misc" source exists for unassigned revenue
+    if (!revenueSourceNames.has('misc')) {
+      revenueSources.push({
+        name: 'Misc',
+        type: 'local',
+        description: 'Miscellaneous or uncategorized revenue',
+      });
+    }
+
+    // Parse rules
+    const rules: MappingRuleInput[] = [];
+
+    for (const rule of data.rules) {
+      if (!rule.pattern) {
+        warnings.push('Rule missing pattern, skipping');
+        continue;
+      }
+
+      if (!rule.category_name) {
+        warnings.push(`Rule for "${rule.pattern}" missing category_name, skipping`);
+        continue;
+      }
+
+      const categoryType = (rule.category_type || '').toUpperCase();
+      if (!['REVENUE', 'EXPENSE', 'TRANSFER', 'IGNORE'].includes(categoryType)) {
+        warnings.push(`Invalid category_type "${rule.category_type}" for "${rule.pattern}", skipping`);
+        continue;
+      }
+
+      // Validate match_type
+      let matchType: 'exact' | 'contains' | 'startsWith' | 'endsWith' = 'contains';
+      if (rule.match_type) {
+        const mt = rule.match_type.toLowerCase();
+        if (['exact', 'contains', 'startswith', 'endswith'].includes(mt)) {
+          matchType = mt === 'startswith' ? 'startsWith' :
+                      mt === 'endswith' ? 'endsWith' :
+                      mt as 'exact' | 'contains';
+        }
+      }
+
+      // Validate match_field
+      let matchField: 'name' | 'memo' | 'both' = 'name';
+      if (rule.match_field) {
+        const mf = rule.match_field.toLowerCase();
+        if (['name', 'memo', 'both'].includes(mf)) {
+          matchField = mf as 'name' | 'memo' | 'both';
+        }
+      }
+
+      // Handle revenue source for REVENUE rules
+      let revenueSource: string | undefined;
+      if (categoryType === 'REVENUE') {
+        if (rule.revenue_source) {
+          // Add source if it doesn't exist
+          if (!revenueSourceNames.has(rule.revenue_source.toLowerCase())) {
+            revenueSources.push({
+              name: rule.revenue_source,
+              type: 'local',
+            });
+            revenueSourceNames.add(rule.revenue_source.toLowerCase());
+          }
+          revenueSource = rule.revenue_source;
+        } else {
+          // Default to Misc for revenue without explicit source
+          revenueSource = 'Misc';
+        }
+      }
+
+      rules.push({
+        pattern: rule.pattern,
+        matchType,
+        matchField,
+        categoryName: rule.category_name.trim(),
+        categoryType: categoryType as 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE',
+        revenueSource,
+      });
+    }
+
+    if (rules.length === 0) {
+      return {
+        success: false,
+        rules: [],
+        revenueSources: [],
+        error: 'No valid rules found in response',
+        warnings,
+      };
+    }
+
+    return { success: true, rules, revenueSources, warnings };
+  } catch (err) {
+    return {
+      success: false,
+      rules: [],
+      revenueSources: [],
+      error: `JSON parse error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      warnings: [],
+    };
+  }
+}
+
+/**
+ * Check if a transaction matches a rule
+ */
+function matchesRule(
+  transaction: ParsedOFXTransaction,
+  rule: MappingRuleInput
+): boolean {
+  const pattern = rule.pattern.toLowerCase();
+  const name = transaction.name.toLowerCase();
+  const memo = transaction.memo?.toLowerCase() || '';
+
+  const checkMatch = (text: string): boolean => {
+    switch (rule.matchType) {
+      case 'exact':
+        return text === pattern;
+      case 'startsWith':
+        return text.startsWith(pattern);
+      case 'endsWith':
+        return text.endsWith(pattern);
+      case 'contains':
+      default:
+        return text.includes(pattern);
+    }
+  };
+
+  switch (rule.matchField) {
+    case 'memo':
+      return checkMatch(memo);
+    case 'both':
+      return checkMatch(name) || checkMatch(memo);
+    case 'name':
+    default:
+      return checkMatch(name);
+  }
+}
+
+/**
+ * Apply mapping rules to transactions and return TransactionMapping[]
+ * This converts rules into individual mappings for compatibility with the import process
+ */
+export function applyMappingRules(
+  transactions: ParsedOFXTransaction[],
+  rules: MappingRuleInput[]
+): {
+  mappings: TransactionMapping[];
+  matchedCount: number;
+  unmatchedCount: number;
+  ruleStats: { pattern: string; matchCount: number }[];
+} {
+  const mappings: TransactionMapping[] = [];
+  const ruleStats = rules.map(r => ({ pattern: r.pattern, matchCount: 0 }));
+  let matchedCount = 0;
+  let unmatchedCount = 0;
+
+  for (const tx of transactions) {
+    let matched = false;
+
+    // Try each rule in order (first match wins)
+    for (let i = 0; i < rules.length; i++) {
+      const rule = rules[i];
+      if (matchesRule(tx, rule)) {
+        mappings.push({
+          fitId: tx.fitId,
+          transactionName: tx.name,
+          transactionMemo: tx.memo,
+          amount: tx.amount,
+          date: tx.datePosted,
+          suggestedCategory: rule.categoryName,
+          categoryType: rule.categoryType,
+          revenueSource: rule.revenueSource,
+        });
+        ruleStats[i].matchCount++;
+        matchedCount++;
+        matched = true;
+        break;
+      }
+    }
+
+    // Handle unmatched transactions
+    if (!matched) {
+      const isRevenue = tx.amount >= 0;
+      mappings.push({
+        fitId: tx.fitId,
+        transactionName: tx.name,
+        transactionMemo: tx.memo,
+        amount: tx.amount,
+        date: tx.datePosted,
+        suggestedCategory: isRevenue ? 'Uncategorized Income' : 'Uncategorized Expense',
+        categoryType: isRevenue ? 'REVENUE' : 'EXPENSE',
+        revenueSource: isRevenue ? 'Misc' : undefined,
+      });
+      unmatchedCount++;
+    }
+  }
+
+  return { mappings, matchedCount, unmatchedCount, ruleStats };
 }
 
 // ============================================

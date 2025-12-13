@@ -215,8 +215,9 @@ export interface OFXImportResult {
 export interface TransactionMappingRule {
   id: number;
   accountId?: number;              // Optional: apply only to specific account
-  pattern: string;                 // Regex or simple match pattern
+  pattern: string;                 // Text pattern to match
   matchField: 'name' | 'memo' | 'both';
+  matchType?: 'exact' | 'contains' | 'startsWith' | 'endsWith'; // How to match (default: 'contains')
   revenueSourceId?: number;        // Map to this source (if category is 'revenue')
   transferAccountId?: number;      // Map to this account (if category is 'transfer')
   category: TransactionCategory;

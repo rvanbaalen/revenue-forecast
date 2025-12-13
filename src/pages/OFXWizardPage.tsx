@@ -32,12 +32,13 @@ import {
   type SuggestedRevenueSource,
   type CategoryChange,
   type BusinessType,
+  type MappingRuleInput,
   BUSINESS_TYPES,
   generateCategoryPrompt,
-  generateMappingPrompt,
+  generateMappingRulesPrompt,
   parseCategoryResponse,
-  parseMappingResponse,
-  extractUniqueTransactionInfo,
+  parseMappingRulesResponse,
+  applyMappingRules,
   analyzeTransactionPatterns,
   categoriesToChartAccounts,
   findMatchingChartAccount,
@@ -89,13 +90,16 @@ export function OFXWizardPage() {
   const [categoryChanges, setCategoryChanges] = useState<CategoryChange[]>([]);
   const [copiedCategory, setCopiedCategory] = useState(false);
 
-  // Step 3: Mapping
+  // Step 3: Mapping Rules
   const [mappingPrompt, setMappingPrompt] = useState<string>('');
   const [mappingJson, setMappingJson] = useState<string>('');
+  const [mappingRules, setMappingRules] = useState<MappingRuleInput[]>([]);
   const [transactionMappings, setTransactionMappings] = useState<TransactionMapping[]>([]);
   const [suggestedRevenueSources, setSuggestedRevenueSources] = useState<SuggestedRevenueSource[]>([]);
   const [copiedMapping, setCopiedMapping] = useState(false);
   const [mappingWarnings, setMappingWarnings] = useState<string[]>([]);
+  const [ruleStats, setRuleStats] = useState<{ pattern: string; matchCount: number }[]>([]);
+  const [matchStats, setMatchStats] = useState<{ matched: number; unmatched: number }>({ matched: 0, unmatched: 0 });
 
   // Step 4: Import
   const [importProgress, setImportProgress] = useState<{
@@ -121,13 +125,14 @@ export function OFXWizardPage() {
         // Allow continuing if we have new categories OR category changes
         return suggestedCategories.length > 0 || categoryChanges.length > 0;
       case 'mapping':
-        return transactionMappings.length > 0;
+        // Rules must be defined and applied to transactions
+        return mappingRules.length > 0 && transactionMappings.length > 0;
       case 'review':
         return true;
       default:
         return false;
     }
-  }, [currentStep, parsedData, suggestedCategories, categoryChanges, transactionMappings]);
+  }, [currentStep, parsedData, suggestedCategories, categoryChanges, mappingRules, transactionMappings]);
 
   const goNext = useCallback(() => {
     if (!canGoNext()) return;
@@ -151,7 +156,8 @@ export function OFXWizardPage() {
         const prompt = generateCategoryPrompt(parsedData.transactions, businessType, existingCategories);
         setCategoryPrompt(prompt);
       } else if (nextStep === 'mapping' && parsedData && suggestedCategories.length > 0) {
-        const prompt = generateMappingPrompt(parsedData.transactions, suggestedCategories);
+        // Use rules-based prompt (compact format)
+        const prompt = generateMappingRulesPrompt(parsedData.transactions, suggestedCategories);
         setMappingPrompt(prompt);
       }
     }
@@ -264,17 +270,33 @@ export function OFXWizardPage() {
     if (!parsedData) return;
     setError(null);
 
-    const result = parseMappingResponse(mappingJson, parsedData.transactions, suggestedCategories);
+    // Parse the rules from LLM response
+    const result = parseMappingRulesResponse(mappingJson);
 
     if (!result.success) {
-      setError(result.error || 'Failed to parse mappings');
+      setError(result.error || 'Failed to parse mapping rules');
       return;
     }
 
-    setTransactionMappings(result.mappings);
+    // Store the rules
+    setMappingRules(result.rules);
     setSuggestedRevenueSources(result.revenueSources);
     setMappingWarnings(result.warnings);
-  }, [mappingJson, parsedData, suggestedCategories]);
+
+    // Apply rules to transactions to generate mappings
+    const applied = applyMappingRules(parsedData.transactions, result.rules);
+    setTransactionMappings(applied.mappings);
+    setRuleStats(applied.ruleStats);
+    setMatchStats({ matched: applied.matchedCount, unmatched: applied.unmatchedCount });
+
+    // Add warning if there are unmatched transactions
+    if (applied.unmatchedCount > 0) {
+      setMappingWarnings(prev => [
+        ...prev,
+        `${applied.unmatchedCount} transaction(s) did not match any rule and will be marked as uncategorized`,
+      ]);
+    }
+  }, [mappingJson, parsedData]);
 
   // ============================================
   // Step 4: Import
@@ -578,36 +600,47 @@ export function OFXWizardPage() {
         }
       }
 
-      // 6. Create mapping rules based on unique patterns
-      const { nameMemoPairs } = extractUniqueTransactionInfo(parsedData.transactions);
+      // 6. Create mapping rules from the imported rules
       let rulesCreated = 0;
+      const existingRules = await db.getMappingRules();
+      const existingPatterns = new Set(existingRules.map(r => r.pattern.toLowerCase()));
 
-      // Create rules for recurring transaction patterns
-      for (const pair of nameMemoPairs) {
-        if (pair.count < 2) continue; // Only create rules for recurring patterns
+      for (let i = 0; i < mappingRules.length; i++) {
+        const rule = mappingRules[i];
 
-        const sampleMapping = transactionMappings.find(m => m.transactionName === pair.name);
-        if (!sampleMapping || sampleMapping.categoryType === 'TRANSFER' || sampleMapping.categoryType === 'IGNORE') {
+        // Skip if rule already exists
+        if (existingPatterns.has(rule.pattern.toLowerCase())) {
           continue;
         }
 
-        const matchedAccount = findMatchingChartAccount(sampleMapping, updatedChartAccounts);
-        if (!matchedAccount) continue;
+        // Skip TRANSFER and IGNORE rules (they don't need chart accounts)
+        if (rule.categoryType === 'TRANSFER' || rule.categoryType === 'IGNORE') {
+          continue;
+        }
 
-        // Check if similar rule exists
-        const existingRules = await db.getMappingRules();
-        const ruleExists = existingRules.some(
-          r => r.pattern.toLowerCase() === pair.name.toLowerCase()
+        // Find matching chart account for this rule
+        const matchedAccount = updatedChartAccounts.find(
+          a => a.name.toLowerCase() === rule.categoryName.toLowerCase() && a.isActive
         );
-        if (ruleExists) continue;
+        if (!matchedAccount) {
+          continue;
+        }
+
+        // Get revenue source ID if applicable
+        let revenueSourceId: number | undefined;
+        if (rule.categoryType === 'REVENUE' && rule.revenueSource) {
+          revenueSourceId = revenueSourceNameToId.get(rule.revenueSource.toLowerCase());
+        }
 
         await db.addMappingRule({
-          pattern: pair.name,
-          matchField: 'name',
-          category: sampleMapping.categoryType.toLowerCase() as TransactionCategory,
+          pattern: rule.pattern,
+          matchField: rule.matchField,
+          matchType: rule.matchType,
+          category: rule.categoryType.toLowerCase() as TransactionCategory,
           chartAccountId: matchedAccount.id,
+          revenueSourceId,
           isActive: true,
-          priority: 100,
+          priority: 100 - i, // Higher priority for earlier rules
           createdAt: new Date().toISOString(),
         });
         rulesCreated++;
@@ -628,7 +661,7 @@ export function OFXWizardPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [parsedData, suggestedCategories, categoryChanges, suggestedRevenueSources, transactionMappings, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount]);
+  }, [parsedData, suggestedCategories, categoryChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount]);
 
   // ============================================
   // Render Step Content
@@ -963,9 +996,9 @@ export function OFXWizardPage() {
   const renderMappingStep = () => (
     <div className="flex flex-col gap-6">
       <div className="text-center">
-        <h2 className="text-xl font-semibold text-foreground">Categorize Transactions</h2>
+        <h2 className="text-xl font-semibold text-foreground">Create Categorization Rules</h2>
         <p className="text-muted-foreground mt-1">
-          Use AI to assign each transaction to a category
+          Use AI to create reusable rules that categorize your transactions
         </p>
       </div>
 
@@ -976,10 +1009,10 @@ export function OFXWizardPage() {
           How it works
         </h4>
         <ol className="text-sm text-muted-foreground list-decimal list-inside flex flex-col gap-1">
-          <li>Copy the instructions below (includes your categories)</li>
+          <li>Copy the instructions below (includes your categories and transaction patterns)</li>
           <li>Paste them into ChatGPT, Claude, or any LLM of your choice</li>
-          <li>Copy the JSON response from the AI</li>
-          <li>Paste the JSON in the input below</li>
+          <li>The AI will create RULES that match patterns (e.g., &quot;STRIPE&quot; → Revenue)</li>
+          <li>Rules apply to multiple transactions and future imports automatically</li>
         </ol>
       </div>
 
@@ -1012,7 +1045,7 @@ export function OFXWizardPage() {
           Paste AI Response (JSON)
         </label>
         <Textarea
-          placeholder='{"mappings": [...]}'
+          placeholder='{"rules": [...], "revenue_sources": [...]}'
           className="min-h-32 font-mono text-sm"
           value={mappingJson}
           onChange={(e) => setMappingJson(e.target.value)}
@@ -1026,7 +1059,7 @@ export function OFXWizardPage() {
             disabled={!mappingJson.trim()}
           >
             <Download className="size-4" />
-            Import Mappings
+            Import Rules
           </Button>
         </div>
       </div>
@@ -1053,15 +1086,58 @@ export function OFXWizardPage() {
         </div>
       )}
 
-      {/* Mappings preview */}
-      {transactionMappings.length > 0 && (
+      {/* Rules preview */}
+      {mappingRules.length > 0 && (
         <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
           <div className="flex items-center gap-2 mb-3">
             <CheckCircle2 className="size-5 variance-positive" />
             <h4 className="font-medium text-foreground">
-              {transactionMappings.length} transactions categorized
+              {mappingRules.length} rules created
             </h4>
+            <span className="text-sm text-muted-foreground">
+              ({matchStats.matched} matched, {matchStats.unmatched} unmatched)
+            </span>
           </div>
+
+          {/* Rule stats table */}
+          <div className="bg-background/50 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground border-b border-border">
+                  <th className="pb-2">Pattern</th>
+                  <th className="pb-2">Type</th>
+                  <th className="pb-2">Category</th>
+                  <th className="pb-2 text-right">Matches</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ruleStats.map((stat, i) => {
+                  const rule = mappingRules[i];
+                  return (
+                    <tr key={i} className="border-b border-border/50 last:border-0">
+                      <td className="py-1.5 font-mono text-xs">{stat.pattern}</td>
+                      <td className="py-1.5">
+                        <Badge variant={rule.categoryType === 'REVENUE' ? 'default' : 'secondary'} className="text-xs">
+                          {rule.categoryType}
+                        </Badge>
+                      </td>
+                      <td className="py-1.5 text-muted-foreground">{rule.categoryName}</td>
+                      <td className="py-1.5 text-right font-medium">{stat.matchCount}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction summary by type */}
+      {transactionMappings.length > 0 && (
+        <div className="p-4 border border-border rounded-lg">
+          <h4 className="text-sm font-medium text-foreground mb-3">
+            Transaction Summary
+          </h4>
           <div className="grid grid-cols-4 gap-2 text-sm">
             {['REVENUE', 'EXPENSE', 'TRANSFER', 'IGNORE'].map(type => {
               const count = transactionMappings.filter(m => m.categoryType === type).length;
@@ -1080,7 +1156,7 @@ export function OFXWizardPage() {
       {suggestedRevenueSources.length > 0 && (
         <div className="p-4 border border-border rounded-lg">
           <h4 className="text-sm font-medium text-foreground mb-3">
-            Identified Revenue Sources ({suggestedRevenueSources.length})
+            Revenue Sources ({suggestedRevenueSources.length})
           </h4>
           <div className="flex flex-wrap gap-2">
             {suggestedRevenueSources.map((source, i) => {
@@ -1114,12 +1190,18 @@ export function OFXWizardPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="p-4 bg-card border border-border rounded-lg text-center">
           <p className="text-3xl font-bold text-foreground">
             {suggestedCategories.length}
           </p>
           <p className="text-sm text-muted-foreground">New Categories</p>
+        </div>
+        <div className="p-4 bg-card border border-border rounded-lg text-center">
+          <p className="text-3xl font-bold text-foreground">
+            {mappingRules.length}
+          </p>
+          <p className="text-sm text-muted-foreground">Mapping Rules</p>
         </div>
         <div className="p-4 bg-card border border-border rounded-lg text-center">
           <p className="text-3xl font-bold text-foreground">
