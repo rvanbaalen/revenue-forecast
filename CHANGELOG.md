@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.2](https://github.com/rvanbaalen/revenue-forecast/compare/v1.5.1...v1.5.2) (2025-12-13)
+
+
+### Bug Fixes
+
+* refactor sidebar to use shadcn component ([#33](https://github.com/rvanbaalen/revenue-forecast/issues/33)) ([5bede30](https://github.com/rvanbaalen/revenue-forecast/commit/5bede30f0e772c8727011fed7933f7bc87028e13))
+* Update charts to use official shadcn/recharts components ([#31](https://github.com/rvanbaalen/revenue-forecast/issues/31)) ([d4c71ae](https://github.com/rvanbaalen/revenue-forecast/commit/d4c71ae2c38788450ebf3d85f49d42bcbb167f6b))
+
 ## [1.5.1](https://github.com/rvanbaalen/revenue-forecast/compare/v1.5.0...v1.5.1) (2025-12-13)
 
 
