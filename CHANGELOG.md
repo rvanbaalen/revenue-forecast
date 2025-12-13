@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/rvanbaalen/revenue-forecast/compare/v1.5.0...v1.5.1) (2025-12-13)
+
+
+### Bug Fixes
+
+* Correct mapping rules application and auto-apply on creation ([#28](https://github.com/rvanbaalen/revenue-forecast/issues/28)) ([674b4b0](https://github.com/rvanbaalen/revenue-forecast/commit/674b4b0dd1de975cfc92b1f98cdccebcbb132f67))
+
 ## [1.5.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.4.0...v1.5.0) (2025-12-13)
 
 
