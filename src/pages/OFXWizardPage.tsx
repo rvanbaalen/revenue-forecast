@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useBank } from '@/context/BankContext';
 import { useAccountingContext } from '@/context/AccountingContext';
+import { useRevenue } from '@/context/RevenueContext';
 import { parseOFXFile, validateOFXFile, hashAccountId, maskAccountId, extractMonthYear } from '@/utils/ofx-parser';
 import {
   type WizardStep,
@@ -41,7 +42,8 @@ import {
   categoriesToChartAccounts,
   findMatchingChartAccount,
 } from '@/utils/ofx-wizard';
-import type { ParsedOFXFile, TransactionCategory, TransactionFlowType } from '@/types';
+import type { ParsedOFXFile, TransactionCategory, TransactionFlowType, Month } from '@/types';
+import { MONTHS } from '@/types';
 import { db } from '@/store/db';
 
 // Step configuration - simplified to 3 steps
@@ -67,6 +69,7 @@ export function OFXWizardPage() {
     createChartAccountForBankAccount,
     getChartAccountForBankAccount,
   } = useAccountingContext();
+  const { updateSourceRevenue } = useRevenue();
 
   // File state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +118,7 @@ export function OFXWizardPage() {
     transactionsImported: number;
     journalEntriesCreated: number;
     rulesCreated: number;
+    revenueSourcesSynced: number;
   } | null>(null);
 
   // ============================================
@@ -595,6 +599,32 @@ export function OFXWizardPage() {
         rulesCreated++;
       }
 
+      // 7. Sync bank transactions to revenue source actuals
+      // Group imported transactions by source and month, update actual values
+      let revenueSourcesSynced = 0;
+      const transactionsBySourceMonth: Record<number, Record<Month, number>> = {};
+
+      for (const tx of transactionsToAdd) {
+        if (tx.category === 'revenue' && tx.revenueSourceId) {
+          if (!transactionsBySourceMonth[tx.revenueSourceId]) {
+            transactionsBySourceMonth[tx.revenueSourceId] = {} as Record<Month, number>;
+          }
+          transactionsBySourceMonth[tx.revenueSourceId][tx.month] =
+            (transactionsBySourceMonth[tx.revenueSourceId][tx.month] || 0) + tx.amount;
+        }
+      }
+
+      // Update each source's actual values
+      for (const [sourceId, monthlyTotals] of Object.entries(transactionsBySourceMonth)) {
+        revenueSourcesSynced++;
+        for (const month of MONTHS) {
+          const amount = monthlyTotals[month];
+          if (amount !== undefined && amount !== 0) {
+            await updateSourceRevenue(Number(sourceId), month, amount, 'actual');
+          }
+        }
+      }
+
       setImportProgress({
         categoriesCreated,
         categoriesModified,
@@ -602,6 +632,7 @@ export function OFXWizardPage() {
         transactionsImported,
         journalEntriesCreated,
         rulesCreated,
+        revenueSourcesSynced,
       });
 
       setCurrentStep('complete');
@@ -610,7 +641,7 @@ export function OFXWizardPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [parsedData, suggestedChartAccounts, accountChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount]);
+  }, [parsedData, suggestedChartAccounts, accountChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount, updateSourceRevenue]);
 
   // ============================================
   // Render
