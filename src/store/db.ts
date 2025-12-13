@@ -732,6 +732,81 @@ class RevenueDB {
     });
   }
 
+  // Update all bank transactions from one chart account to another (for category merges)
+  async updateTransactionsCategory(fromAccountId: string, toAccountId: string): Promise<number> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('bankTransactions', 'readwrite');
+      const store = tx.objectStore('bankTransactions');
+      const request = store.getAll();
+      let updated = 0;
+
+      request.onsuccess = () => {
+        const transactions = request.result;
+        for (const txn of transactions) {
+          if (txn.chartAccountId === fromAccountId) {
+            txn.chartAccountId = toAccountId;
+            store.put(txn);
+            updated++;
+          }
+        }
+      };
+
+      tx.oncomplete = () => resolve(updated);
+    });
+  }
+
+  // Update all journal entry lines from one chart account to another (for category merges)
+  async updateJournalEntriesAccount(fromAccountId: string, toAccountId: string): Promise<number> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('journalEntries', 'readwrite');
+      const store = tx.objectStore('journalEntries');
+      const request = store.getAll();
+      let updated = 0;
+
+      request.onsuccess = () => {
+        const entries = request.result;
+        for (const entry of entries) {
+          let entryModified = false;
+          for (const line of entry.lines) {
+            if (line.accountId === fromAccountId) {
+              line.accountId = toAccountId;
+              entryModified = true;
+              updated++;
+            }
+          }
+          if (entryModified) {
+            store.put(entry);
+          }
+        }
+      };
+
+      tx.oncomplete = () => resolve(updated);
+    });
+  }
+
+  // Update all mapping rules from one chart account to another (for category merges)
+  async updateMappingRulesCategory(fromAccountId: string, toAccountId: string): Promise<number> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('mappingRules', 'readwrite');
+      const store = tx.objectStore('mappingRules');
+      const request = store.getAll();
+      let updated = 0;
+
+      request.onsuccess = () => {
+        const rules = request.result;
+        for (const rule of rules) {
+          if (rule.chartAccountId === fromAccountId) {
+            rule.chartAccountId = toAccountId;
+            store.put(rule);
+            updated++;
+          }
+        }
+      };
+
+      tx.oncomplete = () => resolve(updated);
+    });
+  }
+
   async getChartAccountById(id: string): Promise<ChartAccount | undefined> {
     return new Promise((resolve) => {
       const tx = this.db!.transaction('chartAccounts', 'readonly');

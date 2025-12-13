@@ -156,7 +156,27 @@ export interface SuggestedRevenueSource {
   description?: string;
 }
 
+export interface CategoryChange {
+  action: 'rename' | 'merge' | 'update_description';
+  // For rename: the original category name
+  // For merge: one of the categories being merged
+  from_name: string;
+  // For merge: additional categories to merge into the target
+  merge_from?: string[];
+  // The target category name (new name for rename, target for merge)
+  to_name: string;
+  // Optional: update the code
+  to_code?: string;
+  // Optional: update the type (e.g., reclassify from EXPENSE to REVENUE)
+  to_type?: 'REVENUE' | 'EXPENSE';
+  // Optional: update the description
+  to_description?: string;
+}
+
 export interface CategoryImportData {
+  // Changes to existing categories (rename, merge, update)
+  category_changes?: CategoryChange[];
+  // New categories to add
   categories: SuggestedCategory[];
 }
 
@@ -256,10 +276,12 @@ export function analyzeTransactionPatterns(transactions: ParsedOFXTransaction[])
 
 /**
  * Generate a prompt for an LLM to suggest categories based on transaction data
+ * Supports both initial setup and iterative refinement of existing categories
  */
 export function generateCategoryPrompt(
   transactions: ParsedOFXTransaction[],
-  businessType?: BusinessType
+  businessType?: BusinessType,
+  existingCategories?: { code: string; name: string; type: 'REVENUE' | 'EXPENSE'; description?: string }[]
 ): string {
   const { nameMemoPairs } = extractUniqueTransactionInfo(transactions);
   const patterns = analyzeTransactionPatterns(transactions);
@@ -295,9 +317,63 @@ Consider these industry-specific categories when analyzing the transactions, but
     }
   }
 
-  return `# Task: Analyze Bank Transactions and Suggest Chart of Accounts Categories
+  // Build existing categories section if provided
+  let existingCategoriesSection = '';
+  let categoryChangeInstructions = '';
 
-You are helping a small business owner categorize their bank transactions. Based on the transaction names and memos below, suggest appropriate accounting categories for their Chart of Accounts.
+  if (existingCategories && existingCategories.length > 0) {
+    const revenueCategories = existingCategories.filter(c => c.type === 'REVENUE');
+    const expenseCategories = existingCategories.filter(c => c.type === 'EXPENSE');
+
+    existingCategoriesSection = `
+## Existing Categories
+
+The following categories already exist in the system. You can suggest improvements to these.
+
+**Revenue Categories (${revenueCategories.length}):**
+${revenueCategories.map(c => `- [${c.code}] ${c.name}${c.description ? ': ' + c.description : ''}`).join('\n') || '(none)'}
+
+**Expense Categories (${expenseCategories.length}):**
+${expenseCategories.map(c => `- [${c.code}] ${c.name}${c.description ? ': ' + c.description : ''}`).join('\n') || '(none)'}
+`;
+
+    categoryChangeInstructions = `
+## Category Changes (Optional)
+
+If you see opportunities to improve the existing categories, you can suggest changes:
+
+- **rename**: Rename a category to something more descriptive
+- **merge**: Combine similar categories into one (moves all transactions)
+- **update_description**: Update a category's description for clarity
+
+Add a "category_changes" array to your response:
+
+{
+  "category_changes": [
+    {
+      "action": "rename",
+      "from_name": "Old Name",
+      "to_name": "Better Name",
+      "to_description": "Updated description"
+    },
+    {
+      "action": "merge",
+      "from_name": "Category A",
+      "merge_from": ["Category B", "Category C"],
+      "to_name": "Combined Category",
+      "to_description": "Merged description"
+    }
+  ],
+  "categories": [/* new categories only */]
+}
+
+**Important**: Only include genuinely NEW categories in the "categories" array. Use "category_changes" for modifications to existing ones.
+`;
+  }
+
+  return `# Task: Analyze Bank Transactions and ${existingCategories?.length ? 'Refine' : 'Suggest'} Chart of Accounts Categories
+
+You are helping a small business owner ${existingCategories?.length ? 'refine their existing' : 'set up'} accounting categories. Based on the transaction names and memos below, ${existingCategories?.length ? 'suggest improvements and any new categories needed' : 'suggest appropriate accounting categories for their Chart of Accounts'}.
 
 ## Our Chart of Accounts Structure
 
@@ -310,7 +386,7 @@ Each category needs:
 - **name**: A clear, concise name (2-4 words)
 - **type**: Either "REVENUE" or "EXPENSE"
 - **description**: Brief explanation of what goes in this category
-${businessContext}
+${existingCategoriesSection}${businessContext}
 ## Transaction Summary
 - Date range: ${patterns.dateRange.start} to ${patterns.dateRange.end}
 - Total income transactions: ${patterns.creditCount} (total: ${patterns.totalCredits.toFixed(2)})
@@ -322,15 +398,26 @@ ${transactionList}
 ## Instructions
 
 1. Analyze the transaction names and memos above
-2. Identify patterns that suggest different income sources or expense categories
+${existingCategories?.length ? `2. Review the existing categories - suggest renames/merges if names could be clearer
+3. Only add NEW categories if the existing ones don't cover these transactions
+4. Don't duplicate existing categories - use category_changes to modify them` : `2. Identify patterns that suggest different income sources or expense categories
 3. Suggest 5-15 categories that would best organize these transactions
-4. Assign appropriate account codes following the numbering convention
+4. Assign appropriate account codes following the numbering convention`}
 
 ## Output Format
 
-Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
+Respond with valid JSON wrapped in a code block:
 
-{
+\`\`\`json
+{${existingCategories?.length ? `
+  "category_changes": [
+    {
+      "action": "rename",
+      "from_name": "Old Category Name",
+      "to_name": "Better Category Name",
+      "to_description": "Clearer description"
+    }
+  ],` : ''}
   "categories": [
     {
       "code": "4100",
@@ -339,32 +426,22 @@ Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
       "description": "Income from professional services"
     },
     {
-      "code": "4200",
-      "name": "Product Sales",
-      "type": "REVENUE",
-      "description": "Income from product sales"
-    },
-    {
       "code": "5110",
       "name": "Software & Subscriptions",
       "type": "EXPENSE",
       "description": "Software tools and subscription services"
-    },
-    {
-      "code": "5120",
-      "name": "Office Supplies",
-      "type": "EXPENSE",
-      "description": "Office materials and supplies"
     }
   ]
 }
-
+\`\`\`
+${categoryChangeInstructions}
 ## Guidelines
 
 - Keep category names short but descriptive (2-4 words)
 - Use standard accounting terminology where appropriate
 - Group similar transactions logically
-- Consider both business and personal categories if mixed
+${existingCategories?.length ? `- Prefer modifying existing categories over creating duplicates
+- Only add truly new categories that aren't covered by existing ones` : `- Consider both business and personal categories if mixed`}
 - Common expense categories: Rent, Utilities, Software, Professional Services, Marketing, Travel, Meals, Bank Fees, Insurance, Taxes
 - Common revenue categories: Service Revenue, Product Sales, Consulting, Royalties, Interest Income
 
@@ -421,8 +498,9 @@ ${transactionList}
 
 ## Output Format
 
-Respond with ONLY valid JSON (no markdown, no explanation):
+Respond with valid JSON wrapped in a code block:
 
+\`\`\`json
 {
   "revenue_sources": [
     {
@@ -450,6 +528,7 @@ Respond with ONLY valid JSON (no markdown, no explanation):
     }
   ]
 }
+\`\`\`
 
 ## Rules
 
@@ -477,6 +556,7 @@ Now categorize all transactions, identify revenue sources, and provide your JSON
 export function parseCategoryResponse(jsonString: string): {
   success: boolean;
   categories: SuggestedCategory[];
+  categoryChanges: CategoryChange[];
   error?: string;
 } {
   try {
@@ -497,10 +577,41 @@ export function parseCategoryResponse(jsonString: string): {
 
     const data = JSON.parse(cleanJson) as CategoryImportData;
 
-    if (!data.categories || !Array.isArray(data.categories)) {
+    // Parse category changes if present
+    const categoryChanges: CategoryChange[] = [];
+    if (data.category_changes && Array.isArray(data.category_changes)) {
+      for (const change of data.category_changes) {
+        if (!change.action || !change.from_name || !change.to_name) {
+          continue;
+        }
+
+        const action = change.action.toLowerCase();
+        if (!['rename', 'merge', 'update_description'].includes(action)) {
+          continue;
+        }
+
+        categoryChanges.push({
+          action: action as CategoryChange['action'],
+          from_name: change.from_name.trim(),
+          merge_from: change.merge_from?.map((n: string) => n.trim()),
+          to_name: change.to_name.trim(),
+          to_code: change.to_code?.toString().trim(),
+          to_type: change.to_type,
+          to_description: change.to_description?.trim(),
+        });
+      }
+    }
+
+    // Categories array can be empty if only changes are provided
+    if (!data.categories) {
+      data.categories = [];
+    }
+
+    if (!Array.isArray(data.categories)) {
       return {
         success: false,
         categories: [],
+        categoryChanges: [],
         error: 'Invalid format: expected "categories" array',
       };
     }
@@ -550,19 +661,22 @@ export function parseCategoryResponse(jsonString: string): {
       });
     }
 
-    if (categories.length === 0) {
+    // Allow success if we have either categories or changes
+    if (categories.length === 0 && categoryChanges.length === 0) {
       return {
         success: false,
         categories: [],
-        error: errors.length > 0 ? errors.join('; ') : 'No valid categories found',
+        categoryChanges: [],
+        error: errors.length > 0 ? errors.join('; ') : 'No valid categories or changes found',
       };
     }
 
-    return { success: true, categories };
+    return { success: true, categories, categoryChanges };
   } catch (err) {
     return {
       success: false,
       categories: [],
+      categoryChanges: [],
       error: `JSON parse error: ${err instanceof Error ? err.message : 'Unknown error'}`,
     };
   }

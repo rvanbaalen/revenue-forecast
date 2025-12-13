@@ -30,6 +30,7 @@ import {
   type SuggestedCategory,
   type TransactionMapping,
   type SuggestedRevenueSource,
+  type CategoryChange,
   type BusinessType,
   BUSINESS_TYPES,
   generateCategoryPrompt,
@@ -85,6 +86,7 @@ export function OFXWizardPage() {
   const [categoryPrompt, setCategoryPrompt] = useState<string>('');
   const [categoryJson, setCategoryJson] = useState<string>('');
   const [suggestedCategories, setSuggestedCategories] = useState<SuggestedCategory[]>([]);
+  const [categoryChanges, setCategoryChanges] = useState<CategoryChange[]>([]);
   const [copiedCategory, setCopiedCategory] = useState(false);
 
   // Step 3: Mapping
@@ -98,6 +100,7 @@ export function OFXWizardPage() {
   // Step 4: Import
   const [importProgress, setImportProgress] = useState<{
     categoriesCreated: number;
+    categoriesModified: number;
     revenueSourcesCreated: number;
     transactionsImported: number;
     journalEntriesCreated: number;
@@ -115,7 +118,8 @@ export function OFXWizardPage() {
       case 'upload':
         return parsedData !== null;
       case 'categories':
-        return suggestedCategories.length > 0;
+        // Allow continuing if we have new categories OR category changes
+        return suggestedCategories.length > 0 || categoryChanges.length > 0;
       case 'mapping':
         return transactionMappings.length > 0;
       case 'review':
@@ -123,7 +127,7 @@ export function OFXWizardPage() {
       default:
         return false;
     }
-  }, [currentStep, parsedData, suggestedCategories, transactionMappings]);
+  }, [currentStep, parsedData, suggestedCategories, categoryChanges, transactionMappings]);
 
   const goNext = useCallback(() => {
     if (!canGoNext()) return;
@@ -135,14 +139,23 @@ export function OFXWizardPage() {
 
       // Generate prompts when entering steps
       if (nextStep === 'categories' && parsedData) {
-        const prompt = generateCategoryPrompt(parsedData.transactions, businessType);
+        // Get existing revenue/expense categories for refinement
+        const existingCategories = chartAccounts
+          .filter(a => (a.type === 'REVENUE' || a.type === 'EXPENSE') && a.isActive)
+          .map(a => ({
+            code: a.code,
+            name: a.name,
+            type: a.type as 'REVENUE' | 'EXPENSE',
+            description: a.description,
+          }));
+        const prompt = generateCategoryPrompt(parsedData.transactions, businessType, existingCategories);
         setCategoryPrompt(prompt);
       } else if (nextStep === 'mapping' && parsedData && suggestedCategories.length > 0) {
         const prompt = generateMappingPrompt(parsedData.transactions, suggestedCategories);
         setMappingPrompt(prompt);
       }
     }
-  }, [canGoNext, currentStepIndex, parsedData, suggestedCategories]);
+  }, [canGoNext, currentStepIndex, parsedData, suggestedCategories, chartAccounts, businessType]);
 
   const goBack = useCallback(() => {
     const prevIndex = currentStepIndex - 1;
@@ -217,10 +230,18 @@ export function OFXWizardPage() {
     setBusinessType(type);
     // Regenerate prompt with new business type context
     if (parsedData) {
-      const prompt = generateCategoryPrompt(parsedData.transactions, type);
+      const existingCategories = chartAccounts
+        .filter(a => (a.type === 'REVENUE' || a.type === 'EXPENSE') && a.isActive)
+        .map(a => ({
+          code: a.code,
+          name: a.name,
+          type: a.type as 'REVENUE' | 'EXPENSE',
+          description: a.description,
+        }));
+      const prompt = generateCategoryPrompt(parsedData.transactions, type, existingCategories);
       setCategoryPrompt(prompt);
     }
-  }, [parsedData]);
+  }, [parsedData, chartAccounts]);
 
   const handleCategoryJsonPaste = useCallback(() => {
     setError(null);
@@ -232,6 +253,7 @@ export function OFXWizardPage() {
     }
 
     setSuggestedCategories(result.categories);
+    setCategoryChanges(result.categoryChanges);
   }, [categoryJson]);
 
   // ============================================
@@ -265,6 +287,82 @@ export function OFXWizardPage() {
     setError(null);
 
     try {
+      // 0. Apply category changes (rename, merge, update_description)
+      let categoriesModified = 0;
+      const categoryNameMap = new Map<string, string>(); // old name -> new name for mapping updates
+
+      for (const change of categoryChanges) {
+        const existingAccount = chartAccounts.find(
+          a => a.name.toLowerCase() === change.from_name.toLowerCase() &&
+               (a.type === 'REVENUE' || a.type === 'EXPENSE')
+        );
+
+        if (!existingAccount) {
+          console.warn(`Category not found for change: ${change.from_name}`);
+          continue;
+        }
+
+        if (change.action === 'rename' || change.action === 'update_description') {
+          // Update the category
+          const updatedAccount = {
+            ...existingAccount,
+            name: change.to_name || existingAccount.name,
+            code: change.to_code || existingAccount.code,
+            description: change.to_description ?? existingAccount.description,
+            updatedAt: new Date().toISOString(),
+          };
+          await db.updateChartAccount(updatedAccount);
+          categoriesModified++;
+
+          // Track name change for mapping updates
+          if (change.to_name && change.to_name !== existingAccount.name) {
+            categoryNameMap.set(existingAccount.name.toLowerCase(), change.to_name);
+          }
+        } else if (change.action === 'merge' && change.merge_from) {
+          // Merge: move all transactions from merge_from accounts to this account
+          const targetAccount = existingAccount;
+
+          for (const sourceName of change.merge_from) {
+            const sourceAccount = chartAccounts.find(
+              a => a.name.toLowerCase() === sourceName.toLowerCase() &&
+                   (a.type === 'REVENUE' || a.type === 'EXPENSE')
+            );
+
+            if (sourceAccount && sourceAccount.id !== targetAccount.id) {
+              // Update all transactions with sourceAccount to use targetAccount
+              await db.updateTransactionsCategory(sourceAccount.id, targetAccount.id);
+
+              // Update all journal entries
+              await db.updateJournalEntriesAccount(sourceAccount.id, targetAccount.id);
+
+              // Update mapping rules
+              await db.updateMappingRulesCategory(sourceAccount.id, targetAccount.id);
+
+              // Deactivate the source account
+              await db.updateChartAccount({
+                ...sourceAccount,
+                isActive: false,
+                updatedAt: new Date().toISOString(),
+              });
+
+              categoriesModified++;
+              categoryNameMap.set(sourceName.toLowerCase(), change.to_name);
+            }
+          }
+
+          // Update target account name if changed
+          if (change.to_name !== targetAccount.name || change.to_description) {
+            await db.updateChartAccount({
+              ...targetAccount,
+              name: change.to_name,
+              description: change.to_description ?? targetAccount.description,
+              updatedAt: new Date().toISOString(),
+            });
+            categoryNameMap.set(existingAccount.name.toLowerCase(), change.to_name);
+          }
+        }
+      }
+
       // 1. Create new categories in chart of accounts
       const newCategories = categoriesToChartAccounts(suggestedCategories, chartAccounts);
       let categoriesCreated = 0;
@@ -517,6 +615,7 @@ export function OFXWizardPage() {
 
       setImportProgress({
         categoriesCreated,
+        categoriesModified,
         revenueSourcesCreated,
         transactionsImported,
         journalEntriesCreated,
@@ -529,7 +628,7 @@ export function OFXWizardPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [parsedData, suggestedCategories, suggestedRevenueSources, transactionMappings, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount]);
+  }, [parsedData, suggestedCategories, categoryChanges, suggestedRevenueSources, transactionMappings, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount]);
 
   // ============================================
   // Render Step Content
@@ -785,13 +884,53 @@ export function OFXWizardPage() {
         </div>
       )}
 
-      {/* Categories preview */}
+      {/* Category changes preview */}
+      {categoryChanges.length > 0 && (
+        <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
+          <h4 className="text-sm font-medium text-foreground mb-3">
+            {categoryChanges.length} category change(s) to apply
+          </h4>
+          <div className="flex flex-col gap-2 text-sm">
+            {categoryChanges.map((change, i) => (
+              <div key={i} className="flex items-center gap-2">
+                {change.action === 'rename' && (
+                  <>
+                    <Badge variant="outline">Rename</Badge>
+                    <span className="text-muted-foreground">{change.from_name}</span>
+                    <span>→</span>
+                    <span className="font-medium">{change.to_name}</span>
+                  </>
+                )}
+                {change.action === 'merge' && (
+                  <>
+                    <Badge variant="outline">Merge</Badge>
+                    <span className="text-muted-foreground">
+                      {change.from_name}, {change.merge_from?.join(', ')}
+                    </span>
+                    <span>→</span>
+                    <span className="font-medium">{change.to_name}</span>
+                  </>
+                )}
+                {change.action === 'update_description' && (
+                  <>
+                    <Badge variant="outline">Update</Badge>
+                    <span className="font-medium">{change.to_name}</span>
+                    <span className="text-muted-foreground">(description)</span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* New categories preview */}
       {suggestedCategories.length > 0 && (
         <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
           <div className="flex items-center gap-2 mb-3">
             <CheckCircle2 className="size-5 variance-positive" />
             <h4 className="font-medium text-foreground">
-              {suggestedCategories.length} categories imported
+              {suggestedCategories.length} new categories to create
             </h4>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -803,6 +942,18 @@ export function OFXWizardPage() {
                 {cat.code} - {cat.name}
               </Badge>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Success message when no new categories but have changes */}
+      {suggestedCategories.length === 0 && categoryChanges.length > 0 && (
+        <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="size-5 variance-positive" />
+            <span className="text-sm text-foreground">
+              Existing categories will be updated. No new categories needed.
+            </span>
           </div>
         </div>
       )}
@@ -1083,24 +1234,32 @@ export function OFXWizardPage() {
 
       {importProgress && (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-3xl font-bold variance-positive">
                 {importProgress.categoriesCreated}
               </p>
               <p className="text-sm text-muted-foreground">Categories Created</p>
             </div>
+            {importProgress.categoriesModified > 0 && (
+              <div className="p-4 bg-card border border-border rounded-lg">
+                <p className="text-3xl font-bold text-info">
+                  {importProgress.categoriesModified}
+                </p>
+                <p className="text-sm text-muted-foreground">Categories Modified</p>
+              </div>
+            )}
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-3xl font-bold variance-positive">
                 {importProgress.revenueSourcesCreated}
               </p>
-              <p className="text-sm text-muted-foreground">Revenue Sources Created</p>
+              <p className="text-sm text-muted-foreground">Revenue Sources</p>
             </div>
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-3xl font-bold variance-positive">
                 {importProgress.transactionsImported}
               </p>
-              <p className="text-sm text-muted-foreground">Transactions Imported</p>
+              <p className="text-sm text-muted-foreground">Transactions</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -1108,7 +1267,7 @@ export function OFXWizardPage() {
               <p className="text-3xl font-bold variance-positive">
                 {importProgress.journalEntriesCreated}
               </p>
-              <p className="text-sm text-muted-foreground">Journal Entries Created</p>
+              <p className="text-sm text-muted-foreground">Journal Entries</p>
             </div>
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-3xl font-bold text-foreground">
