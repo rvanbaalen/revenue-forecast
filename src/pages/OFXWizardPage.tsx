@@ -25,7 +25,7 @@ import {
 import { useBank } from '@/context/BankContext';
 import { useAccountingContext } from '@/context/AccountingContext';
 import { useRevenue } from '@/context/RevenueContext';
-import { parseOFXFile, validateOFXFile, hashAccountId, maskAccountId, extractMonthYear } from '@/utils/ofx-parser';
+import { parseOFXFile, validateOFXFile, hashAccountId, maskAccountId, extractMonthYear, matchOrCreateCurrency } from '@/utils/ofx-parser';
 import {
   type WizardStep,
   type SuggestedChartAccount,
@@ -69,7 +69,7 @@ export function OFXWizardPage() {
     createChartAccountForBankAccount,
     getChartAccountForBankAccount,
   } = useAccountingContext();
-  const { updateSourceRevenue } = useRevenue();
+  const { config, updateConfig, updateSourceRevenue } = useRevenue();
 
   // File state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -386,7 +386,21 @@ export function OFXWizardPage() {
 
       const updatedChartAccounts = await db.getChartAccounts();
 
-      // 2. Create revenue sources
+      // 2. Ensure OFX currency exists in config with proper symbol
+      const { currency: ofxCurrencyObj, isNew: isNewCurrency } = matchOrCreateCurrency(
+        parsedData.currency,
+        config.currencies
+      );
+
+      if (isNewCurrency) {
+        await updateConfig({
+          currencies: [...config.currencies, ofxCurrencyObj]
+        });
+      }
+
+      const ofxCurrency = ofxCurrencyObj.code;
+
+      // 3. Create revenue sources
       const existingSources = await db.getSources();
       const existingSourceNames = new Set(existingSources.map(s => s.name.toLowerCase()));
       const revenueSourceNameToId = new Map<string, number>();
@@ -401,7 +415,7 @@ export function OFXWizardPage() {
           const id = await db.addSource({
             name: source.name,
             type: source.type,
-            currency: parsedData.currency,
+            currency: ofxCurrency,
             isRecurring: false,
             recurringAmount: 0,
             expected: {},
@@ -412,7 +426,7 @@ export function OFXWizardPage() {
         }
       }
 
-      // 3. Create or find bank account
+      // 4. Create or find bank account
       const accountHash = hashAccountId(parsedData.account.accountId);
       let bankAccount = await db.getBankAccountByHash(accountHash);
 
@@ -423,7 +437,7 @@ export function OFXWizardPage() {
           accountId: maskAccountId(parsedData.account.accountId),
           accountIdHash: accountHash,
           accountType: parsedData.account.accountType,
-          currency: parsedData.currency,
+          currency: ofxCurrency,
           createdAt: new Date().toISOString(),
         });
         bankAccount = {
@@ -433,18 +447,18 @@ export function OFXWizardPage() {
           accountId: maskAccountId(parsedData.account.accountId),
           accountIdHash: accountHash,
           accountType: parsedData.account.accountType,
-          currency: parsedData.currency,
+          currency: ofxCurrency,
           createdAt: new Date().toISOString(),
         };
       }
 
-      // 4. Create chart account for bank account
+      // 5. Create chart account for bank account
       let bankChartAccount = getChartAccountForBankAccount(bankAccount.id);
       if (!bankChartAccount) {
         bankChartAccount = await createChartAccountForBankAccount(bankAccount);
       }
 
-      // 5. Import transactions
+      // 6. Import transactions
       const mappingByFitId = new Map(transactionMappings.map(m => [m.fitId, m]));
       const importBatchId = `wizard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const importedAt = new Date().toISOString();
@@ -565,7 +579,7 @@ export function OFXWizardPage() {
         }
       }
 
-      // 6. Save mapping rules
+      // 7. Save mapping rules
       let rulesCreated = 0;
       const existingRules = await db.getMappingRules();
       const existingPatterns = new Set(existingRules.map(r => r.pattern.toLowerCase()));
@@ -599,7 +613,7 @@ export function OFXWizardPage() {
         rulesCreated++;
       }
 
-      // 7. Sync bank transactions to revenue source actuals
+      // 8. Sync bank transactions to revenue source actuals
       // Group imported transactions by source and month, update actual values
       let revenueSourcesSynced = 0;
       const transactionsBySourceMonth: Record<number, Record<Month, number>> = {};
@@ -641,7 +655,7 @@ export function OFXWizardPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [parsedData, suggestedChartAccounts, accountChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount, updateSourceRevenue]);
+  }, [parsedData, suggestedChartAccounts, accountChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, config, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount, updateConfig, updateSourceRevenue]);
 
   // ============================================
   // Render

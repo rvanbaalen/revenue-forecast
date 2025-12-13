@@ -142,6 +142,14 @@ class RevenueDB {
     });
   }
 
+  async getSourceById(id: number): Promise<RevenueSource | undefined> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('sources', 'readonly');
+      const request = tx.objectStore('sources').get(id);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
   private async initDefaultSources(): Promise<RevenueSource[]> {
     const sources: RevenueSource[] = DEFAULT_SOURCES.map((s, i) => ({ ...s, id: i + 1 }));
     await this.saveSources(sources);

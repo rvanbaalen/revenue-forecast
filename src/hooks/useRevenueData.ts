@@ -109,18 +109,44 @@ export function useRevenueData() {
     value: number,
     type: 'expected' | 'actual'
   ) => {
-    const source = sources.find(s => s.id === id);
-    if (!source) return;
+    // Use functional update to avoid stale closure issues when called multiple times
+    let updated: RevenueSource | undefined;
 
-    const updated = {
-      ...source,
-      [type]: { ...source[type], [month]: value || 0 }
-    };
+    setSources(prevSources => {
+      const source = prevSources.find(s => s.id === id);
+      if (!source) return prevSources;
 
-    const updatedSources = sources.map(s => s.id === id ? updated : s);
-    setSources(updatedSources);
-    await db.updateSource(updated);
-  }, [sources]);
+      updated = {
+        ...source,
+        [type]: { ...source[type], [month]: value || 0 }
+      };
+
+      return prevSources.map(s => s.id === id ? updated! : s);
+    });
+
+    // Persist to database (need to get fresh data if source wasn't in state)
+    if (updated) {
+      await db.updateSource(updated);
+    } else {
+      // Source might not be in state yet (e.g., just created), fetch from DB
+      const freshSource = await db.getSourceById(id);
+      if (freshSource) {
+        const updatedSource = {
+          ...freshSource,
+          [type]: { ...freshSource[type], [month]: value || 0 }
+        };
+        await db.updateSource(updatedSource);
+        // Also update state with the new source
+        setSources(prevSources => {
+          const exists = prevSources.some(s => s.id === id);
+          if (exists) {
+            return prevSources.map(s => s.id === id ? updatedSource : s);
+          }
+          return [...prevSources, updatedSource];
+        });
+      }
+    }
+  }, []);
 
   const deleteSource = useCallback(async (id: number) => {
     setSources(sources.filter(s => s.id !== id));
