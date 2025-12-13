@@ -6,6 +6,13 @@ import { useRevenue } from '@/context/RevenueContext';
 import { formatCurrency } from '@/utils/format';
 import type { Month } from '@/types';
 import { MONTH_LABELS } from '@/types';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+import { Bar, BarChart, XAxis, YAxis, Cell } from 'recharts';
 
 interface ExpenseBreakdownReportProps {
   month?: Month;
@@ -96,6 +103,32 @@ export function ExpenseBreakdownReport({ month }: ExpenseBreakdownReportProps) {
     'bg-accent-foreground',
   ];
 
+  // Chart colors for Recharts
+  const chartColors = [
+    'var(--color-chart-1)',
+    'var(--color-chart-2)',
+    'var(--color-chart-3)',
+    'var(--color-chart-4)',
+    'var(--color-chart-5)',
+    'var(--color-primary)',
+    'var(--color-muted-foreground)',
+    'var(--color-accent-foreground)',
+  ];
+
+  // Chart config
+  const chartConfig = {
+    total: {
+      label: 'Amount',
+    },
+  } satisfies ChartConfig;
+
+  // Format currency for axis
+  const formatYAxis = (value: number) => {
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+    return value.toString();
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -112,23 +145,56 @@ export function ExpenseBreakdownReport({ month }: ExpenseBreakdownReportProps) {
 
       {expenseBreakdown.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          <TrendingDown className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <TrendingDown className="size-12 mx-auto mb-4 opacity-50" />
           <p>No expenses recorded for this period.</p>
           <p className="text-sm">Categorize bank transactions to see expense breakdown.</p>
         </div>
       ) : (
         <>
           {/* Horizontal bar chart */}
-          <div className="h-8 flex rounded-lg overflow-hidden">
-            {expenseBreakdown.map((category, idx) => (
-              <div
-                key={category.id}
-                className={cn(colors[idx % colors.length], "transition-all")}
-                style={{ width: `${category.percentage}%` }}
-                title={`${category.name}: ${formatCurrency(category.total, false)} (${category.percentage.toFixed(1)}%)`}
+          <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+            <BarChart
+              accessibilityLayer
+              data={expenseBreakdown}
+              layout="vertical"
+              margin={{ left: 0, right: 20 }}
+            >
+              <XAxis
+                type="number"
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={formatYAxis}
               />
-            ))}
-          </div>
+              <YAxis
+                dataKey="name"
+                type="category"
+                tickLine={false}
+                axisLine={false}
+                width={120}
+                tickFormatter={(value) => value.length > 15 ? `${value.slice(0, 15)}...` : value}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, _name, item) => (
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">{item.payload.name}</span>
+                        <span className="font-mono">{formatCurrency(value as number, false)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {item.payload.percentage.toFixed(1)}% of total
+                        </span>
+                      </div>
+                    )}
+                  />
+                }
+              />
+              <Bar dataKey="total" radius={[0, 4, 4, 0]}>
+                {expenseBreakdown.map((_entry, index) => (
+                  <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartContainer>
 
           {/* Legend and details */}
           <div className="flex flex-col gap-4">
