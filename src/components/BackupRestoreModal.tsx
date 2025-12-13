@@ -175,7 +175,7 @@ export function BackupRestoreModal({ isOpen, onClose }: BackupRestoreModalProps)
                     <h4 className="font-medium">Create Backup</h4>
                     <p className="text-sm text-muted-foreground mt-1">
                       Download a complete backup of all your data including revenue sources,
-                      salaries, bank accounts, transactions, and accounting data.
+                      salaries, bank accounts, transactions, mapping rules, and accounting data.
                     </p>
 
                     <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
