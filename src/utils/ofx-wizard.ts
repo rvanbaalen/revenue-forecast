@@ -147,6 +147,13 @@ export interface TransactionMapping {
   date: string;
   suggestedCategory: string;
   categoryType: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE';
+  revenueSource?: string; // Name of the revenue source for REVENUE transactions
+}
+
+export interface SuggestedRevenueSource {
+  name: string;
+  type: 'local' | 'foreign'; // local = domestic, foreign = international
+  description?: string;
 }
 
 export interface CategoryImportData {
@@ -154,10 +161,16 @@ export interface CategoryImportData {
 }
 
 export interface MappingImportData {
+  revenue_sources?: {
+    name: string;
+    type: 'local' | 'foreign';
+    description?: string;
+  }[];
   mappings: {
     transaction_identifier: string; // fitId or name+date combo
     category_name: string;
     category_type: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE';
+    revenue_source?: string; // Name of the revenue source (for REVENUE transactions)
   }[];
 }
 
@@ -383,9 +396,9 @@ export function generateMappingPrompt(
     })
     .join('\n');
 
-  return `# Task: Categorize Bank Transactions
+  return `# Task: Categorize Bank Transactions and Identify Revenue Sources
 
-You are helping categorize bank transactions into predefined categories. Match each transaction to the most appropriate category.
+You are helping categorize bank transactions into predefined categories AND identify distinct revenue sources for revenue tracking.
 
 ## Available Categories
 ${categoryList}
@@ -402,18 +415,28 @@ ${transactionList}
 1. For each transaction, determine the best matching category
 2. Use the transaction name, memo, and amount direction (CREDIT/DEBIT) to make your decision
 3. CREDIT transactions are typically revenue, DEBIT transactions are typically expenses
-4. Output the mapping in the exact JSON format below
+4. **For REVENUE transactions**: Identify which revenue source (client/customer/platform) the payment is from
+5. Group similar revenue by source (e.g., all payments from "Stripe" are one source, all payments from "Client ABC" are one source)
+6. Output the mapping in the exact JSON format below
 
 ## Output Format
 
 Respond with ONLY valid JSON (no markdown, no explanation):
 
 {
+  "revenue_sources": [
+    {
+      "name": "Source Name",
+      "type": "local",
+      "description": "Brief description of this revenue source"
+    }
+  ],
   "mappings": [
     {
       "transaction_identifier": "fitId-here",
       "category_name": "Category Name",
-      "category_type": "REVENUE"
+      "category_type": "REVENUE",
+      "revenue_source": "Source Name"
     },
     {
       "transaction_identifier": "fitId-here",
@@ -434,9 +457,14 @@ Respond with ONLY valid JSON (no markdown, no explanation):
 - category_type must be one of: REVENUE, EXPENSE, TRANSFER, IGNORE
 - Every transaction must have a mapping
 - transaction_identifier should be the fitId shown in brackets [...]
+- **Revenue Source Rules**:
+  - revenue_sources: List all unique revenue sources you identify
+  - type: "local" for domestic sources, "foreign" for international sources
+  - For each REVENUE transaction, include "revenue_source" matching one of the names in revenue_sources
+  - If a revenue transaction doesn't clearly belong to a specific source, use "Misc" as the source name
 - When uncertain, use your best judgment based on the transaction name
 
-Now categorize all transactions and provide your JSON response:`;
+Now categorize all transactions, identify revenue sources, and provide your JSON response:`;
 }
 
 // ============================================
@@ -550,6 +578,7 @@ export function parseMappingResponse(
 ): {
   success: boolean;
   mappings: TransactionMapping[];
+  revenueSources: SuggestedRevenueSource[];
   error?: string;
   warnings: string[];
 } {
@@ -575,14 +604,42 @@ export function parseMappingResponse(
       return {
         success: false,
         mappings: [],
+        revenueSources: [],
         error: 'Invalid format: expected "mappings" array',
         warnings: [],
       };
     }
 
+    // Parse revenue sources
+    const revenueSources: SuggestedRevenueSource[] = [];
+    const revenueSourceNames = new Set<string>();
+
+    if (data.revenue_sources && Array.isArray(data.revenue_sources)) {
+      for (const source of data.revenue_sources) {
+        if (source.name && !revenueSourceNames.has(source.name.toLowerCase())) {
+          revenueSourceNames.add(source.name.toLowerCase());
+          revenueSources.push({
+            name: source.name,
+            type: source.type === 'foreign' ? 'foreign' : 'local',
+            description: source.description,
+          });
+        }
+      }
+    }
+
+    // Always ensure "Misc" source exists for unassigned revenue
+    if (!revenueSourceNames.has('misc')) {
+      revenueSources.push({
+        name: 'Misc',
+        type: 'local',
+        description: 'Miscellaneous or uncategorized revenue',
+      });
+    }
+
     // Create lookup maps
     const txByFitId = new Map(transactions.map(tx => [tx.fitId, tx]));
     const categoryNames = new Set(categories.map(c => c.name.toLowerCase()));
+    const validSourceNames = new Set(revenueSources.map(s => s.name.toLowerCase()));
 
     const mappings: TransactionMapping[] = [];
     const mappedFitIds = new Set<string>();
@@ -618,6 +675,31 @@ export function parseMappingResponse(
         }
       }
 
+      // Handle revenue source for REVENUE transactions
+      let revenueSource: string | undefined;
+      if (categoryType === 'REVENUE') {
+        if (mapping.revenue_source) {
+          // Validate the source exists
+          if (validSourceNames.has(mapping.revenue_source.toLowerCase())) {
+            // Find the canonical name (with proper casing)
+            revenueSource = revenueSources.find(
+              s => s.name.toLowerCase() === mapping.revenue_source!.toLowerCase()
+            )?.name;
+          } else {
+            // Unknown source - add it
+            revenueSources.push({
+              name: mapping.revenue_source,
+              type: 'local',
+            });
+            validSourceNames.add(mapping.revenue_source.toLowerCase());
+            revenueSource = mapping.revenue_source;
+          }
+        } else {
+          // No source specified - use Misc
+          revenueSource = 'Misc';
+        }
+      }
+
       mappedFitIds.add(tx.fitId);
       mappings.push({
         fitId: tx.fitId,
@@ -627,6 +709,7 @@ export function parseMappingResponse(
         date: tx.datePosted,
         suggestedCategory: categoryName,
         categoryType: categoryType as 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE',
+        revenueSource,
       });
     }
 
@@ -637,23 +720,26 @@ export function parseMappingResponse(
 
       // Auto-map unmapped transactions based on amount direction
       for (const tx of unmapped) {
+        const isRevenue = tx.amount >= 0;
         mappings.push({
           fitId: tx.fitId,
           transactionName: tx.name,
           transactionMemo: tx.memo,
           amount: tx.amount,
           date: tx.datePosted,
-          suggestedCategory: tx.amount >= 0 ? 'Uncategorized Income' : 'Uncategorized Expense',
-          categoryType: tx.amount >= 0 ? 'REVENUE' : 'EXPENSE',
+          suggestedCategory: isRevenue ? 'Uncategorized Income' : 'Uncategorized Expense',
+          categoryType: isRevenue ? 'REVENUE' : 'EXPENSE',
+          revenueSource: isRevenue ? 'Misc' : undefined,
         });
       }
     }
 
-    return { success: true, mappings, warnings };
+    return { success: true, mappings, revenueSources, warnings };
   } catch (err) {
     return {
       success: false,
       mappings: [],
+      revenueSources: [],
       error: `JSON parse error: ${err instanceof Error ? err.message : 'Unknown error'}`,
       warnings: [],
     };

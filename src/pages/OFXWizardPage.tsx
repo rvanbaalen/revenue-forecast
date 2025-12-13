@@ -29,6 +29,7 @@ import {
   type WizardStep,
   type SuggestedCategory,
   type TransactionMapping,
+  type SuggestedRevenueSource,
   type BusinessType,
   BUSINESS_TYPES,
   generateCategoryPrompt,
@@ -60,7 +61,13 @@ function formatFileSize(bytes: number): string {
 export function OFXWizardPage() {
   const navigate = useNavigate();
   useBank(); // Hook provides context but we use db directly for import
-  const { chartAccounts, addChartAccount } = useAccountingContext();
+  const {
+    chartAccounts,
+    addChartAccount,
+    addJournalEntry,
+    createChartAccountForBankAccount,
+    getChartAccountForBankAccount,
+  } = useAccountingContext();
 
   // File state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,13 +91,16 @@ export function OFXWizardPage() {
   const [mappingPrompt, setMappingPrompt] = useState<string>('');
   const [mappingJson, setMappingJson] = useState<string>('');
   const [transactionMappings, setTransactionMappings] = useState<TransactionMapping[]>([]);
+  const [suggestedRevenueSources, setSuggestedRevenueSources] = useState<SuggestedRevenueSource[]>([]);
   const [copiedMapping, setCopiedMapping] = useState(false);
   const [mappingWarnings, setMappingWarnings] = useState<string[]>([]);
 
   // Step 4: Import
   const [importProgress, setImportProgress] = useState<{
     categoriesCreated: number;
+    revenueSourcesCreated: number;
     transactionsImported: number;
+    journalEntriesCreated: number;
     rulesCreated: number;
   } | null>(null);
 
@@ -240,6 +250,7 @@ export function OFXWizardPage() {
     }
 
     setTransactionMappings(result.mappings);
+    setSuggestedRevenueSources(result.revenueSources);
     setMappingWarnings(result.warnings);
   }, [mappingJson, parsedData, suggestedCategories]);
 
@@ -266,6 +277,34 @@ export function OFXWizardPage() {
       // Reload chart accounts to get IDs
       const updatedChartAccounts = await db.getChartAccounts();
 
+      // 1b. Create revenue sources (avoid duplicates)
+      const existingSources = await db.getSources();
+      const existingSourceNames = new Set(existingSources.map(s => s.name.toLowerCase()));
+      const revenueSourceNameToId = new Map<string, number>();
+      let revenueSourcesCreated = 0;
+
+      // Map existing sources by name
+      for (const source of existingSources) {
+        revenueSourceNameToId.set(source.name.toLowerCase(), source.id);
+      }
+
+      // Create new revenue sources
+      for (const source of suggestedRevenueSources) {
+        if (!existingSourceNames.has(source.name.toLowerCase())) {
+          const id = await db.addSource({
+            name: source.name,
+            type: source.type,
+            currency: parsedData.currency,
+            isRecurring: false,
+            recurringAmount: 0,
+            expected: {},
+            actual: {},
+          });
+          revenueSourceNameToId.set(source.name.toLowerCase(), id);
+          revenueSourcesCreated++;
+        }
+      }
+
       // 2. Create or find bank account
       const accountHash = hashAccountId(parsedData.account.accountId);
       let bankAccount = await db.getBankAccountByHash(accountHash);
@@ -290,6 +329,12 @@ export function OFXWizardPage() {
           currency: parsedData.currency,
           createdAt: new Date().toISOString(),
         };
+      }
+
+      // 2b. Create or find chart account for the bank account (needed for journal entries)
+      let bankChartAccount = getChartAccountForBankAccount(bankAccount.id);
+      if (!bankChartAccount) {
+        bankChartAccount = await createChartAccountForBankAccount(bankAccount);
       }
 
       // 3. Create mapping from fitId to mapping data
@@ -323,6 +368,9 @@ export function OFXWizardPage() {
         let chartAccountId: string | undefined;
         let isIgnored = false;
 
+        // Lookup revenue source ID for revenue transactions
+        let revenueSourceId: number | undefined;
+
         if (mapping) {
           if (mapping.categoryType === 'TRANSFER') {
             category = 'transfer';
@@ -336,6 +384,11 @@ export function OFXWizardPage() {
             const matchedAccount = findMatchingChartAccount(mapping, updatedChartAccounts);
             if (matchedAccount) {
               chartAccountId = matchedAccount.id;
+            }
+
+            // Get revenue source ID for revenue transactions
+            if (mapping.categoryType === 'REVENUE' && mapping.revenueSource) {
+              revenueSourceId = revenueSourceNameToId.get(mapping.revenueSource.toLowerCase());
             }
           }
         }
@@ -355,6 +408,7 @@ export function OFXWizardPage() {
           year,
           category,
           chartAccountId,
+          revenueSourceId,
           isIgnored,
           isReconciled: true, // Already categorized via wizard
           importedAt,
@@ -364,12 +418,69 @@ export function OFXWizardPage() {
 
       // Bulk insert transactions
       let transactionsImported = 0;
+      let journalEntriesCreated = 0;
       if (transactionsToAdd.length > 0) {
         const ids = await db.addBankTransactions(transactionsToAdd);
         transactionsImported = ids.length;
+
+        // 5. Create journal entries for categorized transactions
+        const isCreditCard = bankAccount.accountType === 'CREDITCARD' || bankAccount.accountType === 'CREDITLINE';
+
+        for (let i = 0; i < transactionsToAdd.length; i++) {
+          const tx = transactionsToAdd[i];
+          const txId = ids[i];
+
+          // Only create journal entries for transactions with categories (not transfers or ignored)
+          if (!tx.chartAccountId || tx.category === 'transfer' || tx.category === 'ignore') {
+            continue;
+          }
+
+          const amount = Math.abs(tx.amount);
+          const isCredit = tx.amount > 0;
+
+          // Build journal lines based on account type and transaction direction
+          const lines: { accountId: string; amount: number; type: 'DEBIT' | 'CREDIT' }[] = [];
+
+          if (isCreditCard) {
+            // Credit card: charges (positive) increase liability and expense
+            if (isCredit) {
+              // Charge = expense
+              lines.push({ accountId: tx.chartAccountId, amount, type: 'DEBIT' }); // Increase expense
+              lines.push({ accountId: bankChartAccount.id, amount, type: 'CREDIT' }); // Increase liability
+            } else {
+              // Payment = decrease liability
+              lines.push({ accountId: bankChartAccount.id, amount, type: 'DEBIT' }); // Decrease liability
+              lines.push({ accountId: tx.chartAccountId, amount, type: 'CREDIT' }); // From cash
+            }
+          } else {
+            // Bank account (asset)
+            if (isCredit) {
+              // Money in = revenue
+              lines.push({ accountId: bankChartAccount.id, amount, type: 'DEBIT' }); // Increase asset
+              lines.push({ accountId: tx.chartAccountId, amount, type: 'CREDIT' }); // Increase revenue
+            } else {
+              // Money out = expense
+              lines.push({ accountId: tx.chartAccountId, amount, type: 'DEBIT' }); // Increase expense
+              lines.push({ accountId: bankChartAccount.id, amount, type: 'CREDIT' }); // Decrease asset
+            }
+          }
+
+          try {
+            await addJournalEntry({
+              date: tx.datePosted.split('T')[0],
+              description: tx.name,
+              lines,
+              bankTransactionId: txId,
+              isReconciled: true,
+            });
+            journalEntriesCreated++;
+          } catch (err) {
+            console.error('Failed to create journal entry:', err);
+          }
+        }
       }
 
-      // 5. Create mapping rules based on unique patterns
+      // 6. Create mapping rules based on unique patterns
       const { nameMemoPairs } = extractUniqueTransactionInfo(parsedData.transactions);
       let rulesCreated = 0;
 
@@ -406,7 +517,9 @@ export function OFXWizardPage() {
 
       setImportProgress({
         categoriesCreated,
+        revenueSourcesCreated,
         transactionsImported,
+        journalEntriesCreated,
         rulesCreated,
       });
 
@@ -416,7 +529,7 @@ export function OFXWizardPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [parsedData, suggestedCategories, transactionMappings, chartAccounts, addChartAccount]);
+  }, [parsedData, suggestedCategories, suggestedRevenueSources, transactionMappings, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount]);
 
   // ============================================
   // Render Step Content
@@ -811,6 +924,32 @@ export function OFXWizardPage() {
           </div>
         </div>
       )}
+
+      {/* Revenue sources preview */}
+      {suggestedRevenueSources.length > 0 && (
+        <div className="p-4 border border-border rounded-lg">
+          <h4 className="text-sm font-medium text-foreground mb-3">
+            Identified Revenue Sources ({suggestedRevenueSources.length})
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {suggestedRevenueSources.map((source, i) => {
+              const revenueCount = transactionMappings.filter(
+                m => m.categoryType === 'REVENUE' && m.revenueSource === source.name
+              ).length;
+              return (
+                <Badge key={i} variant={source.name === 'Misc' ? 'secondary' : 'default'}>
+                  {source.name}
+                  {source.type === 'foreign' && ' (Intl)'}
+                  {revenueCount > 0 && ` (${revenueCount})`}
+                </Badge>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            These revenue sources will be created to track income by source
+          </p>
+        </div>
+      )}
     </div>
   );
 
@@ -943,24 +1082,40 @@ export function OFXWizardPage() {
       </div>
 
       {importProgress && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 bg-card border border-border rounded-lg">
-            <p className="text-3xl font-bold variance-positive">
-              {importProgress.categoriesCreated}
-            </p>
-            <p className="text-sm text-muted-foreground">Categories Created</p>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 bg-card border border-border rounded-lg">
+              <p className="text-3xl font-bold variance-positive">
+                {importProgress.categoriesCreated}
+              </p>
+              <p className="text-sm text-muted-foreground">Categories Created</p>
+            </div>
+            <div className="p-4 bg-card border border-border rounded-lg">
+              <p className="text-3xl font-bold variance-positive">
+                {importProgress.revenueSourcesCreated}
+              </p>
+              <p className="text-sm text-muted-foreground">Revenue Sources Created</p>
+            </div>
+            <div className="p-4 bg-card border border-border rounded-lg">
+              <p className="text-3xl font-bold variance-positive">
+                {importProgress.transactionsImported}
+              </p>
+              <p className="text-sm text-muted-foreground">Transactions Imported</p>
+            </div>
           </div>
-          <div className="p-4 bg-card border border-border rounded-lg">
-            <p className="text-3xl font-bold variance-positive">
-              {importProgress.transactionsImported}
-            </p>
-            <p className="text-sm text-muted-foreground">Transactions Imported</p>
-          </div>
-          <div className="p-4 bg-card border border-border rounded-lg">
-            <p className="text-3xl font-bold text-foreground">
-              {importProgress.rulesCreated}
-            </p>
-            <p className="text-sm text-muted-foreground">Auto-Rules Created</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 bg-card border border-border rounded-lg">
+              <p className="text-3xl font-bold variance-positive">
+                {importProgress.journalEntriesCreated}
+              </p>
+              <p className="text-sm text-muted-foreground">Journal Entries Created</p>
+            </div>
+            <div className="p-4 bg-card border border-border rounded-lg">
+              <p className="text-3xl font-bold text-foreground">
+                {importProgress.rulesCreated}
+              </p>
+              <p className="text-sm text-muted-foreground">Auto-Rules Created</p>
+            </div>
           </div>
         </div>
       )}
