@@ -645,7 +645,7 @@ export function OFXWizardPage() {
                 key={i}
                 variant={cat.type === 'REVENUE' ? 'default' : 'secondary'}
               >
-                {cat.name}
+                {cat.code} - {cat.name}
               </Badge>
             ))}
           </div>
@@ -813,7 +813,7 @@ export function OFXWizardPage() {
                 key={i}
                 variant={cat.type === 'REVENUE' ? 'default' : 'secondary'}
               >
-                {cat.name} ({cat.type})
+                {cat.code} - {cat.name} ({cat.type})
               </Badge>
             ))}
           </div>

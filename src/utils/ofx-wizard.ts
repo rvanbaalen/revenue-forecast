@@ -27,10 +27,10 @@ export interface WizardState {
 }
 
 export interface SuggestedCategory {
+  code: string;
   name: string;
   type: 'REVENUE' | 'EXPENSE';
   description?: string;
-  keywords?: string[];
 }
 
 export interface TransactionMapping {
@@ -152,9 +152,21 @@ export function generateCategoryPrompt(transactions: ParsedOFXTransaction[]): st
     })
     .join('\n');
 
-  return `# Task: Analyze Bank Transactions and Suggest Categories
+  return `# Task: Analyze Bank Transactions and Suggest Chart of Accounts Categories
 
-You are helping a freelancer/small business owner categorize their bank transactions. Based on the transaction names and memos below, suggest appropriate accounting categories.
+You are helping a freelancer/small business owner categorize their bank transactions. Based on the transaction names and memos below, suggest appropriate accounting categories for their Chart of Accounts.
+
+## Our Chart of Accounts Structure
+
+We use a standard accounting code system:
+- **REVENUE accounts** use codes 4000-4999 (e.g., 4100 Service Revenue, 4200 Product Sales)
+- **EXPENSE accounts** use codes 5000-5999 (e.g., 5100 Operating Expenses, 5200 Professional Services)
+
+Each category needs:
+- **code**: A 4-digit number (4xxx for REVENUE, 5xxx for EXPENSE)
+- **name**: A clear, concise name (2-4 words)
+- **type**: Either "REVENUE" or "EXPENSE"
+- **description**: Brief explanation of what goes in this category
 
 ## Transaction Summary
 - Date range: ${patterns.dateRange.start} to ${patterns.dateRange.end}
@@ -169,11 +181,7 @@ ${transactionList}
 1. Analyze the transaction names and memos above
 2. Identify patterns that suggest different income sources or expense categories
 3. Suggest 5-15 categories that would best organize these transactions
-4. For each category, provide:
-   - A clear, concise name
-   - Whether it's REVENUE or EXPENSE
-   - A brief description
-   - Keywords that would match transactions to this category
+4. Assign appropriate account codes following the numbering convention
 
 ## Output Format
 
@@ -182,16 +190,28 @@ Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
 {
   "categories": [
     {
+      "code": "4100",
       "name": "Service Revenue",
       "type": "REVENUE",
-      "description": "Income from professional services",
-      "keywords": ["consulting", "services", "payment from"]
+      "description": "Income from professional services"
     },
     {
+      "code": "4200",
+      "name": "Product Sales",
+      "type": "REVENUE",
+      "description": "Income from product sales"
+    },
+    {
+      "code": "5110",
       "name": "Software & Subscriptions",
       "type": "EXPENSE",
-      "description": "Software tools and subscription services",
-      "keywords": ["adobe", "microsoft", "subscription", "saas"]
+      "description": "Software tools and subscription services"
+    },
+    {
+      "code": "5120",
+      "name": "Office Supplies",
+      "type": "EXPENSE",
+      "description": "Office materials and supplies"
     }
   ]
 }
@@ -330,6 +350,7 @@ export function parseCategoryResponse(jsonString: string): {
     // Validate and normalize each category
     const categories: SuggestedCategory[] = [];
     const errors: string[] = [];
+    const usedCodes = new Set<string>();
 
     for (const cat of data.categories) {
       if (!cat.name || typeof cat.name !== 'string') {
@@ -343,13 +364,31 @@ export function parseCategoryResponse(jsonString: string): {
         continue;
       }
 
+      // Validate code format (4xxx for REVENUE, 5xxx for EXPENSE)
+      let code = (cat.code || '').toString().trim();
+      if (!code || !/^\d{4}$/.test(code)) {
+        // Auto-generate code if missing or invalid
+        let codeNum = type === 'REVENUE' ? 4100 : 5100;
+        while (usedCodes.has(String(codeNum))) {
+          codeNum += 10;
+        }
+        code = String(codeNum);
+      }
+
+      // Validate code matches type
+      if (type === 'REVENUE' && !code.startsWith('4')) {
+        code = '4' + code.slice(1);
+      } else if (type === 'EXPENSE' && !code.startsWith('5')) {
+        code = '5' + code.slice(1);
+      }
+
+      usedCodes.add(code);
+
       categories.push({
+        code,
         name: cat.name.trim(),
         type: type as 'REVENUE' | 'EXPENSE',
         description: cat.description?.trim(),
-        keywords: Array.isArray(cat.keywords)
-          ? cat.keywords.filter(k => typeof k === 'string').map(k => k.toLowerCase().trim())
-          : undefined,
       });
     }
 
@@ -503,35 +542,26 @@ export function categoriesToChartAccounts(
   existingAccounts: ChartAccount[]
 ): Omit<ChartAccount, 'id' | 'createdAt' | 'updatedAt'>[] {
   const result: Omit<ChartAccount, 'id' | 'createdAt' | 'updatedAt'>[] = [];
-
-  // Find highest existing codes for each type
-  const revenueCodes = existingAccounts
-    .filter(a => a.code.startsWith('4'))
-    .map(a => parseInt(a.code))
-    .filter(n => !isNaN(n));
-  const expenseCodes = existingAccounts
-    .filter(a => a.code.startsWith('5'))
-    .map(a => parseInt(a.code))
-    .filter(n => !isNaN(n));
-
-  let nextRevenueCode = Math.max(4100, ...revenueCodes) + 10;
-  let nextExpenseCode = Math.max(5100, ...expenseCodes) + 10;
+  const existingCodes = new Set(existingAccounts.map(a => a.code));
 
   for (const cat of categories) {
-    // Skip if category already exists
+    // Skip if category with same code or name already exists
     const exists = existingAccounts.some(
-      a => a.name.toLowerCase() === cat.name.toLowerCase() && a.type === cat.type
+      a => a.code === cat.code ||
+           (a.name.toLowerCase() === cat.name.toLowerCase() && a.type === cat.type)
     );
     if (exists) continue;
 
+    // Skip if we already added this code in this batch
+    if (existingCodes.has(cat.code)) continue;
+
     const type: AccountType = cat.type;
     const parentId = type === 'REVENUE' ? '4000' : '5000';
-    const code = type === 'REVENUE'
-      ? String(nextRevenueCode++).padStart(4, '0')
-      : String(nextExpenseCode++).padStart(4, '0');
+
+    existingCodes.add(cat.code);
 
     result.push({
-      code,
+      code: cat.code,
       name: cat.name,
       type,
       parentId,
