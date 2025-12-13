@@ -13,6 +13,7 @@ import {
   Upload,
   Building2,
   Calculator,
+  Wand2,
 } from 'lucide-react';
 import { useRevenue } from '@/context/RevenueContext';
 import { useTime } from '@/hooks/useTime';
@@ -32,6 +33,7 @@ import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/setup', label: 'Setup Wizard', icon: Wand2 },
   { path: '/expected', label: 'Expected', icon: TrendingUp },
   { path: '/actual', label: 'Actual', icon: Receipt },
   { path: '/bank', label: 'Bank', icon: Building2 },
