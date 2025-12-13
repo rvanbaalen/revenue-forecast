@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -26,6 +26,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import {
   Plus,
@@ -36,6 +46,10 @@ import {
   Wand2,
   Link2,
   Play,
+  Download,
+  Upload,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import type { TransactionMappingRule, TransactionCategory } from '@/types';
 import { useBank } from '@/context/BankContext';
@@ -59,7 +73,7 @@ interface RuleFormData {
 }
 
 export function MappingRulesTable() {
-  const { mappingRules, accounts, addMappingRule, updateMappingRule, deleteMappingRule, applyMappingRules } = useBank();
+  const { mappingRules, accounts, addMappingRule, updateMappingRule, deleteMappingRule, applyMappingRules, exportMappingRules, importMappingRules } = useBank();
   const { sources } = useRevenue();
   const { getExpenseAccounts, getAccountById } = useAccountingContext();
 
@@ -70,6 +84,12 @@ export function MappingRulesTable() {
   const [deletingRule, setDeletingRule] = useState<TransactionMappingRule | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [appliedCount, setAppliedCount] = useState<number | null>(null);
+
+  // Import/export state
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false);
+  const [pendingImportData, setPendingImportData] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<RuleFormData>({
     pattern: '',
@@ -131,6 +151,68 @@ export function MappingRulesTable() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const data = await exportMappingRules();
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mapping-rules-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setImportResult({ success: true, message: 'Mapping rules exported successfully!' });
+      setTimeout(() => setImportResult(null), 3000);
+    } catch (error) {
+      setImportResult({ success: false, message: `Export failed: ${error}` });
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const data = event.target?.result as string;
+      setPendingImportData(data);
+      setImportConfirmOpen(true);
+    };
+    reader.readAsText(file);
+
+    // Reset file input
+    e.target.value = '';
+  };
+
+  const handleConfirmImport = async () => {
+    if (!pendingImportData) return;
+
+    setImportConfirmOpen(false);
+
+    try {
+      const result = await importMappingRules(pendingImportData);
+      if (result.errors.length > 0) {
+        setImportResult({
+          success: result.imported > 0,
+          message: `Imported ${result.imported} rules. ${result.errors.length} errors: ${result.errors.join(', ')}`,
+        });
+      } else {
+        setImportResult({ success: true, message: `Imported ${result.imported} mapping rules successfully!` });
+      }
+    } catch (error) {
+      setImportResult({ success: false, message: `Import failed: ${error}` });
+    } finally {
+      setPendingImportData(null);
+      setTimeout(() => setImportResult(null), 5000);
+    }
+  };
+
   const openEditDialog = (rule: TransactionMappingRule) => {
     setFormData({
       pattern: rule.pattern,
@@ -163,6 +245,15 @@ export function MappingRulesTable() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Hidden file input for import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -179,6 +270,22 @@ export function MappingRulesTable() {
           )}
           <Button
             variant="outline"
+            size="icon"
+            onClick={handleExport}
+            title="Export mapping rules"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleImportClick}
+            title="Import mapping rules"
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
             onClick={handleApplyRules}
             disabled={isApplying || mappingRules.length === 0}
           >
@@ -191,6 +298,25 @@ export function MappingRulesTable() {
           </Button>
         </div>
       </div>
+
+      {/* Import/Export result message */}
+      {importResult && (
+        <div
+          className={cn(
+            "flex items-start gap-2 p-3 rounded-lg",
+            importResult.success
+              ? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200"
+              : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
+          )}
+        >
+          {importResult.success ? (
+            <Check className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          )}
+          <span className="text-sm">{importResult.message}</span>
+        </div>
+      )}
 
       {/* Rules table */}
       <div className="border border-border rounded-lg overflow-hidden">
@@ -483,6 +609,25 @@ export function MappingRulesTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import confirmation */}
+      <AlertDialog open={importConfirmOpen} onOpenChange={setImportConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace All Mapping Rules?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will replace all your existing mapping rules ({mappingRules.length} rules).
+              Any custom rules you've created will be lost. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingImportData(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmImport}>
+              Yes, Replace Rules
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -505,6 +505,16 @@ export function useBankData() {
     return updatedTransactions.length;
   }, [transactions, mappingRules, loadData]);
 
+  const exportMappingRules = useCallback(async (): Promise<string> => {
+    return db.exportMappingRules();
+  }, []);
+
+  const importMappingRules = useCallback(async (jsonData: string): Promise<{ imported: number; errors: string[] }> => {
+    const result = await db.importMappingRules(jsonData);
+    await loadData();
+    return result;
+  }, [loadData]);
+
   // ============================================
   // Revenue Integration
   // ============================================
@@ -677,6 +687,8 @@ export function useBankData() {
     updateMappingRule,
     deleteMappingRule,
     applyMappingRules,
+    exportMappingRules,
+    importMappingRules,
 
     // Revenue integration
     getActualRevenueFromBank,
