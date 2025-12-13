@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.5.2...v1.6.0) (2025-12-13)
+
+
+### Features
+
+* Create guided wizard for OFX file uploads ([#34](https://github.com/rvanbaalen/revenue-forecast/issues/34)) ([68b0141](https://github.com/rvanbaalen/revenue-forecast/commit/68b01417189fe5e8480e69e1de9d76ddfdb166f2))
+
 ## [1.5.2](https://github.com/rvanbaalen/revenue-forecast/compare/v1.5.1...v1.5.2) (2025-12-13)
 
 
