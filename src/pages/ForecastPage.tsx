@@ -15,11 +15,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ReferenceLine, Cell } from 'recharts';
 import { cn } from '@/lib/utils';
 import {
   generateForecast,
@@ -171,12 +172,39 @@ export function ForecastPage() {
     return `${monthNames[monthIndex]} ${year}`;
   };
 
-  // Calculate max value for chart scaling
-  const allValues = [...dataWithValues.map(d => d.total), ...forecasts.map(f => f.predicted)];
-  const maxValue = Math.max(...allValues, 1);
+  // Combine historical and forecast data for the chart
+  const chartData = useMemo(() => {
+    const historical = dataWithValues.map(d => ({
+      label: d.label,
+      value: d.total,
+      type: 'historical' as const,
+    }));
+
+    const forecastData = forecasts.map(f => ({
+      label: formatForecastMonth(f.month),
+      value: f.predicted,
+      type: 'forecast' as const,
+    }));
+
+    return [...historical, ...forecastData];
+  }, [dataWithValues, forecasts]);
+
+  // Chart config
+  const chartConfig = {
+    value: {
+      label: 'Revenue',
+      color: 'var(--color-chart-1)',
+    },
+  } satisfies ChartConfig;
+
+  // Format currency for Y-axis
+  const formatYAxis = (value: number) => {
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+    return value.toString();
+  };
 
   return (
-    <TooltipProvider>
       <div className="fade-in flex flex-col gap-6">
         {/* Header */}
         <div>
@@ -322,11 +350,11 @@ export function ForecastPage() {
               <CardTitle className="text-base font-medium">Revenue Trend & Forecast</CardTitle>
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-primary" />
+                  <div className="size-3 rounded-sm bg-chart-1" />
                   <span className="text-muted-foreground">Historical</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-secondary border border-dashed border-ring" />
+                  <div className="size-3 rounded-sm bg-chart-2" />
                   <span className="text-muted-foreground">Forecast</span>
                 </div>
               </div>
@@ -342,57 +370,60 @@ export function ForecastPage() {
                 </div>
               </div>
             ) : (
-              <div className="h-64 flex items-end gap-1 overflow-x-auto pb-8">
-                {/* Historical data bars */}
-                {dataWithValues.map((d) => (
-                  <Tooltip key={d.month}>
-                    <TooltipTrigger asChild>
-                      <div className="flex flex-col items-center flex-shrink-0 cursor-pointer group" style={{ width: '40px' }}>
-                        <div
-                          className="w-8 bg-primary rounded-t transition-all group-hover:opacity-80"
-                          style={{ height: `${Math.max((d.total / maxValue) * 200, 4)}px` }}
-                        />
-                        <p className="text-xs text-muted-foreground mt-2 -rotate-45 origin-top-left whitespace-nowrap">
-                          {d.label}
-                        </p>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="font-medium">{d.label}</p>
-                      <p className="font-mono">{formatCurrency(d.total)}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-
-                {/* Divider */}
-                {forecasts.length > 0 && (
-                  <div className="flex flex-col items-center justify-end flex-shrink-0 px-2">
-                    <div className="w-px h-48 border-l border-dashed border-border" />
-                  </div>
-                )}
-
-                {/* Forecast bars */}
-                {forecasts.map((f) => (
-                  <Tooltip key={f.month}>
-                    <TooltipTrigger asChild>
-                      <div className="flex flex-col items-center flex-shrink-0 cursor-pointer group" style={{ width: '40px' }}>
-                        <div
-                          className="w-8 bg-secondary rounded-t border-2 border-dashed border-ring transition-all group-hover:bg-accent"
-                          style={{ height: `${Math.max((f.predicted / maxValue) * 200, 4)}px` }}
-                        />
-                        <p className="text-xs text-muted-foreground mt-2 -rotate-45 origin-top-left whitespace-nowrap">
-                          {formatForecastMonth(f.month)}
-                        </p>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="font-medium">{formatForecastMonth(f.month)}</p>
-                      <p className="font-mono">{formatCurrency(f.predicted)}</p>
-                      <p className="text-xs text-muted-foreground">Forecast</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
+              <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+                <BarChart accessibilityLayer data={chartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={formatYAxis}
+                    width={60}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, _name, item) => (
+                          <div className="flex flex-col gap-1">
+                            <span className="font-mono font-medium">{formatCurrency(value as number)}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {item.payload.type === 'forecast' ? 'Forecast' : 'Historical'}
+                            </span>
+                          </div>
+                        )}
+                      />
+                    }
+                  />
+                  {dataWithValues.length > 0 && forecasts.length > 0 && (
+                    <ReferenceLine
+                      x={dataWithValues[dataWithValues.length - 1].label}
+                      stroke="var(--color-border)"
+                      strokeDasharray="3 3"
+                      strokeWidth={1}
+                    />
+                  )}
+                  <Bar
+                    dataKey="value"
+                    radius={[4, 4, 0, 0]}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.type === 'historical' ? 'var(--color-chart-1)' : 'var(--color-chart-2)'}
+                        opacity={entry.type === 'forecast' ? 0.7 : 1}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>
@@ -525,7 +556,6 @@ export function ForecastPage() {
           </Card>
         )}
       </div>
-    </TooltipProvider>
   );
 }
 

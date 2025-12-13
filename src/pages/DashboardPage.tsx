@@ -6,11 +6,14 @@ import { MONTHS, MONTH_LABELS } from '../types';
 import { formatCurrency, formatVariance } from '../utils/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ReferenceLine } from 'recharts';
 import { cn } from '@/lib/utils';
 import {
   TrendingUp,
@@ -43,10 +46,27 @@ export function DashboardPage() {
     }));
   }, [getMonthlyTotal, getMonthStatus, config.year]);
 
-  const maxMonthlyValue = Math.max(
-    ...monthlyData.map(d => Math.max(d.expected, d.actual)),
-    1
-  );
+  // Chart config for the monthly revenue chart
+  const chartConfig = {
+    actual: {
+      label: 'Actual',
+      color: 'var(--color-primary)',
+    },
+    expected: {
+      label: 'Expected',
+      color: 'var(--color-muted)',
+    },
+  } satisfies ChartConfig;
+
+  // Format currency for Y-axis
+  const formatYAxis = (value: number) => {
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+    return value.toString();
+  };
+
+  // Find current month index for reference line
+  const currentMonthIndex = monthlyData.findIndex(d => d.status === 'current');
 
   // Current month data
   const currentMonthData = monthlyData.find(d => d.status === 'current');
@@ -55,8 +75,7 @@ export function DashboardPage() {
   const totalSalaryCost = salaries.reduce((sum, s) => sum + getSalaryTotal(s) + getSalaryTaxCg(s), 0);
 
   return (
-    <TooltipProvider>
-      <div className="fade-in flex flex-col gap-6">
+    <div className="fade-in flex flex-col gap-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -167,72 +186,58 @@ export function DashboardPage() {
         {/* Monthly Revenue Chart */}
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">Monthly Revenue</CardTitle>
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-primary" />
-                  <span className="text-muted-foreground">Actual</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-secondary border" />
-                  <span className="text-muted-foreground">Expected</span>
-                </div>
-              </div>
-            </div>
+            <CardTitle className="text-base font-medium">Monthly Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end gap-1 h-48 pt-4">
-              {monthlyData.map((data) => (
-                <Tooltip key={data.month}>
-                  <TooltipTrigger asChild>
-                    <div className={cn(
-                      "flex-1 flex flex-col gap-1 cursor-pointer group relative",
-                      data.status === 'current' && "px-0.5"
-                    )}>
-                      {data.status === 'current' && (
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2">
-                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+              <BarChart accessibilityLayer data={monthlyData}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  tickFormatter={(value) => value.slice(0, 3)}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={formatYAxis}
+                  width={60}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value, name) => (
+                        <div className="flex items-center justify-between gap-8">
+                          <span className="text-muted-foreground">{name === 'actual' ? 'Actual' : 'Expected'}</span>
+                          <span className="font-mono font-medium">{formatCurrency(value as number)}</span>
                         </div>
                       )}
-                      <div className="flex-1 flex flex-col justify-end gap-0.5">
-                        {/* Expected bar (background) */}
-                        <div
-                          className="w-full bg-secondary rounded-t transition-all group-hover:bg-accent"
-                          style={{
-                            height: `${Math.max((data.expected / maxMonthlyValue) * 100, 2)}%`,
-                          }}
-                        />
-                        {/* Actual bar (overlaid) */}
-                        <div
-                          className={cn(
-                            "w-full rounded-t transition-all absolute bottom-6",
-                            data.status === 'future' ? 'bg-muted' : 'bg-primary',
-                            "group-hover:opacity-90"
-                          )}
-                          style={{
-                            height: `${Math.max((data.actual / maxMonthlyValue) * 100, 0)}%`,
-                          }}
-                        />
-                      </div>
-                      <p className={cn(
-                        "text-xs text-center mt-1",
-                        data.status === 'current' ? 'text-foreground font-medium' : 'text-muted-foreground'
-                      )}>
-                        {data.label.slice(0, 3)}
-                      </p>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="text-sm">
-                      <p className="font-medium">{data.label} {config.year}</p>
-                      <p className="text-muted-foreground">Actual: {formatCurrency(data.actual)}</p>
-                      <p className="text-muted-foreground">Expected: {formatCurrency(data.expected)}</p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </div>
+                    />
+                  }
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                {currentMonthIndex >= 0 && (
+                  <ReferenceLine
+                    x={monthlyData[currentMonthIndex].label}
+                    stroke="var(--color-primary)"
+                    strokeDasharray="3 3"
+                    strokeWidth={1}
+                  />
+                )}
+                <Bar
+                  dataKey="expected"
+                  fill="var(--color-expected)"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="actual"
+                  fill="var(--color-actual)"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
 
@@ -325,6 +330,5 @@ export function DashboardPage() {
           </Link>
         </div>
       </div>
-    </TooltipProvider>
   );
 }

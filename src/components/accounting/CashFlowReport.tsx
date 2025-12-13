@@ -4,6 +4,15 @@ import { useRevenue } from '@/context/RevenueContext';
 import { formatCurrency } from '@/utils/format';
 import type { Month } from '@/types';
 import { MONTHS, MONTH_LABELS } from '@/types';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
 interface CashFlowReportProps {
   month?: Month;
@@ -65,9 +74,24 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
     });
   }, [config.year, month, getCashFlow]);
 
-  const maxFlow = monthlyData
-    ? Math.max(...monthlyData.map(d => Math.max(d.inflows, d.outflows)), 1)
-    : 1;
+  // Chart configuration
+  const chartConfig = {
+    inflows: {
+      label: 'Inflows',
+      color: 'var(--color-chart-2)',
+    },
+    outflows: {
+      label: 'Outflows',
+      color: 'var(--color-chart-1)',
+    },
+  } satisfies ChartConfig;
+
+  // Format currency for Y-axis
+  const formatYAxis = (value: number) => {
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+    return value.toString();
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,37 +127,47 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
       {monthlyData && (
         <div className="border border-border rounded-lg p-4">
           <h3 className="font-semibold text-foreground mb-4">Monthly Cash Flow</h3>
-          <div className="flex items-end gap-2 h-48">
-            {monthlyData.map((data, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-1">
-                {/* Bars */}
-                <div className="flex-1 w-full flex flex-col justify-end gap-1">
-                  <div
-                    className="w-full bg-chart-2 rounded-t opacity-80"
-                    style={{ height: `${(data.inflows / maxFlow) * 100}%` }}
-                    title={`Inflows: ${formatCurrency(data.inflows, false)}`}
+          <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+            <BarChart accessibilityLayer data={monthlyData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={formatYAxis}
+                width={60}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, name) => (
+                      <div className="flex items-center justify-between gap-8">
+                        <span className="text-muted-foreground">{name === 'inflows' ? 'Inflows' : 'Outflows'}</span>
+                        <span className="font-mono font-medium">{formatCurrency(value as number, false)}</span>
+                      </div>
+                    )}
                   />
-                  <div
-                    className="w-full bg-chart-1 rounded-b opacity-80"
-                    style={{ height: `${(data.outflows / maxFlow) * 100}%` }}
-                    title={`Outflows: ${formatCurrency(data.outflows, false)}`}
-                  />
-                </div>
-                {/* Label */}
-                <span className="text-xs text-muted-foreground">{data.month}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-center gap-6 mt-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-chart-2" />
-              <span className="text-muted-foreground">Inflows</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-chart-1" />
-              <span className="text-muted-foreground">Outflows</span>
-            </div>
-          </div>
+                }
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar
+                dataKey="inflows"
+                fill="var(--color-inflows)"
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                dataKey="outflows"
+                fill="var(--color-outflows)"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ChartContainer>
         </div>
       )}
 
