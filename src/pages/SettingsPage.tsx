@@ -55,7 +55,7 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Percent className="w-4 h-4 text-foreground" />
+              <Percent className="size-4 text-foreground" />
               Tax Rates
             </CardTitle>
             <CardDescription>
@@ -105,7 +105,7 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Coins className="w-4 h-4 text-foreground" />
+              <Coins className="size-4 text-foreground" />
               Currencies
             </CardTitle>
             <CardDescription>
@@ -155,7 +155,7 @@ export function SettingsPage() {
                     onClick={() => removeCurrency(index)}
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="size-4" />
                   </Button>
                 ) : (
                   <span className="text-xs text-muted-foreground px-2">Base</span>
@@ -169,7 +169,7 @@ export function SettingsPage() {
               onClick={addCurrency}
               className="w-full"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="size-4" />
               Add Currency
             </Button>
           </CardContent>
@@ -190,7 +190,7 @@ export function SettingsPage() {
       <Card className="border-destructive/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base text-destructive">
-            <AlertTriangle className="w-4 h-4" />
+            <AlertTriangle className="size-4" />
             Danger Zone
           </CardTitle>
           <CardDescription>
@@ -208,7 +208,7 @@ export function SettingsPage() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={isClearing}>
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="size-4" />
                   {isClearing ? 'Clearing...' : 'Clear Data'}
                 </Button>
               </AlertDialogTrigger>

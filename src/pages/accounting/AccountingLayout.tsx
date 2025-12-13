@@ -1,5 +1,11 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  StatCard,
+  StatCardIcon,
+  StatCardContent,
+  StatCardLabel,
+  StatCardValue,
+} from '@/components/ui/stat-card';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -36,86 +42,55 @@ export function AccountingLayout() {
     <div className="flex flex-col gap-6 fade-in">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Accounting</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-semibold text-foreground">Accounting</h1>
+        <p className="text-muted-foreground mt-1">
           Track expenses, manage budgets, and view financial reports.
         </p>
       </div>
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{config.year} Revenue</p>
-                <p className="text-2xl font-bold variance-positive">
-                  {formatCurrency(pnl.revenue, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-success-muted rounded-full">
-                <TrendingUp className="h-5 w-5 variance-positive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard>
+          <StatCardIcon variant="success">
+            <TrendingUp className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>{config.year} Revenue</StatCardLabel>
+            <StatCardValue variant="positive">{formatCurrency(pnl.revenue, false)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{config.year} Expenses</p>
-                <p className="text-2xl font-bold variance-negative">
-                  {formatCurrency(pnl.expenses, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-destructive/10 rounded-full">
-                <TrendingDown className="h-5 w-5 variance-negative" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard>
+          <StatCardIcon variant="destructive">
+            <TrendingDown className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>{config.year} Expenses</StatCardLabel>
+            <StatCardValue variant="negative">{formatCurrency(pnl.expenses, false)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Net Income</p>
-                <p className={cn(
-                  "text-2xl font-bold",
-                  pnl.netIncome >= 0 ? "variance-positive" : "variance-negative"
-                )}>
-                  {formatCurrency(pnl.netIncome, false)}
-                </p>
-              </div>
-              <div className={cn(
-                "p-3 rounded-full",
-                pnl.netIncome >= 0 ? "bg-success-muted" : "bg-destructive/10"
-              )}>
-                <DollarSign className={cn(
-                  "h-5 w-5",
-                  pnl.netIncome >= 0 ? "variance-positive" : "variance-negative"
-                )} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard>
+          <StatCardIcon variant={pnl.netIncome >= 0 ? 'success' : 'destructive'}>
+            <DollarSign className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Net Income</StatCardLabel>
+            <StatCardValue variant={pnl.netIncome >= 0 ? 'positive' : 'negative'}>
+              {formatCurrency(pnl.netIncome, false)}
+            </StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Cash Position</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(balanceSheet.assets - balanceSheet.liabilities, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-full">
-                <CreditCard className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard>
+          <StatCardIcon variant="primary">
+            <CreditCard className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Cash Position</StatCardLabel>
+            <StatCardValue>{formatCurrency(balanceSheet.assets - balanceSheet.liabilities, false)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
       </div>
 
       {/* Tab navigation */}
@@ -137,7 +112,7 @@ export function AccountingLayout() {
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="size-4" />
               {tab.label}
             </Link>
           );

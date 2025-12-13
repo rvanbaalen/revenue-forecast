@@ -206,7 +206,7 @@ export function TransactionMappingModal({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Link2 className="h-5 w-5" />
+            <Link2 className="size-5" />
             Categorize Transaction
           </DialogTitle>
           <DialogDescription>
@@ -219,9 +219,9 @@ export function TransactionMappingModal({
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2">
               {transaction.amount >= 0 ? (
-                <ArrowDownLeft className="h-5 w-5 variance-positive" />
+                <ArrowDownLeft className="size-5 variance-positive" />
               ) : (
-                <ArrowUpRight className="h-5 w-5 variance-negative" />
+                <ArrowUpRight className="size-5 variance-negative" />
               )}
               <div>
                 <p className="font-medium text-foreground">{transaction.name}</p>
@@ -240,7 +240,7 @@ export function TransactionMappingModal({
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
+              <Calendar className="size-4" />
               {formatDate(transaction.datePosted)}
             </div>
             <span className="text-foreground font-medium">
@@ -351,10 +351,10 @@ export function TransactionMappingModal({
                 id="createRule"
                 checked={createRule}
                 onChange={(e) => setCreateRule(e.target.checked)}
-                className="h-4 w-4 rounded border-border"
+                className="size-4 rounded border-border"
               />
               <Label htmlFor="createRule" className="flex items-center gap-2 cursor-pointer">
-                <Wand2 className="h-4 w-4 text-muted-foreground" />
+                <Wand2 className="size-4 text-muted-foreground" />
                 Create mapping rule for similar transactions
               </Label>
             </div>

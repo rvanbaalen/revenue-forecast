@@ -212,9 +212,9 @@ export function BankTransactionTable({
         return (
           <div className="flex items-center gap-2">
             {tx.amount >= 0 ? (
-              <ArrowDownLeft className="h-4 w-4 variance-positive flex-shrink-0" />
+              <ArrowDownLeft className="size-4 variance-positive flex-shrink-0" />
             ) : (
-              <ArrowUpRight className="h-4 w-4 variance-negative flex-shrink-0" />
+              <ArrowUpRight className="size-4 variance-negative flex-shrink-0" />
             )}
             <div className="min-w-0">
               <p className="font-medium text-foreground truncate">{tx.name}</p>
@@ -386,7 +386,7 @@ export function BankTransactionTable({
       {showFilters && (
         <div className="flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="Search transactions..."
               value={searchQuery}
@@ -401,7 +401,7 @@ export function BankTransactionTable({
                 onClick={() => updateFilters({ search: '' })}
                 className="absolute right-3 top-1/2 -translate-y-1/2"
               >
-                <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                <X className="size-4 text-muted-foreground hover:text-foreground" />
               </button>
             )}
           </div>
@@ -580,11 +580,11 @@ export function BankTransactionTable({
                         {canSort && (
                           <span className="ml-1">
                             {sorted === 'asc' ? (
-                              <ArrowUp className="h-4 w-4" />
+                              <ArrowUp className="size-4" />
                             ) : sorted === 'desc' ? (
-                              <ArrowDown className="h-4 w-4" />
+                              <ArrowDown className="size-4" />
                             ) : (
-                              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                              <ArrowUpDown className="size-4 text-muted-foreground" />
                             )}
                           </span>
                         )}
@@ -645,7 +645,7 @@ export function BankTransactionTable({
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="size-4" />
             </Button>
             <span className="text-sm text-muted-foreground">
               Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
@@ -656,7 +656,7 @@ export function BankTransactionTable({
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="size-4" />
             </Button>
           </div>
         </div>

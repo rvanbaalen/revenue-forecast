@@ -163,7 +163,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
-            <Upload className="h-5 w-5" />
+            <Upload className="size-5" />
             Import Bank Statement
           </DialogTitle>
           <DialogDescription>
@@ -191,7 +191,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
               onChange={handleInputChange}
               className="hidden"
             />
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <FileText className="size-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-foreground font-medium mb-2">
               Drop your OFX file here
             </p>
@@ -209,7 +209,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
           <div className="flex flex-col gap-4">
             {/* File info */}
             <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-              <FileText className="h-6 w-6 text-primary flex-shrink-0" />
+              <FileText className="size-6 text-primary flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-foreground truncate text-sm">{file?.name}</p>
                 <p className="text-xs text-muted-foreground">
@@ -221,7 +221,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
             {/* Account info */}
             <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
               <div className="flex items-center gap-3">
-                <Building2 className="h-5 w-5 text-muted-foreground" />
+                <Building2 className="size-5 text-muted-foreground" />
                 <div>
                   <p className="font-medium text-foreground">
                     {preview.account.accountType} ****{preview.account.accountId.slice(-4)}
@@ -258,7 +258,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
             <div className="p-3 bg-muted/50 rounded-lg flex flex-col gap-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
+                  <Calendar className="size-4" />
                   Date Range
                 </span>
                 <span className="font-mono text-foreground">
@@ -280,7 +280,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
         {/* Importing state */}
         {state === 'importing' && (
           <div className="py-12 text-center">
-            <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin mb-4" />
+            <Loader2 className="size-12 mx-auto text-primary animate-spin mb-4" />
             <p className="text-foreground font-medium">Importing transactions...</p>
             <p className="text-sm text-muted-foreground">This may take a moment</p>
           </div>
@@ -290,7 +290,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
         {state === 'success' && result && (
           <div className="flex flex-col gap-4">
             <div className="text-center py-4">
-              <CheckCircle2 className="h-12 w-12 mx-auto variance-positive mb-4" />
+              <CheckCircle2 className="size-12 mx-auto variance-positive mb-4" />
               <p className="text-lg font-medium text-foreground">Import Successful!</p>
             </div>
 
@@ -315,12 +315,12 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
         {/* Error state */}
         {state === 'error' && (
           <div className="text-center py-8">
-            <XCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <XCircle className="size-12 mx-auto text-destructive mb-4" />
             <p className="text-lg font-medium text-foreground mb-2">Import Failed</p>
             {error && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="size-4 text-destructive mt-0.5 flex-shrink-0" />
                   <p className="text-sm text-destructive text-left">{error}</p>
                 </div>
               </div>
@@ -341,7 +341,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
                 Choose Different File
               </Button>
               <Button onClick={handleImport}>
-                <Upload className="h-4 w-4" />
+                <Upload className="size-4" />
                 Import {preview?.transactions.length} Transactions
               </Button>
             </>
@@ -349,7 +349,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
 
           {state === 'importing' && (
             <Button disabled>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               Importing...
             </Button>
           )}
