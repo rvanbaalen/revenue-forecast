@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.4.0...v1.5.0) (2025-12-13)
+
+
+### Features
+
+* Add category import/export and business type presets ([#22](https://github.com/rvanbaalen/revenue-forecast/issues/22)) ([7a6beef](https://github.com/rvanbaalen/revenue-forecast/commit/7a6beefaf47ea0b0a296ddc9f2b30a799ba554fc))
+* Add mapping rules import/export functionality ([#26](https://github.com/rvanbaalen/revenue-forecast/issues/26)) ([191ec19](https://github.com/rvanbaalen/revenue-forecast/commit/191ec1932c3e912cde34afcc74f2b31baa33ce0c))
+
+
+### Bug Fixes
+
+* Create journal entries for revenue transactions ([#27](https://github.com/rvanbaalen/revenue-forecast/issues/27)) ([52f8bfd](https://github.com/rvanbaalen/revenue-forecast/commit/52f8bfd74bf8f48e234bd42b460b6767edb0dcf2))
+
 ## [1.4.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.3.0...v1.4.0) (2025-12-13)
 
 
