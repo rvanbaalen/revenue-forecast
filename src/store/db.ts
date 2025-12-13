@@ -839,27 +839,32 @@ class RevenueDB {
 
   // Clear all data and reinitialize with defaults
   async clearAllData(): Promise<void> {
+    if (!this.db) {
+      await this.init();
+    }
+
+    const storeNames = [
+      'config',
+      'sources',
+      'salaries',
+      'salaryTaxes',
+      'bankAccounts',
+      'bankTransactions',
+      'mappingRules',
+      'chartAccounts',
+      'journalEntries',
+    ];
+
+    // Clear all stores in a single transaction
     return new Promise((resolve, reject) => {
-      // Close the current connection
-      if (this.db) {
-        this.db.close();
-        this.db = null;
+      const tx = this.db!.transaction(storeNames, 'readwrite');
+
+      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => resolve();
+
+      for (const storeName of storeNames) {
+        tx.objectStore(storeName).clear();
       }
-
-      // Delete the database
-      const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
-
-      deleteRequest.onerror = () => reject(deleteRequest.error);
-
-      deleteRequest.onsuccess = () => {
-        // Reinitialize the database with defaults
-        this.init().then(() => resolve()).catch(reject);
-      };
-
-      deleteRequest.onblocked = () => {
-        console.warn('Database deletion blocked - close other tabs');
-        reject(new Error('Database deletion blocked. Please close other tabs using this application.'));
-      };
     });
   }
 }
