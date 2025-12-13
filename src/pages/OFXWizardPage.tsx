@@ -523,18 +523,20 @@ export function OFXWizardPage() {
               <h4 className="text-sm font-medium text-foreground mb-2">Transaction Summary</h4>
               {(() => {
                 const patterns = analyzeTransactionPatterns(parsedData.transactions);
+                const formatAmount = (amount: number) =>
+                  amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 return (
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">Credits:</span>{' '}
                       <span className="variance-positive font-medium">
-                        {patterns.creditCount} ({parsedData.currency} {patterns.totalCredits.toFixed(2)})
+                        {patterns.creditCount} ({parsedData.currency} {formatAmount(patterns.totalCredits)})
                       </span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Debits:</span>{' '}
                       <span className="variance-negative font-medium">
-                        {patterns.debitCount} ({parsedData.currency} {patterns.totalDebits.toFixed(2)})
+                        {patterns.debitCount} ({parsedData.currency} {formatAmount(patterns.totalDebits)})
                       </span>
                     </div>
                   </div>
