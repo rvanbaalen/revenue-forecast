@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.6.0...v1.7.0) (2025-12-13)
+
+
+### Features
+
+* Review and rename backup and restore functionality ([#36](https://github.com/rvanbaalen/revenue-forecast/issues/36)) ([8dec91c](https://github.com/rvanbaalen/revenue-forecast/commit/8dec91c39b304333c151d8b47d389c29098c1a11))
+
 ## [1.6.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.5.2...v1.6.0) (2025-12-13)
 
 
