@@ -79,8 +79,8 @@ export function BankLayout() {
                   +{formatCurrency(yearCredits, false)}
                 </p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-full">
-                <TrendingUp className="h-5 w-5 text-green-500" />
+              <div className="p-3 bg-success-muted rounded-full">
+                <TrendingUp className="h-5 w-5 variance-positive" />
               </div>
             </div>
           </CardContent>
@@ -95,8 +95,8 @@ export function BankLayout() {
                   -{formatCurrency(yearDebits, false)}
                 </p>
               </div>
-              <div className="p-3 bg-red-500/10 rounded-full">
-                <TrendingDown className="h-5 w-5 text-red-500" />
+              <div className="p-3 bg-destructive/10 rounded-full">
+                <TrendingDown className="h-5 w-5 variance-negative" />
               </div>
             </div>
           </CardContent>

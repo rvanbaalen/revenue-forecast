@@ -1,8 +1,8 @@
-import type { AppConfig, RevenueSource, Salary, SalaryTax, BankAccount, BankTransaction, TransactionMappingRule } from '../types';
-import { DEFAULT_CONFIG, DEFAULT_SOURCES, DEFAULT_SALARIES, DEFAULT_SALARY_TAXES } from '../types';
+import type { AppConfig, RevenueSource, Salary, SalaryTax, BankAccount, BankTransaction, TransactionMappingRule, ChartAccount, JournalEntry } from '../types';
+import { DEFAULT_CONFIG, DEFAULT_SOURCES, DEFAULT_SALARIES, DEFAULT_SALARY_TAXES, DEFAULT_CHART_OF_ACCOUNTS } from '../types';
 
 const DB_NAME = 'RevenueTracker2026';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 class RevenueDB {
   private db: IDBDatabase | null = null;
@@ -59,6 +59,22 @@ class RevenueDB {
           const ruleStore = database.createObjectStore('mappingRules', { keyPath: 'id', autoIncrement: true });
           ruleStore.createIndex('accountId', 'accountId', { unique: false });
           ruleStore.createIndex('priority', 'priority', { unique: false });
+        }
+
+        // Version 4: Add accounting stores
+        if (!database.objectStoreNames.contains('chartAccounts')) {
+          const chartStore = database.createObjectStore('chartAccounts', { keyPath: 'id' });
+          chartStore.createIndex('code', 'code', { unique: true });
+          chartStore.createIndex('type', 'type', { unique: false });
+          chartStore.createIndex('parentId', 'parentId', { unique: false });
+          chartStore.createIndex('bankAccountId', 'bankAccountId', { unique: false });
+        }
+
+        if (!database.objectStoreNames.contains('journalEntries')) {
+          const journalStore = database.createObjectStore('journalEntries', { keyPath: 'id' });
+          journalStore.createIndex('date', 'date', { unique: false });
+          journalStore.createIndex('bankTransactionId', 'bankTransactionId', { unique: false });
+          journalStore.createIndex('isReconciled', 'isReconciled', { unique: false });
         }
 
         // Migration from v1: Convert old salary.taxType/taxValue to separate salaryTaxes
@@ -513,6 +529,8 @@ class RevenueDB {
     const bankAccounts = await this.getBankAccounts();
     const bankTransactions = await this.getBankTransactions();
     const mappingRules = await this.getMappingRules();
+    const chartAccounts = await this.getChartAccounts();
+    const journalEntries = await this.getJournalEntries();
     return JSON.stringify({
       config,
       sources,
@@ -520,7 +538,9 @@ class RevenueDB {
       salaryTaxes,
       bankAccounts,
       bankTransactions,
-      mappingRules
+      mappingRules,
+      chartAccounts,
+      journalEntries,
     }, null, 2);
   }
 
@@ -593,6 +613,33 @@ class RevenueDB {
         await this.addMappingRule(rule);
       }
     }
+
+    // Import accounting data if present
+    if (data.chartAccounts) {
+      if (clearExisting) {
+        await this.clearChartAccounts();
+      }
+      for (const account of data.chartAccounts) {
+        try {
+          await this.addChartAccount(account);
+        } catch {
+          // Skip duplicates
+        }
+      }
+    }
+
+    if (data.journalEntries) {
+      if (clearExisting) {
+        await this.clearJournalEntries();
+      }
+      for (const entry of data.journalEntries) {
+        try {
+          await this.addJournalEntry(entry);
+        } catch {
+          // Skip duplicates
+        }
+      }
+    }
   }
 
   // Clear operations for import
@@ -617,6 +664,207 @@ class RevenueDB {
       const tx = this.db!.transaction('mappingRules', 'readwrite');
       tx.objectStore('mappingRules').clear();
       tx.oncomplete = () => resolve();
+    });
+  }
+
+  // ============================================
+  // Chart of Accounts operations
+  // ============================================
+
+  async getChartAccounts(): Promise<ChartAccount[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('chartAccounts', 'readonly');
+      const request = tx.objectStore('chartAccounts').getAll();
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result.length === 0) {
+          this.initDefaultChartAccounts().then(resolve);
+        } else {
+          resolve(result);
+        }
+      };
+    });
+  }
+
+  private async initDefaultChartAccounts(): Promise<ChartAccount[]> {
+    const now = new Date().toISOString();
+    const accounts: ChartAccount[] = DEFAULT_CHART_OF_ACCOUNTS.map(a => ({
+      ...a,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    await this.saveChartAccounts(accounts);
+    return accounts;
+  }
+
+  async saveChartAccounts(accounts: ChartAccount[]): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('chartAccounts', 'readwrite');
+      const store = tx.objectStore('chartAccounts');
+      store.clear();
+      accounts.forEach(a => store.put(a));
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async addChartAccount(account: ChartAccount): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction('chartAccounts', 'readwrite');
+      const request = tx.objectStore('chartAccounts').add(account);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async updateChartAccount(account: ChartAccount): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('chartAccounts', 'readwrite');
+      tx.objectStore('chartAccounts').put(account);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteChartAccount(id: string): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('chartAccounts', 'readwrite');
+      tx.objectStore('chartAccounts').delete(id);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async getChartAccountById(id: string): Promise<ChartAccount | undefined> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('chartAccounts', 'readonly');
+      const request = tx.objectStore('chartAccounts').get(id);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async getChartAccountByBankAccountId(bankAccountId: number): Promise<ChartAccount | undefined> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('chartAccounts', 'readonly');
+      const index = tx.objectStore('chartAccounts').index('bankAccountId');
+      const request = index.get(bankAccountId);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async getChartAccountsByType(type: string): Promise<ChartAccount[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('chartAccounts', 'readonly');
+      const index = tx.objectStore('chartAccounts').index('type');
+      const request = index.getAll(IDBKeyRange.only(type));
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  // ============================================
+  // Journal Entry operations
+  // ============================================
+
+  async getJournalEntries(): Promise<JournalEntry[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('journalEntries', 'readonly');
+      const request = tx.objectStore('journalEntries').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getJournalEntriesByDateRange(startDate: string, endDate: string): Promise<JournalEntry[]> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('journalEntries', 'readonly');
+      const index = tx.objectStore('journalEntries').index('date');
+      const request = index.getAll(IDBKeyRange.bound(startDate, endDate));
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getJournalEntryByBankTransaction(bankTransactionId: number): Promise<JournalEntry | undefined> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('journalEntries', 'readonly');
+      const index = tx.objectStore('journalEntries').index('bankTransactionId');
+      const request = index.get(bankTransactionId);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async addJournalEntry(entry: JournalEntry): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction('journalEntries', 'readwrite');
+      const request = tx.objectStore('journalEntries').add(entry);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async updateJournalEntry(entry: JournalEntry): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('journalEntries', 'readwrite');
+      tx.objectStore('journalEntries').put(entry);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteJournalEntry(id: string): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('journalEntries', 'readwrite');
+      tx.objectStore('journalEntries').delete(id);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async getJournalEntryById(id: string): Promise<JournalEntry | undefined> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('journalEntries', 'readonly');
+      const request = tx.objectStore('journalEntries').get(id);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  private async clearChartAccounts(): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('chartAccounts', 'readwrite');
+      tx.objectStore('chartAccounts').clear();
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  private async clearJournalEntries(): Promise<void> {
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('journalEntries', 'readwrite');
+      tx.objectStore('journalEntries').clear();
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  // Clear all data and reinitialize with defaults
+  async clearAllData(): Promise<void> {
+    if (!this.db) {
+      await this.init();
+    }
+
+    const storeNames = [
+      'config',
+      'sources',
+      'salaries',
+      'salaryTaxes',
+      'bankAccounts',
+      'bankTransactions',
+      'mappingRules',
+      'chartAccounts',
+      'journalEntries',
+    ];
+
+    // Clear all stores in a single transaction
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction(storeNames, 'readwrite');
+
+      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => resolve();
+
+      for (const storeName of storeNames) {
+        tx.objectStore(storeName).clear();
+      }
     });
   }
 }

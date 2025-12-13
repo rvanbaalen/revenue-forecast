@@ -5,12 +5,15 @@ import './index.css'
 import { router } from './router'
 import { RevenueProvider } from './context/RevenueContext'
 import { BankProvider } from './context/BankContext'
+import { AccountingProvider } from './context/AccountingContext'
 
 function App() {
   return (
     <RevenueProvider>
       <BankProvider>
-        <RouterProvider router={router} />
+        <AccountingProvider>
+          <RouterProvider router={router} />
+        </AccountingProvider>
       </BankProvider>
     </RevenueProvider>
   )

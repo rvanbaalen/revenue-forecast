@@ -1,10 +1,23 @@
+import { useState } from 'react';
 import { useRevenue } from '../context/RevenueContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Plus, X, Percent, Coins } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Plus, X, Percent, Coins, Trash2, AlertTriangle } from 'lucide-react';
+import { db } from '@/store/db';
 
 export function SettingsPage() {
   const {
@@ -14,6 +27,21 @@ export function SettingsPage() {
     updateCurrency,
     removeCurrency,
   } = useRevenue();
+
+  const [isClearing, setIsClearing] = useState(false);
+
+  const handleClearData = async () => {
+    setIsClearing(true);
+    try {
+      await db.clearAllData();
+      // Reload the page to reinitialize all contexts with fresh data
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to clear data:', error);
+      alert(error instanceof Error ? error.message : 'Failed to clear data');
+      setIsClearing(false);
+    }
+  };
 
   return (
     <div className="fade-in space-y-6">
@@ -155,6 +183,62 @@ export function SettingsPage() {
             Data is stored locally in your browser using IndexedDB.
             Use the Export function in the sidebar to backup your data.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone */}
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-destructive">
+            <AlertTriangle className="w-4 h-4" />
+            Danger Zone
+          </CardTitle>
+          <CardDescription>
+            Irreversible actions that affect all your data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-foreground">Clear all data</p>
+              <p className="text-sm text-muted-foreground">
+                Delete all data and reset to defaults. This cannot be undone.
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={isClearing}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isClearing ? 'Clearing...' : 'Clear Data'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all your data including:
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>All revenue sources and forecasts</li>
+                      <li>All bank accounts and transactions</li>
+                      <li>All salaries and tax configurations</li>
+                      <li>All chart of accounts and journal entries</li>
+                      <li>All mapping rules</li>
+                    </ul>
+                    <p className="mt-3 font-medium">This action cannot be undone.</p>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleClearData}
+                    variant="destructive"
+                  >
+                    Yes, delete everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -74,7 +74,7 @@ export function ActualRevenuePage() {
         {hasBankData && (
           <div className="flex items-center gap-3">
             {syncResult && (
-              <span className={`text-sm ${syncResult.success ? 'text-green-600' : 'text-destructive'}`}>
+              <span className={`text-sm ${syncResult.success ? 'variance-positive' : 'text-destructive'}`}>
                 {syncResult.message}
               </span>
             )}

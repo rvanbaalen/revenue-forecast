@@ -21,6 +21,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useBank } from '@/context/BankContext';
+import { useAccountingContext } from '@/context/AccountingContext';
 import type { OFXImportResult } from '@/types';
 import { parseOFXFile, validateOFXFile } from '@/utils/ofx-parser';
 import type { ParsedOFXFile } from '@/types';
@@ -39,7 +40,8 @@ function formatFileSize(bytes: number): string {
 }
 
 export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
-  const { importOFXFile, accounts } = useBank();
+  const { importOFXFile, accounts, getAccountById } = useBank();
+  const { createChartAccountForBankAccount, getChartAccountForBankAccount } = useAccountingContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [state, setState] = useState<ImportState>('idle');
@@ -130,11 +132,26 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
       if (!importResult.success && importResult.errors.length > 0) {
         setError(importResult.errors.join(', '));
       }
+
+      // Auto-create a chart account for the bank account if it doesn't exist
+      if (importResult.success && importResult.accountId) {
+        const bankAccount = getAccountById(importResult.accountId);
+        if (bankAccount) {
+          const existingChartAccount = getChartAccountForBankAccount(importResult.accountId);
+          if (!existingChartAccount) {
+            try {
+              await createChartAccountForBankAccount(bankAccount);
+            } catch (chartErr) {
+              console.warn('Could not create chart account:', chartErr);
+            }
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed');
       setState('error');
     }
-  }, [file, importOFXFile]);
+  }, [file, importOFXFile, getAccountById, getChartAccountForBankAccount, createChartAccountForBankAccount]);
 
   // Check if account already exists
   const existingAccount = preview?.account.accountId

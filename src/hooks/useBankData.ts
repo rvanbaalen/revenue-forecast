@@ -9,6 +9,7 @@ import type {
   MonthlyBankSummary,
   Month,
   TransactionCategory,
+  TransactionFlowType,
   RevenueSource,
 } from '../types';
 
@@ -132,27 +133,54 @@ export function useBankData() {
 
         const { month, year } = extractMonthYear(tx.datePosted);
 
-        // Apply mapping rules
-        let category: TransactionCategory = tx.amount >= 0 ? 'revenue' : 'expense';
+        // Determine flowType based on account type and amount direction
+        const isCreditCard = account.accountType === 'CREDITCARD' || account.accountType === 'CREDITLINE';
+        let flowType: TransactionFlowType;
+        if (isCreditCard) {
+          // Credit card: positive = charge (purchase), negative = payment (paying off)
+          flowType = tx.amount > 0 ? 'charge' : 'payment';
+        } else {
+          // Checking/Savings: positive = credit (money in), negative = debit (money out)
+          flowType = tx.amount >= 0 ? 'credit' : 'debit';
+        }
+
+        // Default category for backwards compatibility (derived from flowType)
+        // Will be deprecated - use chartAccountId instead
+        let category: TransactionCategory;
+        if (isCreditCard) {
+          category = tx.amount > 0 ? 'expense' : 'transfer';
+        } else {
+          category = tx.amount >= 0 ? 'revenue' : 'expense';
+        }
+
         let revenueSourceId: number | undefined;
+        let chartAccountId: string | undefined;
+        let transferAccountId: number | undefined;
+        let isIgnored = false;
 
         for (const rule of applicableRules) {
           const textToMatch = rule.matchField === 'name' ? tx.name :
             rule.matchField === 'memo' ? (tx.memo || '') :
             `${tx.name} ${tx.memo || ''}`;
 
+          const applyRule = () => {
+            category = rule.category;
+            chartAccountId = rule.chartAccountId; // Can be set for any category
+            revenueSourceId = rule.revenueSourceId;
+            transferAccountId = rule.transferAccountId;
+            isIgnored = rule.category === 'ignore';
+          };
+
           try {
             const regex = new RegExp(rule.pattern, 'i');
             if (regex.test(textToMatch)) {
-              category = rule.category;
-              revenueSourceId = rule.revenueSourceId;
+              applyRule();
               break;
             }
           } catch {
             // Invalid regex, try simple string match
             if (textToMatch.toLowerCase().includes(rule.pattern.toLowerCase())) {
-              category = rule.category;
-              revenueSourceId = rule.revenueSourceId;
+              applyRule();
               break;
             }
           }
@@ -162,6 +190,7 @@ export function useBankData() {
           accountId: account.id,
           fitId: tx.fitId,
           type: tx.type,
+          flowType,
           amount: tx.amount,
           datePosted: tx.datePosted,
           name: tx.name,
@@ -171,7 +200,10 @@ export function useBankData() {
           month,
           year,
           category,
+          chartAccountId,
           revenueSourceId,
+          transferAccountId,
+          isIgnored,
           isReconciled: false,
           importedAt,
           importBatchId,
@@ -358,6 +390,45 @@ export function useBankData() {
     await loadData();
   }, [transactions, loadData]);
 
+  const bulkMapToExpense = useCallback(async (
+    transactionIds: number[],
+    chartAccountId: string
+  ): Promise<void> => {
+    const txnsToUpdate = transactions
+      .filter(t => transactionIds.includes(t.id))
+      .map(t => ({
+        ...t,
+        chartAccountId,
+        revenueSourceId: undefined,
+        transferAccountId: undefined,
+        category: 'expense' as TransactionCategory,
+        isReconciled: true,
+        isIgnored: false,
+      }));
+
+    await db.updateBankTransactions(txnsToUpdate);
+    await loadData();
+  }, [transactions, loadData]);
+
+  const bulkIgnore = useCallback(async (
+    transactionIds: number[]
+  ): Promise<void> => {
+    const txnsToUpdate = transactions
+      .filter(t => transactionIds.includes(t.id))
+      .map(t => ({
+        ...t,
+        category: 'ignore' as TransactionCategory,
+        chartAccountId: undefined,
+        revenueSourceId: undefined,
+        transferAccountId: undefined,
+        isIgnored: true,
+        isReconciled: true,
+      }));
+
+    await db.updateBankTransactions(txnsToUpdate);
+    await loadData();
+  }, [transactions, loadData]);
+
   // ============================================
   // Mapping Rule Operations
   // ============================================
@@ -407,6 +478,7 @@ export function useBankData() {
               category: rule.category,
               revenueSourceId: rule.category === 'revenue' ? rule.revenueSourceId : undefined,
               transferAccountId: rule.category === 'transfer' ? rule.transferAccountId : undefined,
+              chartAccountId: rule.category === 'expense' ? rule.chartAccountId : undefined,
             });
             break;
           }
@@ -417,6 +489,7 @@ export function useBankData() {
               category: rule.category,
               revenueSourceId: rule.category === 'revenue' ? rule.revenueSourceId : undefined,
               transferAccountId: rule.category === 'transfer' ? rule.transferAccountId : undefined,
+              chartAccountId: rule.category === 'expense' ? rule.chartAccountId : undefined,
             });
             break;
           }
@@ -596,6 +669,8 @@ export function useBankData() {
     bulkCategorize,
     bulkMapToSource,
     bulkMapToTransfer,
+    bulkMapToExpense,
+    bulkIgnore,
 
     // Mapping rule operations
     addMappingRule,

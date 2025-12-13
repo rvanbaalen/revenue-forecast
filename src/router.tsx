@@ -16,6 +16,7 @@ import { SalaryPage } from './pages/SalaryPage';
 import { ForecastPage } from './pages/ForecastPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { BankLayout, BankAccountsPage, BankTransactionsPage, BankMappingRulesPage } from './pages/bank';
+import { AccountingLayout, AccountingOverviewPage, ChartOfAccountsPage, BudgetPage, ReportsPage } from './pages/accounting';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -28,6 +29,7 @@ import {
   Download,
   Upload,
   Building2,
+  Calculator,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { cn } from './lib/utils';
@@ -37,6 +39,7 @@ const NAV_ITEMS = [
   { path: '/expected', label: 'Expected', icon: TrendingUp },
   { path: '/actual', label: 'Actual', icon: Receipt },
   { path: '/bank', label: 'Bank', icon: Building2 },
+  { path: '/accounting', label: 'Accounting', icon: Calculator },
   { path: '/salary', label: 'Salaries', icon: Users },
   { path: '/forecast', label: 'Forecast', icon: LineChart },
   { path: '/settings', label: 'Settings', icon: Settings },
@@ -318,6 +321,37 @@ const bankMappingRoute = createRoute({
   component: BankMappingRulesPage,
 });
 
+// Accounting routes with nested structure
+const accountingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/accounting',
+  component: AccountingLayout,
+});
+
+const accountingOverviewRoute = createRoute({
+  getParentRoute: () => accountingRoute,
+  path: '/',
+  component: AccountingOverviewPage,
+});
+
+const accountingCategoriesRoute = createRoute({
+  getParentRoute: () => accountingRoute,
+  path: '/categories',
+  component: ChartOfAccountsPage,
+});
+
+const accountingBudgetRoute = createRoute({
+  getParentRoute: () => accountingRoute,
+  path: '/budget',
+  component: BudgetPage,
+});
+
+const accountingReportsRoute = createRoute({
+  getParentRoute: () => accountingRoute,
+  path: '/reports',
+  component: ReportsPage,
+});
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -327,6 +361,12 @@ const routeTree = rootRoute.addChildren([
     bankAccountsRoute,
     bankTransactionsRoute,
     bankMappingRoute,
+  ]),
+  accountingRoute.addChildren([
+    accountingOverviewRoute,
+    accountingCategoriesRoute,
+    accountingBudgetRoute,
+    accountingReportsRoute,
   ]),
   salaryRoute,
   forecastRoute,
