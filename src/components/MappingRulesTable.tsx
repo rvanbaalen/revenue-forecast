@@ -41,8 +41,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  ToggleLeft,
-  ToggleRight,
   Wand2,
   Link2,
   Play,
@@ -51,6 +49,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import type { TransactionMappingRule, TransactionCategory } from '@/types';
 import { useBank } from '@/context/BankContext';
 import { useRevenue } from '@/context/RevenueContext';
@@ -345,16 +344,10 @@ export function MappingRulesTable() {
               sortedRules.map(rule => (
                 <TableRow key={rule.id} className={cn(!rule.isActive && "opacity-50")}>
                   <TableCell>
-                    <button
-                      onClick={() => handleToggleRule(rule)}
-                      className="p-1 hover:bg-accent rounded"
-                    >
-                      {rule.isActive ? (
-                        <ToggleRight className="h-5 w-5 text-primary" />
-                      ) : (
-                        <ToggleLeft className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </button>
+                    <Switch
+                      checked={rule.isActive}
+                      onCheckedChange={() => handleToggleRule(rule)}
+                    />
                   </TableCell>
                   <TableCell>
                     <code className="text-sm bg-muted px-2 py-1 rounded font-mono">

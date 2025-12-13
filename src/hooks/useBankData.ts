@@ -433,26 +433,72 @@ export function useBankData() {
   // Mapping Rule Operations
   // ============================================
 
+  // Helper to apply a single rule to all matching transactions
+  const applySingleRule = useCallback(async (rule: TransactionMappingRule | Omit<TransactionMappingRule, 'id'>): Promise<number> => {
+    if (!rule.isActive) return 0;
+
+    const targetTransactions = transactions.filter(t => !rule.accountId || rule.accountId === t.accountId);
+    const updatedTransactions: BankTransaction[] = [];
+
+    for (const tx of targetTransactions) {
+      const textToMatch = rule.matchField === 'name' ? tx.name :
+        rule.matchField === 'memo' ? (tx.memo || '') :
+        `${tx.name} ${tx.memo || ''}`;
+
+      let matches = false;
+      try {
+        const regex = new RegExp(rule.pattern, 'i');
+        matches = regex.test(textToMatch);
+      } catch {
+        matches = textToMatch.toLowerCase().includes(rule.pattern.toLowerCase());
+      }
+
+      if (matches) {
+        updatedTransactions.push({
+          ...tx,
+          category: rule.category,
+          chartAccountId: rule.chartAccountId,
+          revenueSourceId: rule.revenueSourceId,
+          transferAccountId: rule.transferAccountId,
+          isIgnored: rule.category === 'ignore',
+          isReconciled: true,
+        });
+      }
+    }
+
+    if (updatedTransactions.length > 0) {
+      await db.updateBankTransactions(updatedTransactions);
+    }
+
+    return updatedTransactions.length;
+  }, [transactions]);
+
   const addMappingRule = useCallback(async (rule: Omit<TransactionMappingRule, 'id'>): Promise<number> => {
     const id = await db.addMappingRule(rule);
+    // Auto-apply the new rule to all matching transactions
+    await applySingleRule(rule);
     await loadData();
     return id;
-  }, [loadData]);
+  }, [loadData, applySingleRule]);
 
   const updateMappingRule = useCallback(async (rule: TransactionMappingRule): Promise<void> => {
     await db.updateMappingRule(rule);
+    // Auto-apply the updated rule to all matching transactions
+    await applySingleRule(rule);
     await loadData();
-  }, [loadData]);
+  }, [loadData, applySingleRule]);
 
   const deleteMappingRule = useCallback(async (id: number): Promise<void> => {
     await db.deleteMappingRule(id);
     await loadData();
   }, [loadData]);
 
-  const applyMappingRules = useCallback(async (transactionIds?: number[]): Promise<number> => {
+  const applyMappingRules = useCallback(async (transactionIds?: number[], applyToAll?: boolean): Promise<number> => {
     const targetTransactions = transactionIds
       ? transactions.filter(t => transactionIds.includes(t.id))
-      : transactions.filter(t => !t.isReconciled);
+      : applyToAll
+        ? transactions  // Apply to ALL transactions when explicitly requested
+        : transactions.filter(t => !t.isReconciled);
 
     if (targetTransactions.length === 0) return 0;
 
@@ -470,27 +516,27 @@ export function useBankData() {
           rule.matchField === 'memo' ? (tx.memo || '') :
           `${tx.name} ${tx.memo || ''}`;
 
+        const applyRule = () => {
+          updatedTransactions.push({
+            ...tx,
+            category: rule.category,
+            chartAccountId: rule.chartAccountId,
+            revenueSourceId: rule.revenueSourceId,
+            transferAccountId: rule.transferAccountId,
+            isIgnored: rule.category === 'ignore',
+            isReconciled: true,
+          });
+        };
+
         try {
           const regex = new RegExp(rule.pattern, 'i');
           if (regex.test(textToMatch)) {
-            updatedTransactions.push({
-              ...tx,
-              category: rule.category,
-              revenueSourceId: rule.category === 'revenue' ? rule.revenueSourceId : undefined,
-              transferAccountId: rule.category === 'transfer' ? rule.transferAccountId : undefined,
-              chartAccountId: rule.category === 'expense' ? rule.chartAccountId : undefined,
-            });
+            applyRule();
             break;
           }
         } catch {
           if (textToMatch.toLowerCase().includes(rule.pattern.toLowerCase())) {
-            updatedTransactions.push({
-              ...tx,
-              category: rule.category,
-              revenueSourceId: rule.category === 'revenue' ? rule.revenueSourceId : undefined,
-              transferAccountId: rule.category === 'transfer' ? rule.transferAccountId : undefined,
-              chartAccountId: rule.category === 'expense' ? rule.chartAccountId : undefined,
-            });
+            applyRule();
             break;
           }
         }
