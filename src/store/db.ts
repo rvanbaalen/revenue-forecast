@@ -913,6 +913,72 @@ class RevenueDB {
     }
   }
 
+  // ============================================
+  // Mapping Rules Export/Import operations
+  // ============================================
+
+  // Export mapping rules as JSON
+  async exportMappingRules(): Promise<string> {
+    const mappingRules = await this.getMappingRules();
+    return JSON.stringify({
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      rules: mappingRules.map(({ id, createdAt, ...rest }) => rest),
+    }, null, 2);
+  }
+
+  // Import mapping rules from JSON (replaces all existing)
+  async importMappingRules(jsonData: string): Promise<{ imported: number; errors: string[] }> {
+    const errors: string[] = [];
+    let imported = 0;
+
+    try {
+      const data = JSON.parse(jsonData);
+      const rules = data.rules || data;
+
+      if (!Array.isArray(rules)) {
+        throw new Error('Invalid data format: expected an array of rules');
+      }
+
+      // Clear existing rules
+      await this.clearMappingRules();
+
+      const now = new Date().toISOString();
+
+      // Import each rule
+      for (const rule of rules) {
+        try {
+          if (!rule.pattern || !rule.matchField || !rule.category) {
+            errors.push(`Skipping invalid rule: missing required fields (pattern, matchField, or category)`);
+            continue;
+          }
+
+          const fullRule: Omit<TransactionMappingRule, 'id'> = {
+            pattern: rule.pattern,
+            matchField: rule.matchField,
+            category: rule.category,
+            accountId: rule.accountId,
+            revenueSourceId: rule.revenueSourceId,
+            transferAccountId: rule.transferAccountId,
+            chartAccountId: rule.chartAccountId,
+            isActive: rule.isActive !== false,
+            priority: rule.priority ?? 0,
+            createdAt: now,
+          };
+
+          await this.addMappingRule(fullRule);
+          imported++;
+        } catch (err) {
+          errors.push(`Failed to import rule "${rule.pattern}": ${err}`);
+        }
+      }
+    } catch (err) {
+      errors.push(`Failed to parse JSON: ${err}`);
+    }
+
+    return { imported, errors };
+  }
+
   // Clear all data and reinitialize with defaults
   async clearAllData(): Promise<void> {
     if (!this.db) {
