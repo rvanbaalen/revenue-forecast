@@ -365,12 +365,19 @@ export function OFXWizardPage() {
       }
 
       // 1. Create new categories
-      const newCategories = categoriesToChartAccounts(suggestedCategories, chartAccounts);
+      // Fetch fresh chart accounts from DB to ensure we have all codes
+      const freshChartAccounts = await db.getChartAccounts();
+      const newCategories = categoriesToChartAccounts(suggestedCategories, freshChartAccounts);
       let categoriesCreated = 0;
 
       for (const category of newCategories) {
-        await addChartAccount(category);
-        categoriesCreated++;
+        try {
+          await addChartAccount(category);
+          categoriesCreated++;
+        } catch (err) {
+          // If code conflict, skip this category (already exists with different name)
+          console.warn(`Failed to create category ${category.name}:`, err);
+        }
       }
 
       const updatedChartAccounts = await db.getChartAccounts();

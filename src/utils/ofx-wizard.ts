@@ -424,6 +424,18 @@ You can rename, merge, or update existing categories using "category_changes".
 
   return `# Analyze Bank Transactions
 
+## Important: Ask Questions First!
+
+Before providing the JSON response, please ask any clarifying questions you have about:
+- The nature of the business (if not clear from transactions)
+- Ambiguous transaction patterns that could be categorized multiple ways
+- Whether certain recurring patterns are personal or business expenses
+- How to handle unclear income sources
+
+Once I answer your questions, then provide the JSON response.
+
+---
+
 Analyze these transactions and provide:
 1. **Categories** - New accounting categories needed (or changes to existing ones)
 2. **Rules** - Pattern-matching rules to auto-categorize transactions
