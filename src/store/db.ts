@@ -836,6 +836,32 @@ class RevenueDB {
       tx.oncomplete = () => resolve();
     });
   }
+
+  // Clear all data and reinitialize with defaults
+  async clearAllData(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Close the current connection
+      if (this.db) {
+        this.db.close();
+        this.db = null;
+      }
+
+      // Delete the database
+      const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+
+      deleteRequest.onsuccess = () => {
+        // Reinitialize the database with defaults
+        this.init().then(() => resolve()).catch(reject);
+      };
+
+      deleteRequest.onblocked = () => {
+        console.warn('Database deletion blocked - close other tabs');
+        reject(new Error('Database deletion blocked. Please close other tabs using this application.'));
+      };
+    });
+  }
 }
 
 export const db = new RevenueDB();
