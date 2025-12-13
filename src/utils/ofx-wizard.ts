@@ -483,16 +483,17 @@ Respond with JSON in a code block:
 
 ## Key Points
 
-**Categories:** Use codes 4xxx for REVENUE, 5xxx for EXPENSE. Only add NEW categories not covered by existing ones.
+**Categories:** Only REVENUE or EXPENSE types allowed. Use codes 4xxx for REVENUE, 5xxx for EXPENSE. Do NOT create categories for transfers - those are handled in rules only.
 
 **Rules:** Create general patterns that match multiple transactions:
 - "contains" (default): Pattern appears anywhere
 - "startsWith"/"endsWith": Pattern at start/end
 - "exact": Exact match only
+- category_type can be: REVENUE, EXPENSE, TRANSFER, or IGNORE
 
 **Revenue Sources:** Group income by source (Stripe, PayPal, Client X, etc.). Use "Misc" for uncategorized.
 
-**Special Types:** Use TRANSFER for account transfers, IGNORE for duplicates/corrections.
+**TRANSFER & IGNORE:** These are special category_types for rules ONLY (not categories). Use TRANSFER for account transfers/payments between accounts. Use IGNORE for duplicates/corrections.
 
 Now analyze and respond with JSON:`;
 }
