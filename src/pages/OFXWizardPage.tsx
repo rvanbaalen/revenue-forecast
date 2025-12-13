@@ -27,10 +27,10 @@ import { useAccountingContext } from '@/context/AccountingContext';
 import { parseOFXFile, validateOFXFile, hashAccountId, maskAccountId, extractMonthYear } from '@/utils/ofx-parser';
 import {
   type WizardStep,
-  type SuggestedCategory,
+  type SuggestedChartAccount,
   type TransactionMapping,
   type SuggestedRevenueSource,
-  type CategoryChange,
+  type AccountChange,
   type BusinessType,
   type MappingRuleInput,
   BUSINESS_TYPES,
@@ -88,8 +88,8 @@ export function OFXWizardPage() {
   const [copied, setCopied] = useState(false);
 
   // Live preview state (editable before applying)
-  const [previewCategories, setPreviewCategories] = useState<SuggestedCategory[]>([]);
-  const [previewCategoryChanges, setPreviewCategoryChanges] = useState<CategoryChange[]>([]);
+  const [previewChartAccounts, setPreviewChartAccounts] = useState<SuggestedChartAccount[]>([]);
+  const [previewAccountChanges, setPreviewAccountChanges] = useState<AccountChange[]>([]);
   const [previewRevenueSources, setPreviewRevenueSources] = useState<SuggestedRevenueSource[]>([]);
   const [previewRules, setPreviewRules] = useState<MappingRuleInput[]>([]);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -99,8 +99,8 @@ export function OFXWizardPage() {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   // Final applied state
-  const [suggestedCategories, setSuggestedCategories] = useState<SuggestedCategory[]>([]);
-  const [categoryChanges, setCategoryChanges] = useState<CategoryChange[]>([]);
+  const [suggestedChartAccounts, setSuggestedChartAccounts] = useState<SuggestedChartAccount[]>([]);
+  const [accountChanges, setAccountChanges] = useState<AccountChange[]>([]);
   const [suggestedRevenueSources, setSuggestedRevenueSources] = useState<SuggestedRevenueSource[]>([]);
   const [mappingRules, setMappingRules] = useState<MappingRuleInput[]>([]);
   const [transactionMappings, setTransactionMappings] = useState<TransactionMapping[]>([]);
@@ -123,8 +123,8 @@ export function OFXWizardPage() {
 
   useEffect(() => {
     if (!analysisJson.trim()) {
-      setPreviewCategories([]);
-      setPreviewCategoryChanges([]);
+      setPreviewChartAccounts([]);
+      setPreviewAccountChanges([]);
       setPreviewRevenueSources([]);
       setPreviewRules([]);
       setPreviewError(null);
@@ -136,8 +136,8 @@ export function OFXWizardPage() {
 
     if (!result.success) {
       setPreviewError(result.error || 'Failed to parse');
-      setPreviewCategories([]);
-      setPreviewCategoryChanges([]);
+      setPreviewChartAccounts([]);
+      setPreviewAccountChanges([]);
       setPreviewRevenueSources([]);
       setPreviewRules([]);
       setPreviewWarnings([]);
@@ -146,8 +146,8 @@ export function OFXWizardPage() {
 
     setPreviewError(null);
     setPreviewWarnings(result.warnings);
-    setPreviewCategories(result.categories);
-    setPreviewCategoryChanges(result.categoryChanges);
+    setPreviewChartAccounts(result.chartAccounts);
+    setPreviewAccountChanges(result.accountChanges);
     setPreviewRevenueSources(result.revenueSources);
     setPreviewRules(result.rules);
   }, [analysisJson]);
@@ -268,12 +268,12 @@ export function OFXWizardPage() {
     setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
   }, []);
 
-  const removeCategory = useCallback((index: number) => {
-    setPreviewCategories(prev => prev.filter((_, i) => i !== index));
+  const removeChartAccount = useCallback((index: number) => {
+    setPreviewChartAccounts(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  const removeCategoryChange = useCallback((index: number) => {
-    setPreviewCategoryChanges(prev => prev.filter((_, i) => i !== index));
+  const removeAccountChange = useCallback((index: number) => {
+    setPreviewAccountChanges(prev => prev.filter((_, i) => i !== index));
   }, []);
 
   const removeRevenueSource = useCallback((index: number) => {
@@ -288,8 +288,8 @@ export function OFXWizardPage() {
     if (!parsedData || previewRules.length === 0) return;
 
     // Commit preview to final state
-    setSuggestedCategories(previewCategories);
-    setCategoryChanges(previewCategoryChanges);
+    setSuggestedChartAccounts(previewChartAccounts);
+    setAccountChanges(previewAccountChanges);
     setSuggestedRevenueSources(previewRevenueSources);
     setMappingRules(previewRules);
 
@@ -300,7 +300,7 @@ export function OFXWizardPage() {
     setMatchStats({ matched: applied.matchedCount, unmatched: applied.unmatchedCount });
 
     setError(null);
-  }, [parsedData, previewCategories, previewCategoryChanges, previewRevenueSources, previewRules]);
+  }, [parsedData, previewChartAccounts, previewAccountChanges, previewRevenueSources, previewRules]);
 
   // ============================================
   // Step 3: Import
@@ -316,7 +316,7 @@ export function OFXWizardPage() {
       // 0. Apply category changes (rename, merge, update_description)
       let categoriesModified = 0;
 
-      for (const change of categoryChanges) {
+      for (const change of accountChanges) {
         const existingAccount = chartAccounts.find(
           a => a.name.toLowerCase() === change.from_name.toLowerCase() &&
                (a.type === 'REVENUE' || a.type === 'EXPENSE')
@@ -367,7 +367,7 @@ export function OFXWizardPage() {
       // 1. Create new categories
       // Fetch fresh chart accounts from DB to ensure we have all codes
       const freshChartAccounts = await db.getChartAccounts();
-      const newCategories = categoriesToChartAccounts(suggestedCategories, freshChartAccounts);
+      const newCategories = categoriesToChartAccounts(suggestedChartAccounts, freshChartAccounts);
       let categoriesCreated = 0;
 
       for (const category of newCategories) {
@@ -610,7 +610,7 @@ export function OFXWizardPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [parsedData, suggestedCategories, categoryChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount]);
+  }, [parsedData, suggestedChartAccounts, accountChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount]);
 
   // ============================================
   // Render
@@ -799,7 +799,7 @@ export function OFXWizardPage() {
             </div>
 
             {/* Category Changes */}
-            {previewCategoryChanges.length > 0 && (
+            {previewAccountChanges.length > 0 && (
               <div className="border-b border-border">
                 <button
                   onClick={() => toggleSection('changes')}
@@ -807,12 +807,12 @@ export function OFXWizardPage() {
                 >
                   <span className="text-sm font-medium text-foreground flex items-center gap-2">
                     {collapsedSections.changes ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
-                    Category Updates ({previewCategoryChanges.length})
+                    Category Updates ({previewAccountChanges.length})
                   </span>
                 </button>
                 {!collapsedSections.changes && (
                   <div className="p-2 flex flex-col gap-1">
-                    {previewCategoryChanges.map((change, i) => (
+                    {previewAccountChanges.map((change, i) => (
                       <div key={i} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">{change.action}</Badge>
@@ -820,7 +820,7 @@ export function OFXWizardPage() {
                           <span className="text-muted-foreground">→</span>
                           <span className="text-foreground">{change.to_name}</span>
                         </div>
-                        <button onClick={() => removeCategoryChange(i)} className="p-1 hover:bg-destructive/10 rounded">
+                        <button onClick={() => removeAccountChange(i)} className="p-1 hover:bg-destructive/10 rounded">
                           <X className="size-3 text-destructive" />
                         </button>
                       </div>
@@ -831,7 +831,7 @@ export function OFXWizardPage() {
             )}
 
             {/* New Categories */}
-            {previewCategories.length > 0 && (
+            {previewChartAccounts.length > 0 && (
               <div className="border-b border-border">
                 <button
                   onClick={() => toggleSection('categories')}
@@ -839,15 +839,15 @@ export function OFXWizardPage() {
                 >
                   <span className="text-sm font-medium text-foreground flex items-center gap-2">
                     {collapsedSections.categories ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
-                    New Categories ({previewCategories.length})
+                    New Categories ({previewChartAccounts.length})
                   </span>
                 </button>
                 {!collapsedSections.categories && (
                   <div className="p-2 flex flex-wrap gap-1">
-                    {previewCategories.map((cat, i) => (
+                    {previewChartAccounts.map((cat, i) => (
                       <Badge key={i} variant={cat.type === 'REVENUE' ? 'default' : 'secondary'} className="text-xs pr-1">
                         {cat.name}
-                        <button onClick={() => removeCategory(i)} className="ml-1 p-0.5 hover:bg-white/20 rounded">
+                        <button onClick={() => removeChartAccount(i)} className="ml-1 p-0.5 hover:bg-white/20 rounded">
                           <X className="size-3" />
                         </button>
                       </Badge>
@@ -943,11 +943,11 @@ export function OFXWizardPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div className="text-center">
-                <div className="font-medium text-foreground">{suggestedCategories.length}</div>
+                <div className="font-medium text-foreground">{suggestedChartAccounts.length}</div>
                 <div className="text-xs text-muted-foreground">new categories</div>
               </div>
               <div className="text-center">
-                <div className="font-medium text-foreground">{categoryChanges.length}</div>
+                <div className="font-medium text-foreground">{accountChanges.length}</div>
                 <div className="text-xs text-muted-foreground">category updates</div>
               </div>
               <div className="text-center">
@@ -983,7 +983,7 @@ export function OFXWizardPage() {
           <p className="text-sm text-muted-foreground">Rules</p>
         </div>
         <div className="p-4 bg-card border border-border rounded-lg text-center">
-          <p className="text-2xl font-bold text-foreground">{suggestedCategories.length}</p>
+          <p className="text-2xl font-bold text-foreground">{suggestedChartAccounts.length}</p>
           <p className="text-sm text-muted-foreground">New Categories</p>
         </div>
         <div className="p-4 bg-card border border-border rounded-lg text-center">

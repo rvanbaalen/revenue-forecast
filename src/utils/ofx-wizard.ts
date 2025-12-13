@@ -17,7 +17,7 @@ export interface WizardState {
   step: WizardStep;
   file: File | null;
   transactions: ParsedOFXTransaction[];
-  suggestedCategories: SuggestedCategory[];
+  suggestedCategories: SuggestedChartAccount[];
   transactionMappings: TransactionMapping[];
   accountInfo: {
     accountType: string;
@@ -26,7 +26,7 @@ export interface WizardState {
   } | null;
 }
 
-export interface SuggestedCategory {
+export interface SuggestedChartAccount {
   code: string;
   name: string;
   type: 'REVENUE' | 'EXPENSE';
@@ -156,7 +156,7 @@ export interface SuggestedRevenueSource {
   description?: string;
 }
 
-export interface CategoryChange {
+export interface AccountChange {
   action: 'rename' | 'merge' | 'update_description';
   // For rename: the original category name
   // For merge: one of the categories being merged
@@ -175,9 +175,9 @@ export interface CategoryChange {
 
 export interface CategoryImportData {
   // Changes to existing categories (rename, merge, update)
-  category_changes?: CategoryChange[];
+  category_changes?: AccountChange[];
   // New categories to add
-  categories: SuggestedCategory[];
+  categories: SuggestedChartAccount[];
 }
 
 export interface MappingImportData {
@@ -229,11 +229,11 @@ export interface MappingRulesImportData {
 
 /**
  * Unified response format for the single LLM analysis step
- * Combines: categories, category changes, mapping rules, and revenue sources
+ * Combines: chart accounts, account changes, mapping rules, and revenue sources
  */
 export interface UnifiedAnalysisData {
-  // Category changes (rename, merge, update existing categories)
-  category_changes?: {
+  // Account changes (rename, merge, update existing chart accounts)
+  account_changes?: {
     action: 'rename' | 'merge' | 'update_description';
     from_name: string;
     merge_from?: string[];
@@ -242,8 +242,8 @@ export interface UnifiedAnalysisData {
     to_type?: 'REVENUE' | 'EXPENSE';
     to_description?: string;
   }[];
-  // New categories to create
-  categories?: {
+  // New chart accounts to create
+  chart_accounts?: {
     code: string;
     name: string;
     type: 'REVENUE' | 'EXPENSE';
@@ -260,7 +260,7 @@ export interface UnifiedAnalysisData {
     pattern: string;
     match_type?: 'exact' | 'contains' | 'startsWith' | 'endsWith';
     match_field?: 'name' | 'memo' | 'both';
-    category_name: string;
+    account_name: string;
     transaction_type: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE';
     revenue_source?: string;
   }[];
@@ -271,8 +271,8 @@ export interface UnifiedAnalysisData {
  */
 export interface UnifiedAnalysisResult {
   success: boolean;
-  categories: SuggestedCategory[];
-  categoryChanges: CategoryChange[];
+  chartAccounts: SuggestedChartAccount[];
+  accountChanges: AccountChange[];
   revenueSources: SuggestedRevenueSource[];
   rules: MappingRuleInput[];
   error?: string;
@@ -461,11 +461,11 @@ Respond with JSON in a code block:
 
 \`\`\`json
 {
-  ${existingCategories?.length ? `"category_changes": [
+  ${existingCategories?.length ? `"account_changes": [
     {"action": "rename", "from_name": "Old Name", "to_name": "Better Name", "to_description": "..."},
     {"action": "merge", "from_name": "Keep This", "merge_from": ["Merge This", "And This"], "to_name": "Combined"}
   ],
-  ` : ''}"categories": [
+  ` : ''}"chart_accounts": [
     {"code": "4100", "name": "Service Revenue", "type": "REVENUE", "description": "Income from services"},
     {"code": "5100", "name": "Software & Tools", "type": "EXPENSE", "description": "Software subscriptions"}
   ],
@@ -474,29 +474,30 @@ Respond with JSON in a code block:
     {"name": "International Clients", "type": "foreign", "description": "Overseas income"}
   ],
   "rules": [
-    {"pattern": "STRIPE", "match_type": "contains", "category_name": "Service Revenue", "transaction_type": "REVENUE", "revenue_source": "Stripe"},
-    {"pattern": "AMAZON WEB", "match_type": "contains", "category_name": "Cloud Hosting", "transaction_type": "EXPENSE"},
-    {"pattern": "TRANSFER", "match_type": "contains", "category_name": "Transfer", "transaction_type": "TRANSFER"}
+    {"pattern": "STRIPE", "match_type": "contains", "account_name": "Service Revenue", "transaction_type": "REVENUE", "revenue_source": "Stripe"},
+    {"pattern": "AMAZON WEB", "match_type": "contains", "account_name": "Cloud Hosting", "transaction_type": "EXPENSE"},
+    {"pattern": "TRANSFER", "match_type": "contains", "account_name": "Transfer", "transaction_type": "TRANSFER"}
   ]
 }
 \`\`\`
 
 ## Key Points
 
-**Categories (Chart of Accounts):** Only REVENUE or EXPENSE account types allowed. Use codes 4xxx for REVENUE, 5xxx for EXPENSE. Do NOT create categories for transfers.
+**Chart Accounts:** Only REVENUE or EXPENSE types allowed. Use codes 4xxx for REVENUE, 5xxx for EXPENSE. Do NOT create accounts for transfers.
 
 **Rules:** Create general patterns that match multiple transactions:
 - "contains" (default): Pattern appears anywhere
 - "startsWith"/"endsWith": Pattern at start/end
 - "exact": Exact match only
+- account_name: The chart account to link (for REVENUE/EXPENSE types)
 - transaction_type: REVENUE, EXPENSE, TRANSFER, or IGNORE
 
 **Revenue Sources:** Group income by source (Stripe, PayPal, Client X, etc.). Use "Misc" for uncategorized.
 
 **Transaction Types:**
-- REVENUE: Income transaction, links to a revenue category
-- EXPENSE: Spending transaction, links to an expense category
-- TRANSFER: Money moving between accounts (no category needed)
+- REVENUE: Income transaction, links to a revenue account
+- EXPENSE: Spending transaction, links to an expense account
+- TRANSFER: Money moving between accounts (no account link needed)
 - IGNORE: Skip this transaction (duplicates, corrections)
 
 Now analyze and respond with JSON:`;
@@ -522,21 +523,21 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
 
     const data = JSON.parse(cleanJson) as UnifiedAnalysisData;
 
-    // Parse categories
-    const categories: SuggestedCategory[] = [];
+    // Parse chart accounts
+    const chartAccounts: SuggestedChartAccount[] = [];
     const usedCodes = new Set<string>();
 
-    if (data.categories && Array.isArray(data.categories)) {
-      for (const cat of data.categories) {
-        if (!cat.name || typeof cat.name !== 'string') continue;
+    if (data.chart_accounts && Array.isArray(data.chart_accounts)) {
+      for (const acc of data.chart_accounts) {
+        if (!acc.name || typeof acc.name !== 'string') continue;
 
-        const type = (cat.type || '').toUpperCase();
+        const type = (acc.type || '').toUpperCase();
         if (type !== 'REVENUE' && type !== 'EXPENSE') {
-          warnings.push(`Invalid type for "${cat.name}": ${cat.type}`);
+          warnings.push(`Invalid type for "${acc.name}": ${acc.type}`);
           continue;
         }
 
-        let code = (cat.code || '').toString().trim();
+        let code = (acc.code || '').toString().trim();
         if (!code || !/^\d{4}$/.test(code)) {
           let codeNum = type === 'REVENUE' ? 4100 : 5100;
           while (usedCodes.has(String(codeNum))) codeNum += 10;
@@ -547,25 +548,25 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
         else if (type === 'EXPENSE' && !code.startsWith('5')) code = '5' + code.slice(1);
 
         usedCodes.add(code);
-        categories.push({
+        chartAccounts.push({
           code,
-          name: cat.name.trim(),
+          name: acc.name.trim(),
           type: type as 'REVENUE' | 'EXPENSE',
-          description: cat.description?.trim(),
+          description: acc.description?.trim(),
         });
       }
     }
 
-    // Parse category changes
-    const categoryChanges: CategoryChange[] = [];
-    if (data.category_changes && Array.isArray(data.category_changes)) {
-      for (const change of data.category_changes) {
+    // Parse account changes
+    const accountChanges: AccountChange[] = [];
+    if (data.account_changes && Array.isArray(data.account_changes)) {
+      for (const change of data.account_changes) {
         if (!change.action || !change.from_name || !change.to_name) continue;
         const action = change.action.toLowerCase();
         if (!['rename', 'merge', 'update_description'].includes(action)) continue;
 
-        categoryChanges.push({
-          action: action as CategoryChange['action'],
+        accountChanges.push({
+          action: action as AccountChange['action'],
           from_name: change.from_name.trim(),
           merge_from: change.merge_from?.map((n: string) => n.trim()),
           to_name: change.to_name.trim(),
@@ -604,8 +605,8 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
     if (!data.rules || !Array.isArray(data.rules)) {
       return {
         success: false,
-        categories: [],
-        categoryChanges: [],
+        chartAccounts: [],
+        accountChanges: [],
         revenueSources: [],
         rules: [],
         error: 'Missing "rules" array in response',
@@ -614,8 +615,8 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
     }
 
     for (const rule of data.rules) {
-      if (!rule.pattern || !rule.category_name) {
-        warnings.push(`Invalid rule: missing pattern or category_name`);
+      if (!rule.pattern || !rule.account_name) {
+        warnings.push(`Invalid rule: missing pattern or account_name`);
         continue;
       }
 
@@ -658,7 +659,7 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
         pattern: rule.pattern,
         matchType,
         matchField,
-        categoryName: rule.category_name.trim(),
+        categoryName: rule.account_name.trim(),
         categoryType: transactionType as 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE',
         revenueSource,
       });
@@ -667,8 +668,8 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
     if (rules.length === 0) {
       return {
         success: false,
-        categories,
-        categoryChanges,
+        chartAccounts,
+        accountChanges,
         revenueSources,
         rules: [],
         error: 'No valid rules found',
@@ -676,12 +677,12 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
       };
     }
 
-    return { success: true, categories, categoryChanges, revenueSources, rules, warnings };
+    return { success: true, chartAccounts, accountChanges, revenueSources, rules, warnings };
   } catch (err) {
     return {
       success: false,
-      categories: [],
-      categoryChanges: [],
+      chartAccounts: [],
+      accountChanges: [],
       revenueSources: [],
       rules: [],
       error: `JSON parse error: ${err instanceof Error ? err.message : 'Unknown error'}`,
@@ -877,7 +878,7 @@ Now analyze the transactions and provide your JSON response:`;
  */
 export function generateMappingPrompt(
   transactions: ParsedOFXTransaction[],
-  categories: SuggestedCategory[]
+  categories: SuggestedChartAccount[]
 ): string {
   // Build category list
   const categoryList = categories
@@ -973,7 +974,7 @@ Now categorize all transactions, identify revenue sources, and provide your JSON
  */
 export function generateMappingRulesPrompt(
   transactions: ParsedOFXTransaction[],
-  categories: SuggestedCategory[]
+  categories: SuggestedChartAccount[]
 ): string {
   // Build category list
   const revenueCategories = categories.filter(c => c.type === 'REVENUE');
@@ -1120,8 +1121,8 @@ Now analyze the patterns and create your categorization rules:`;
  */
 export function parseCategoryResponse(jsonString: string): {
   success: boolean;
-  categories: SuggestedCategory[];
-  categoryChanges: CategoryChange[];
+  categories: SuggestedChartAccount[];
+  categoryChanges: AccountChange[];
   error?: string;
 } {
   try {
@@ -1143,7 +1144,7 @@ export function parseCategoryResponse(jsonString: string): {
     const data = JSON.parse(cleanJson) as CategoryImportData;
 
     // Parse category changes if present
-    const categoryChanges: CategoryChange[] = [];
+    const categoryChanges: AccountChange[] = [];
     if (data.category_changes && Array.isArray(data.category_changes)) {
       for (const change of data.category_changes) {
         if (!change.action || !change.from_name || !change.to_name) {
@@ -1156,7 +1157,7 @@ export function parseCategoryResponse(jsonString: string): {
         }
 
         categoryChanges.push({
-          action: action as CategoryChange['action'],
+          action: action as AccountChange['action'],
           from_name: change.from_name.trim(),
           merge_from: change.merge_from?.map((n: string) => n.trim()),
           to_name: change.to_name.trim(),
@@ -1182,7 +1183,7 @@ export function parseCategoryResponse(jsonString: string): {
     }
 
     // Validate and normalize each category
-    const categories: SuggestedCategory[] = [];
+    const categories: SuggestedChartAccount[] = [];
     const errors: string[] = [];
     const usedCodes = new Set<string>();
 
@@ -1253,7 +1254,7 @@ export function parseCategoryResponse(jsonString: string): {
 export function parseMappingResponse(
   jsonString: string,
   transactions: ParsedOFXTransaction[],
-  categories: SuggestedCategory[]
+  categories: SuggestedChartAccount[]
 ): {
   success: boolean;
   mappings: TransactionMapping[];
@@ -1717,7 +1718,7 @@ function getNextAvailableCode(
  * Automatically generates unique codes when conflicts occur
  */
 export function categoriesToChartAccounts(
-  categories: SuggestedCategory[],
+  categories: SuggestedChartAccount[],
   existingAccounts: ChartAccount[]
 ): Omit<ChartAccount, 'id' | 'createdAt' | 'updatedAt'>[] {
   const result: Omit<ChartAccount, 'id' | 'createdAt' | 'updatedAt'>[] = [];
