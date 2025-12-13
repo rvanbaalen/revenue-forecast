@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,9 @@ import {
   ClipboardList,
   Building2,
   Calendar,
-  Download,
+  X,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { useBank } from '@/context/BankContext';
 import { useAccountingContext } from '@/context/AccountingContext';
@@ -84,9 +86,19 @@ export function OFXWizardPage() {
   const [analysisPrompt, setAnalysisPrompt] = useState<string>('');
   const [analysisJson, setAnalysisJson] = useState<string>('');
   const [copied, setCopied] = useState(false);
-  const [warnings, setWarnings] = useState<string[]>([]);
 
-  // Parsed results
+  // Live preview state (editable before applying)
+  const [previewCategories, setPreviewCategories] = useState<SuggestedCategory[]>([]);
+  const [previewCategoryChanges, setPreviewCategoryChanges] = useState<CategoryChange[]>([]);
+  const [previewRevenueSources, setPreviewRevenueSources] = useState<SuggestedRevenueSource[]>([]);
+  const [previewRules, setPreviewRules] = useState<MappingRuleInput[]>([]);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
+
+  // Section collapse state
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  // Final applied state
   const [suggestedCategories, setSuggestedCategories] = useState<SuggestedCategory[]>([]);
   const [categoryChanges, setCategoryChanges] = useState<CategoryChange[]>([]);
   const [suggestedRevenueSources, setSuggestedRevenueSources] = useState<SuggestedRevenueSource[]>([]);
@@ -104,6 +116,41 @@ export function OFXWizardPage() {
     journalEntriesCreated: number;
     rulesCreated: number;
   } | null>(null);
+
+  // ============================================
+  // Live JSON Parsing
+  // ============================================
+
+  useEffect(() => {
+    if (!analysisJson.trim()) {
+      setPreviewCategories([]);
+      setPreviewCategoryChanges([]);
+      setPreviewRevenueSources([]);
+      setPreviewRules([]);
+      setPreviewError(null);
+      setPreviewWarnings([]);
+      return;
+    }
+
+    const result = parseUnifiedAnalysisResponse(analysisJson);
+
+    if (!result.success) {
+      setPreviewError(result.error || 'Failed to parse');
+      setPreviewCategories([]);
+      setPreviewCategoryChanges([]);
+      setPreviewRevenueSources([]);
+      setPreviewRules([]);
+      setPreviewWarnings([]);
+      return;
+    }
+
+    setPreviewError(null);
+    setPreviewWarnings(result.warnings);
+    setPreviewCategories(result.categories);
+    setPreviewCategoryChanges(result.categoryChanges);
+    setPreviewRevenueSources(result.revenueSources);
+    setPreviewRules(result.rules);
+  }, [analysisJson]);
 
   // ============================================
   // Step Navigation
@@ -217,39 +264,43 @@ export function OFXWizardPage() {
     setTimeout(() => setCopied(false), 2000);
   }, [analysisPrompt]);
 
-  const handleAnalysisJsonPaste = useCallback(() => {
-    if (!parsedData) return;
-    setError(null);
-    setWarnings([]);
+  const toggleSection = useCallback((section: string) => {
+    setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  }, []);
 
-    // Parse the unified response
-    const result = parseUnifiedAnalysisResponse(analysisJson);
+  const removeCategory = useCallback((index: number) => {
+    setPreviewCategories(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
-    if (!result.success) {
-      setError(result.error || 'Failed to parse response');
-      return;
-    }
+  const removeCategoryChange = useCallback((index: number) => {
+    setPreviewCategoryChanges(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
-    // Store all parsed data
-    setSuggestedCategories(result.categories);
-    setCategoryChanges(result.categoryChanges);
-    setSuggestedRevenueSources(result.revenueSources);
-    setMappingRules(result.rules);
-    setWarnings(result.warnings);
+  const removeRevenueSource = useCallback((index: number) => {
+    setPreviewRevenueSources(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const removeRule = useCallback((index: number) => {
+    setPreviewRules(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const applyAnalysis = useCallback(() => {
+    if (!parsedData || previewRules.length === 0) return;
+
+    // Commit preview to final state
+    setSuggestedCategories(previewCategories);
+    setCategoryChanges(previewCategoryChanges);
+    setSuggestedRevenueSources(previewRevenueSources);
+    setMappingRules(previewRules);
 
     // Apply rules to transactions
-    const applied = applyMappingRules(parsedData.transactions, result.rules);
+    const applied = applyMappingRules(parsedData.transactions, previewRules);
     setTransactionMappings(applied.mappings);
     setRuleStats(applied.ruleStats);
     setMatchStats({ matched: applied.matchedCount, unmatched: applied.unmatchedCount });
 
-    if (applied.unmatchedCount > 0) {
-      setWarnings(prev => [
-        ...prev,
-        `${applied.unmatchedCount} transaction(s) did not match any rule`,
-      ]);
-    }
-  }, [analysisJson, parsedData]);
+    setError(null);
+  }, [parsedData, previewCategories, previewCategoryChanges, previewRevenueSources, previewRules]);
 
   // ============================================
   // Step 3: Import
@@ -674,103 +725,238 @@ export function OFXWizardPage() {
     </div>
   );
 
-  const renderAnalyzeStep = () => (
-    <div className="flex flex-col gap-6">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold text-foreground">AI Analysis</h2>
-        <p className="text-muted-foreground mt-1">
-          Copy the prompt, paste into any AI, then paste the response back
-        </p>
-      </div>
+  const renderAnalyzeStep = () => {
+    const hasPreviewData = previewRules.length > 0;
+    const isApplied = mappingRules.length > 0;
 
-      {/* Simple instructions */}
-      <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
-        <ol className="text-sm text-muted-foreground list-decimal list-inside flex flex-col gap-1">
-          <li><strong>Copy</strong> the instructions below</li>
-          <li><strong>Paste</strong> into ChatGPT, Claude, or any AI</li>
-          <li><strong>Paste</strong> the AI&apos;s JSON response below</li>
-        </ol>
-      </div>
-
-      {/* Prompt */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-foreground">Instructions for AI</label>
-          <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-            {copied ? 'Copied!' : 'Copy'}
-          </Button>
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-foreground">AI Analysis</h2>
+          <p className="text-muted-foreground mt-1">
+            Copy the prompt, paste into any AI, then review and apply
+          </p>
         </div>
-        <div className="bg-muted rounded-lg p-4 max-h-32 overflow-y-auto">
-          <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">{analysisPrompt.slice(0, 400)}...</pre>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">{analysisPrompt.length.toLocaleString()} characters</p>
-      </div>
 
-      {/* Response input */}
-      <div>
-        <label className="text-sm font-medium text-foreground block mb-2">AI Response (JSON)</label>
-        <Textarea
-          placeholder='Paste the JSON response from AI here...'
-          className="min-h-32 font-mono text-sm"
-          value={analysisJson}
-          onChange={(e) => setAnalysisJson(e.target.value)}
-        />
-        <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-muted-foreground">Paste the complete JSON response</p>
-          <Button onClick={handleAnalysisJsonPaste} disabled={!analysisJson.trim()}>
-            <Download className="size-4" />
-            Process
-          </Button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="size-5 text-destructive mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-destructive">{error}</p>
+        {/* Prompt */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-foreground">1. Copy instructions for AI</label>
+            <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
+          </div>
+          <div className="bg-muted rounded-lg p-3 max-h-24 overflow-y-auto">
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">{analysisPrompt.slice(0, 300)}...</pre>
           </div>
         </div>
-      )}
 
-      {warnings.length > 0 && (
-        <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
-          <ul className="text-sm text-muted-foreground list-disc list-inside">
-            {warnings.map((w, i) => <li key={i}>{w}</li>)}
-          </ul>
+        {/* Response input */}
+        <div>
+          <label className="text-sm font-medium text-foreground block mb-2">2. Paste AI response</label>
+          <Textarea
+            placeholder='Paste the JSON response from AI here...'
+            className="min-h-24 font-mono text-xs"
+            value={analysisJson}
+            onChange={(e) => setAnalysisJson(e.target.value)}
+          />
         </div>
-      )}
 
-      {/* Results preview */}
-      {mappingRules.length > 0 && (
-        <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 className="size-5 variance-positive" />
-            <h4 className="font-medium text-foreground">Analysis Complete</h4>
+        {/* Parse error */}
+        {previewError && (
+          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-sm text-destructive">{previewError}</p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-            <div className="text-center">
-              <div className="font-medium text-foreground">{suggestedCategories.length}</div>
-              <div className="text-xs text-muted-foreground">new categories</div>
+        )}
+
+        {/* Warnings */}
+        {previewWarnings.length > 0 && (
+          <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+            <ul className="text-xs text-muted-foreground list-disc list-inside">
+              {previewWarnings.slice(0, 3).map((w, i) => <li key={i}>{w}</li>)}
+              {previewWarnings.length > 3 && <li>...and {previewWarnings.length - 3} more</li>}
+            </ul>
+          </div>
+        )}
+
+        {/* Live preview editor */}
+        {hasPreviewData && !isApplied && (
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="p-3 bg-muted border-b border-border flex items-center justify-between">
+              <h4 className="text-sm font-medium text-foreground">3. Review & remove unwanted items</h4>
+              <Button size="sm" onClick={applyAnalysis}>
+                <Check className="size-4" />
+                Apply ({previewRules.length} rules)
+              </Button>
             </div>
-            <div className="text-center">
-              <div className="font-medium text-foreground">{categoryChanges.length}</div>
-              <div className="text-xs text-muted-foreground">category updates</div>
-            </div>
-            <div className="text-center">
-              <div className="font-medium text-foreground">{mappingRules.length}</div>
-              <div className="text-xs text-muted-foreground">rules</div>
-            </div>
-            <div className="text-center">
-              <div className="font-medium text-foreground">{matchStats.matched}/{parsedData?.transactions.length}</div>
-              <div className="text-xs text-muted-foreground">matched</div>
+
+            {/* Category Changes */}
+            {previewCategoryChanges.length > 0 && (
+              <div className="border-b border-border">
+                <button
+                  onClick={() => toggleSection('changes')}
+                  className="w-full p-2 flex items-center justify-between hover:bg-muted/50"
+                >
+                  <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                    {collapsedSections.changes ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                    Category Updates ({previewCategoryChanges.length})
+                  </span>
+                </button>
+                {!collapsedSections.changes && (
+                  <div className="p-2 flex flex-col gap-1">
+                    {previewCategoryChanges.map((change, i) => (
+                      <div key={i} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{change.action}</Badge>
+                          <span className="text-muted-foreground">{change.from_name}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="text-foreground">{change.to_name}</span>
+                        </div>
+                        <button onClick={() => removeCategoryChange(i)} className="p-1 hover:bg-destructive/10 rounded">
+                          <X className="size-3 text-destructive" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* New Categories */}
+            {previewCategories.length > 0 && (
+              <div className="border-b border-border">
+                <button
+                  onClick={() => toggleSection('categories')}
+                  className="w-full p-2 flex items-center justify-between hover:bg-muted/50"
+                >
+                  <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                    {collapsedSections.categories ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                    New Categories ({previewCategories.length})
+                  </span>
+                </button>
+                {!collapsedSections.categories && (
+                  <div className="p-2 flex flex-wrap gap-1">
+                    {previewCategories.map((cat, i) => (
+                      <Badge key={i} variant={cat.type === 'REVENUE' ? 'default' : 'secondary'} className="text-xs pr-1">
+                        {cat.name}
+                        <button onClick={() => removeCategory(i)} className="ml-1 p-0.5 hover:bg-white/20 rounded">
+                          <X className="size-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Revenue Sources */}
+            {previewRevenueSources.length > 0 && (
+              <div className="border-b border-border">
+                <button
+                  onClick={() => toggleSection('sources')}
+                  className="w-full p-2 flex items-center justify-between hover:bg-muted/50"
+                >
+                  <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                    {collapsedSections.sources ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                    Revenue Sources ({previewRevenueSources.length})
+                  </span>
+                </button>
+                {!collapsedSections.sources && (
+                  <div className="p-2 flex flex-wrap gap-1">
+                    {previewRevenueSources.map((source, i) => (
+                      <Badge key={i} variant="outline" className="text-xs pr-1">
+                        {source.name}
+                        {source.type === 'foreign' && ' (Intl)'}
+                        {source.name !== 'Misc' && (
+                          <button onClick={() => removeRevenueSource(i)} className="ml-1 p-0.5 hover:bg-destructive/10 rounded">
+                            <X className="size-3" />
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Rules */}
+            <div>
+              <button
+                onClick={() => toggleSection('rules')}
+                className="w-full p-2 flex items-center justify-between hover:bg-muted/50"
+              >
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  {collapsedSections.rules ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                  Mapping Rules ({previewRules.length})
+                </span>
+              </button>
+              {!collapsedSections.rules && (
+                <div className="p-2 max-h-48 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-muted-foreground">
+                        <th className="pb-1">Pattern</th>
+                        <th className="pb-1">Category</th>
+                        <th className="pb-1">Type</th>
+                        <th className="pb-1 w-6"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRules.map((rule, i) => (
+                        <tr key={i} className="border-t border-border/50">
+                          <td className="py-1 font-mono">{rule.pattern}</td>
+                          <td className="py-1 text-muted-foreground">{rule.categoryName}</td>
+                          <td className="py-1">
+                            <Badge variant={rule.categoryType === 'REVENUE' ? 'default' : 'secondary'} className="text-xs">
+                              {rule.categoryType}
+                            </Badge>
+                          </td>
+                          <td className="py-1">
+                            <button onClick={() => removeRule(i)} className="p-1 hover:bg-destructive/10 rounded">
+                              <X className="size-3 text-destructive" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+
+        {/* Applied confirmation */}
+        {isApplied && (
+          <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 className="size-5 variance-positive" />
+              <h4 className="font-medium text-foreground">Analysis Applied</h4>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div className="text-center">
+                <div className="font-medium text-foreground">{suggestedCategories.length}</div>
+                <div className="text-xs text-muted-foreground">new categories</div>
+              </div>
+              <div className="text-center">
+                <div className="font-medium text-foreground">{categoryChanges.length}</div>
+                <div className="text-xs text-muted-foreground">category updates</div>
+              </div>
+              <div className="text-center">
+                <div className="font-medium text-foreground">{mappingRules.length}</div>
+                <div className="text-xs text-muted-foreground">rules</div>
+              </div>
+              <div className="text-center">
+                <div className="font-medium text-foreground">{matchStats.matched}/{parsedData?.transactions.length}</div>
+                <div className="text-xs text-muted-foreground">matched</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderReviewStep = () => (
     <div className="flex flex-col gap-6">

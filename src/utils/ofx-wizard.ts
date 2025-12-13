@@ -1666,33 +1666,96 @@ export function applyMappingRules(
 // ============================================
 
 /**
+ * Generate the next available code for a given type
+ */
+function getNextAvailableCode(
+  type: 'REVENUE' | 'EXPENSE',
+  usedCodes: Set<string>
+): string {
+  const startCode = type === 'REVENUE' ? 4100 : 5100;
+  const maxCode = type === 'REVENUE' ? 4999 : 5999;
+
+  let code = startCode;
+  while (usedCodes.has(String(code)) && code <= maxCode) {
+    code += 10;
+  }
+
+  // If we've exhausted standard codes, try filling gaps
+  if (code > maxCode) {
+    const rangeStart = type === 'REVENUE' ? 4100 : 5100;
+    for (let c = rangeStart; c <= maxCode; c++) {
+      if (!usedCodes.has(String(c))) {
+        return String(c);
+      }
+    }
+    // Fallback - should never happen in practice
+    return String(startCode);
+  }
+
+  return String(code);
+}
+
+/**
  * Convert suggested categories to ChartAccount format for import
+ * Automatically generates unique codes when conflicts occur
  */
 export function categoriesToChartAccounts(
   categories: SuggestedCategory[],
   existingAccounts: ChartAccount[]
 ): Omit<ChartAccount, 'id' | 'createdAt' | 'updatedAt'>[] {
   const result: Omit<ChartAccount, 'id' | 'createdAt' | 'updatedAt'>[] = [];
-  const existingCodes = new Set(existingAccounts.map(a => a.code));
+  const usedCodes = new Set(existingAccounts.map(a => a.code));
+  const existingNamesByType = new Map<string, Set<string>>();
+
+  // Build lookup of existing names by type
+  for (const account of existingAccounts) {
+    if (!existingNamesByType.has(account.type)) {
+      existingNamesByType.set(account.type, new Set());
+    }
+    existingNamesByType.get(account.type)!.add(account.name.toLowerCase());
+  }
 
   for (const cat of categories) {
-    // Skip if category with same code or name already exists
-    const exists = existingAccounts.some(
-      a => a.code === cat.code ||
-           (a.name.toLowerCase() === cat.name.toLowerCase() && a.type === cat.type)
-    );
-    if (exists) continue;
+    // Skip if category with same name and type already exists
+    const namesForType = existingNamesByType.get(cat.type);
+    if (namesForType?.has(cat.name.toLowerCase())) {
+      continue;
+    }
 
-    // Skip if we already added this code in this batch
-    if (existingCodes.has(cat.code)) continue;
+    // Determine the code to use
+    let code = cat.code;
+
+    // If code already exists, generate a new unique one
+    if (usedCodes.has(code)) {
+      code = getNextAvailableCode(cat.type, usedCodes);
+    }
+
+    // Ensure code matches the type (4xxx for REVENUE, 5xxx for EXPENSE)
+    if (cat.type === 'REVENUE' && !code.startsWith('4')) {
+      code = '4' + code.slice(1);
+      if (usedCodes.has(code)) {
+        code = getNextAvailableCode(cat.type, usedCodes);
+      }
+    } else if (cat.type === 'EXPENSE' && !code.startsWith('5')) {
+      code = '5' + code.slice(1);
+      if (usedCodes.has(code)) {
+        code = getNextAvailableCode(cat.type, usedCodes);
+      }
+    }
 
     const type: AccountType = cat.type;
     const parentId = type === 'REVENUE' ? '4000' : '5000';
 
-    existingCodes.add(cat.code);
+    usedCodes.add(code);
+
+    // Track the name we're adding
+    if (!existingNamesByType.has(type)) {
+      existingNamesByType.set(type, new Set());
+    }
+    existingNamesByType.get(type)!.add(cat.name.toLowerCase());
 
     result.push({
-      code: cat.code,
+      code,
       name: cat.name,
       type,
       parentId,
