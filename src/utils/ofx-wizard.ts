@@ -455,50 +455,51 @@ ${formatPatternList(incomePatterns)}${hasMoreIncome ? `\n... and ${incomePattern
 ### Expenses (${expensePatterns.length} unique patterns)
 ${formatPatternList(expensePatterns)}${hasMoreExpense ? `\n... and ${expensePatterns.length - 50} more` : ''}
 
-## Response Format
+## Response Format (STRICT - follow exactly)
 
-Respond with JSON in a code block:
+Respond with ONLY valid JSON in a code block. Use EXACTLY these field names:
 
 \`\`\`json
 {
-  ${existingCategories?.length ? `"account_changes": [
-    {"action": "rename", "from_name": "Old Name", "to_name": "Better Name", "to_description": "..."},
-    {"action": "merge", "from_name": "Keep This", "merge_from": ["Merge This", "And This"], "to_name": "Combined"}
-  ],
+  ${existingCategories?.length ? `"account_changes": [],
   ` : ''}"chart_accounts": [
-    {"code": "4100", "name": "Service Revenue", "type": "REVENUE", "description": "Income from services"},
-    {"code": "5100", "name": "Software & Tools", "type": "EXPENSE", "description": "Software subscriptions"}
+    {"code": "4100", "name": "Service Revenue", "type": "REVENUE", "description": "..."}
   ],
   "revenue_sources": [
-    {"name": "Stripe", "type": "local", "description": "Online payments"},
-    {"name": "International Clients", "type": "foreign", "description": "Overseas income"}
+    {"name": "Stripe", "type": "local", "description": "..."}
   ],
   "rules": [
     {"pattern": "STRIPE", "match_type": "contains", "account_name": "Service Revenue", "transaction_type": "REVENUE", "revenue_source": "Stripe"},
-    {"pattern": "AMAZON WEB", "match_type": "contains", "account_name": "Cloud Hosting", "transaction_type": "EXPENSE"},
-    {"pattern": "TRANSFER", "match_type": "contains", "account_name": "Transfer", "transaction_type": "TRANSFER"}
+    {"pattern": "AWS", "match_type": "contains", "account_name": "Cloud Hosting", "transaction_type": "EXPENSE"},
+    {"pattern": "TRANSFER", "match_type": "contains", "transaction_type": "TRANSFER"}
   ]
 }
 \`\`\`
 
-## Key Points
+## STRICT RULES - MUST FOLLOW
 
-**Chart Accounts:** Only REVENUE or EXPENSE types allowed. Use codes 4xxx for REVENUE, 5xxx for EXPENSE. Do NOT create accounts for transfers.
+**Field names (use exactly):**
+- \`chart_accounts\` (NOT "categories")
+- \`account_name\` (NOT "category_name")
+- \`transaction_type\` (NOT "category_type")
+- \`account_changes\` (NOT "category_changes")
 
-**Rules:** Create general patterns that match multiple transactions:
-- "contains" (default): Pattern appears anywhere
-- "startsWith"/"endsWith": Pattern at start/end
-- "exact": Exact match only
-- account_name: The chart account to link (for REVENUE/EXPENSE types)
-- transaction_type: REVENUE, EXPENSE, TRANSFER, or IGNORE
+**Chart Accounts:**
+- type: ONLY "REVENUE" or "EXPENSE" (never TRANSFER)
+- code: 4xxx for REVENUE, 5xxx for EXPENSE
 
-**Revenue Sources:** Group income by source (Stripe, PayPal, Client X, etc.). Use "Misc" for uncategorized.
+**Rules - REQUIRED fields:**
+- \`pattern\`: string (required)
+- \`transaction_type\`: "REVENUE" | "EXPENSE" | "TRANSFER" | "IGNORE" (required)
+- \`account_name\`: string (REQUIRED for REVENUE/EXPENSE, omit for TRANSFER/IGNORE)
+- \`match_type\`: "contains" | "exact" | "startsWith" | "endsWith" (optional, default: "contains")
+- \`revenue_source\`: string (only for REVENUE transactions)
 
 **Transaction Types:**
-- REVENUE: Income transaction, links to a revenue account
-- EXPENSE: Spending transaction, links to an expense account
-- TRANSFER: Money moving between accounts (no account link needed)
-- IGNORE: Skip this transaction (duplicates, corrections)
+- REVENUE: Income → requires \`account_name\` + \`revenue_source\`
+- EXPENSE: Spending → requires \`account_name\`
+- TRANSFER: Account transfers → NO \`account_name\`
+- IGNORE: Skip transaction → NO \`account_name\`
 
 Now analyze and respond with JSON:`;
 }
@@ -615,14 +616,20 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
     }
 
     for (const rule of data.rules) {
-      if (!rule.pattern || !rule.account_name) {
-        warnings.push(`Invalid rule: missing pattern or account_name`);
+      if (!rule.pattern) {
+        warnings.push(`Invalid rule: missing pattern`);
         continue;
       }
 
       const transactionType = (rule.transaction_type || '').toUpperCase();
       if (!['REVENUE', 'EXPENSE', 'TRANSFER', 'IGNORE'].includes(transactionType)) {
         warnings.push(`Invalid transaction_type "${rule.transaction_type}" for "${rule.pattern}"`);
+        continue;
+      }
+
+      // account_name is required for REVENUE and EXPENSE, optional for TRANSFER and IGNORE
+      if ((transactionType === 'REVENUE' || transactionType === 'EXPENSE') && !rule.account_name) {
+        warnings.push(`Rule "${rule.pattern}" is ${transactionType} but missing account_name`);
         continue;
       }
 
@@ -659,7 +666,7 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
         pattern: rule.pattern,
         matchType,
         matchField,
-        categoryName: rule.account_name.trim(),
+        categoryName: rule.account_name?.trim() || (transactionType === 'TRANSFER' ? 'Transfer' : 'Ignored'),
         categoryType: transactionType as 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE',
         revenueSource,
       });
