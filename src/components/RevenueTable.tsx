@@ -59,13 +59,13 @@ export function RevenueTable({
 
   return (
     <TooltipProvider>
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">
             {dataType === 'expected' ? 'Expected Revenue' : 'Actual Revenue'}
           </h2>
           <Button onClick={addSource} size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add Source
           </Button>
         </div>

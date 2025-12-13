@@ -162,7 +162,7 @@ export function MappingRulesTable() {
   const sortedRules = [...mappingRules].sort((a, b) => b.priority - a.priority);
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -182,11 +182,11 @@ export function MappingRulesTable() {
             onClick={handleApplyRules}
             disabled={isApplying || mappingRules.length === 0}
           >
-            <Play className="h-4 w-4 mr-2" />
+            <Play className="h-4 w-4" />
             {isApplying ? 'Applying...' : 'Apply Rules'}
           </Button>
           <Button onClick={() => setIsAddingRule(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add Rule
           </Button>
         </div>
@@ -312,8 +312,8 @@ export function MappingRulesTable() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="pattern">Pattern</Label>
               <Input
                 id="pattern"
@@ -326,7 +326,7 @@ export function MappingRulesTable() {
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="matchField">Match In</Label>
               <Select
                 value={formData.matchField}
@@ -343,7 +343,7 @@ export function MappingRulesTable() {
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="category">Category</Label>
               <Select
                 value={formData.category}
@@ -362,7 +362,7 @@ export function MappingRulesTable() {
             </div>
 
             {formData.category === 'revenue' && (
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="source">Revenue Source (Optional)</Label>
                 <Select
                   value={formData.revenueSourceId?.toString() || 'none'}
@@ -388,7 +388,7 @@ export function MappingRulesTable() {
             )}
 
             {formData.category === 'expense' && (
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="expenseCategory">Expense Category (Optional)</Label>
                 <Select
                   value={formData.chartAccountId || 'none'}
@@ -416,7 +416,7 @@ export function MappingRulesTable() {
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="account">Apply to Account (Optional)</Label>
               <Select
                 value={formData.accountId?.toString() || 'all'}

@@ -221,7 +221,7 @@ export function ChartOfAccountsTable({ onEditAccount, onAddAccount }: ChartOfAcc
   const rootAccounts = accountHierarchy.filter(a => !a.parentId);
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Filters */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -249,7 +249,7 @@ export function ChartOfAccountsTable({ onEditAccount, onAddAccount }: ChartOfAcc
         </Select>
 
         <Button onClick={() => onAddAccount()}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4" />
           Add Account
         </Button>
       </div>

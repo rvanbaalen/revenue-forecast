@@ -82,7 +82,7 @@ export function BudgetTable() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="text-sm text-muted-foreground">
         Set monthly expense budgets for each category. Actuals are calculated from categorized transactions.
       </div>
@@ -127,7 +127,7 @@ export function BudgetTable() {
 
                     return (
                       <td key={month} className="px-1 py-1 text-center">
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1">
                           {/* Budget input */}
                           {isEditing ? (
                             <Input
@@ -168,7 +168,7 @@ export function BudgetTable() {
                     );
                   })}
                   <td className="px-4 py-2 text-right">
-                    <div className="space-y-1">
+                    <div className="flex flex-col gap-1">
                       <div className="font-mono text-sm text-foreground">
                         {formatCurrency(yearTotal.budget, false)}
                       </div>
@@ -198,7 +198,7 @@ export function BudgetTable() {
 
                 return (
                   <td key={month} className="px-3 py-3 text-center">
-                    <div className="space-y-1">
+                    <div className="flex flex-col gap-1">
                       <div className="font-mono text-sm">
                         {formatCurrency(budget, false)}
                       </div>
@@ -217,7 +217,7 @@ export function BudgetTable() {
                 );
               })}
               <td className="px-4 py-3 text-right">
-                <div className="space-y-1">
+                <div className="flex flex-col gap-1">
                   <div className="font-mono text-sm">
                     {formatCurrency(
                       Object.values(totals.budgetTotals).reduce((a, b) => a + b, 0),

@@ -44,7 +44,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="fade-in space-y-6">
+    <div className="fade-in flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
         <p className="text-muted-foreground mt-1">Configure tax rates and currencies</p>
@@ -62,8 +62,8 @@ export function SettingsPage() {
               Applied to local revenue sources only
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="profitTax">Profit Tax Rate</Label>
               <div className="flex items-center gap-2">
                 <Input
@@ -82,7 +82,7 @@ export function SettingsPage() {
 
             <Separator />
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="vatRate">VAT Rate</Label>
               <div className="flex items-center gap-2">
                 <Input
@@ -112,7 +112,7 @@ export function SettingsPage() {
               Exchange rates to base currency (Cg)
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {config.currencies.map((currency, index) => (
               <div
                 key={index}
@@ -169,7 +169,7 @@ export function SettingsPage() {
               onClick={addCurrency}
               className="w-full"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4" />
               Add Currency
             </Button>
           </CardContent>
@@ -208,7 +208,7 @@ export function SettingsPage() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={isClearing}>
-                  <Trash2 className="w-4 h-4 mr-2" />
+                  <Trash2 className="w-4 h-4" />
                   {isClearing ? 'Clearing...' : 'Clear Data'}
                 </Button>
               </AlertDialogTrigger>
@@ -217,7 +217,7 @@ export function SettingsPage() {
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will permanently delete all your data including:
-                    <ul className="list-disc list-inside mt-2 space-y-1">
+                    <ul className="list-disc list-inside mt-2 flex flex-col gap-1">
                       <li>All revenue sources and forecasts</li>
                       <li>All bank accounts and transactions</li>
                       <li>All salaries and tax configurations</li>

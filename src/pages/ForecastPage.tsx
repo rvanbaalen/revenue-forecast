@@ -177,7 +177,7 @@ export function ForecastPage() {
 
   return (
     <TooltipProvider>
-      <div className="fade-in space-y-6">
+      <div className="fade-in flex flex-col gap-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Revenue Forecast</h1>
@@ -193,7 +193,7 @@ export function ForecastPage() {
           </CardHeader>
           <CardContent className="py-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label>Data Source</Label>
                 <Select value={dataSource} onValueChange={(v) => setDataSource(v as 'expected' | 'actual')}>
                   <SelectTrigger>
@@ -205,7 +205,7 @@ export function ForecastPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label>Forecast Method</Label>
                 <Select value={method} onValueChange={(v) => setMethod(v as ForecastMethod)}>
                   <SelectTrigger>
@@ -221,7 +221,7 @@ export function ForecastPage() {
                   {FORECAST_METHODS.find(m => m.value === method)?.description}
                 </p>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label>Forecast Periods (months)</Label>
                 <Input
                   type="number"
@@ -231,9 +231,9 @@ export function ForecastPage() {
                   max={24}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label>Options</Label>
-                <div className="flex items-center space-x-2 pt-2">
+                <div className="flex items-center gap-2 pt-2">
                   <Checkbox
                     id="includeExpenses"
                     checked={includeExpenses}

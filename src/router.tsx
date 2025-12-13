@@ -136,7 +136,7 @@ function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 flex flex-col gap-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           // Check for exact match or nested routes (e.g., /bank/*)
@@ -160,7 +160,7 @@ function Sidebar() {
       </nav>
 
       {/* Import/Export */}
-      <div className="p-3 border-t border-border space-y-1">
+      <div className="p-3 border-t border-border flex flex-col gap-1">
         <input
           ref={fileInputRef}
           type="file"

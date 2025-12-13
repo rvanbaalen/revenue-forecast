@@ -31,7 +31,7 @@ export function ChartOfAccountsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Chart of Accounts</h2>
@@ -40,7 +40,7 @@ export function ChartOfAccountsPage() {
           </p>
         </div>
         <Button variant="outline" onClick={() => setIsPresetsOpen(true)}>
-          <Settings2 className="h-4 w-4 mr-2" />
+          <Settings2 className="h-4 w-4" />
           Presets & Import/Export
         </Button>
       </div>

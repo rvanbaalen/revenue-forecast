@@ -143,12 +143,12 @@ export function CategoryPresetsModal({ isOpen, onClose }: CategoryPresetsModalPr
               <TabsTrigger value="import-export">Import / Export</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="presets" className="mt-4 space-y-4">
+            <TabsContent value="presets" className="mt-4 flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
                 Select a preset that matches your business type. This will replace all existing categories.
               </p>
 
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {presets.map((preset) => {
                   const counts = countAccountsByType(preset.accounts);
                   const isSelected = selectedPreset === preset.id;
@@ -200,8 +200,8 @@ export function CategoryPresetsModal({ isOpen, onClose }: CategoryPresetsModalPr
               </div>
             </TabsContent>
 
-            <TabsContent value="import-export" className="mt-4 space-y-4">
-              <div className="space-y-4">
+            <TabsContent value="import-export" className="mt-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-4">
                 <div className="p-4 border rounded-lg">
                   <div className="flex items-start gap-3">
                     <Download className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -212,7 +212,7 @@ export function CategoryPresetsModal({ isOpen, onClose }: CategoryPresetsModalPr
                         Share with team members or use as a backup.
                       </p>
                       <Button onClick={handleExport} variant="outline" className="mt-3">
-                        <Download className="h-4 w-4 mr-2" />
+                        <Download className="h-4 w-4" />
                         Export to JSON
                       </Button>
                     </div>
@@ -235,7 +235,7 @@ export function CategoryPresetsModal({ isOpen, onClose }: CategoryPresetsModalPr
                         className="hidden"
                       />
                       <Button onClick={handleImportClick} variant="outline" className="mt-3">
-                        <Upload className="h-4 w-4 mr-2" />
+                        <Upload className="h-4 w-4" />
                         Import from JSON
                       </Button>
                     </div>

@@ -71,7 +71,7 @@ export function OpeningBalanceModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <div className="p-4 bg-muted rounded-lg">
             <p className="font-medium text-foreground">{bankAccount.name}</p>
             <p className="text-sm text-muted-foreground">
@@ -79,7 +79,7 @@ export function OpeningBalanceModal({
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="date">Balance Date</Label>
             <Input
               id="date"
@@ -92,7 +92,7 @@ export function OpeningBalanceModal({
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="balance">
               {isLiability ? 'Balance Owed' : 'Account Balance'}
             </Label>

@@ -215,7 +215,7 @@ export function TransactionMappingModal({
         </DialogHeader>
 
         {/* Transaction details */}
-        <div className="p-4 bg-muted rounded-lg space-y-3">
+        <div className="p-4 bg-muted rounded-lg flex flex-col gap-3">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2">
               {transaction.amount >= 0 ? (
@@ -270,8 +270,8 @@ export function TransactionMappingModal({
           </TabsList>
 
           {/* Category tab - unified revenue and expense categories */}
-          <TabsContent value="category" className="space-y-4 mt-4">
-            <div className="space-y-2">
+          <TabsContent value="category" className="flex flex-col gap-4 mt-4">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="category">Category</Label>
               <CategorySelect
                 value={selectedCategoryId}
@@ -282,7 +282,7 @@ export function TransactionMappingModal({
 
             {/* Optional revenue source linking */}
             {chartAccounts.find(a => a.id === selectedCategoryId)?.type === 'REVENUE' && sources.length > 0 && (
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="source">Link to Revenue Source (optional)</Label>
                 <Select value={selectedSourceId || 'none'} onValueChange={(v) => setSelectedSourceId(v === 'none' ? '' : v)}>
                   <SelectTrigger id="source">
@@ -310,8 +310,8 @@ export function TransactionMappingModal({
           </TabsContent>
 
           {/* Transfer tab */}
-          <TabsContent value="transfer" className="space-y-4 mt-4">
-            <div className="space-y-2">
+          <TabsContent value="transfer" className="flex flex-col gap-4 mt-4">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="transfer">Transfer To/From Account</Label>
               <Select value={selectedTransferAccountId} onValueChange={setSelectedTransferAccountId}>
                 <SelectTrigger id="transfer">
@@ -344,7 +344,7 @@ export function TransactionMappingModal({
 
         {/* Create mapping rule option */}
         {(selectedTab === 'category' || selectedTab === 'transfer') && (
-          <div className="space-y-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -360,8 +360,8 @@ export function TransactionMappingModal({
             </div>
 
             {createRule && (
-              <div className="pl-6 space-y-3">
-                <div className="space-y-2">
+              <div className="pl-6 flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="pattern">Match Pattern</Label>
                   <Input
                     id="pattern"
@@ -374,7 +374,7 @@ export function TransactionMappingModal({
                   </p>
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="matchField">Match In</Label>
                   <Select value={matchField} onValueChange={(v) => setMatchField(v as typeof matchField)}>
                     <SelectTrigger id="matchField">

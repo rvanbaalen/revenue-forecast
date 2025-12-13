@@ -56,7 +56,7 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
           onClick={() => addSalaryTax(salary.id)}
           className="h-7 text-xs"
         >
-          <Plus className="h-3 w-3 mr-1" />
+          <Plus className="h-3 w-3" />
           Add Tax
         </Button>
       </div>
@@ -64,7 +64,7 @@ export function SalaryTaxConfig({ salaryId }: SalaryTaxConfigProps) {
       {taxes.length === 0 ? (
         <p className="text-sm text-muted-foreground italic">No taxes configured</p>
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {taxes.map((tax) => {
             const taxAmount = calculateTaxAmount(tax);
             const taxPct = salaryTotal > 0 ? (taxAmount / salaryTotal) * 100 : 0;

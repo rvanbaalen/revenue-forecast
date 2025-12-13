@@ -179,7 +179,7 @@ export function BankAccountCard({ account, onSelect }: BankAccountCardProps) {
         <CardContent>
           {isCreditCard && account.creditLimit ? (
             // Credit Card View
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Current Balance</p>
@@ -202,7 +202,7 @@ export function BankAccountCard({ account, onSelect }: BankAccountCardProps) {
               </div>
 
               {/* Credit utilization bar */}
-              <div className="space-y-1">
+              <div className="flex flex-col gap-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Credit Utilization</span>
                   <span className={cn(
@@ -277,8 +277,8 @@ export function BankAccountCard({ account, onSelect }: BankAccountCardProps) {
               Update the account name and type.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="accountName">Account Name</Label>
               <Input
                 id="accountName"
@@ -287,7 +287,7 @@ export function BankAccountCard({ account, onSelect }: BankAccountCardProps) {
                 placeholder="Account name"
               />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="accountType">Account Type</Label>
               <Select
                 value={editAccountType}
@@ -312,7 +312,7 @@ export function BankAccountCard({ account, onSelect }: BankAccountCardProps) {
             </div>
 
             {(editAccountType === 'CREDITCARD' || editAccountType === 'CREDITLINE') && (
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="creditLimit">Credit Limit</Label>
                 <Input
                   id="creditLimit"
