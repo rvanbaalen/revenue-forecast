@@ -1,7 +1,4 @@
 import { useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import { Wallet, CreditCard, Scale } from 'lucide-react';
 import { useAccountingContext } from '@/context/AccountingContext';
 import { formatCurrency } from '@/utils/format';
 
@@ -68,66 +65,26 @@ export function BalanceSheetReport() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Assets</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(balanceSheet.assets, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-info-muted rounded-full">
-                <Wallet className="h-5 w-5 text-info" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Liabilities</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(balanceSheet.liabilities, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-destructive/10 rounded-full">
-                <CreditCard className="h-5 w-5 variance-negative" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={cn(
-          balanceSheet.equity >= 0 ? "border-success/50" : "border-destructive/50"
-        )}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Net Worth (Equity)</p>
-                <p className={cn(
-                  "text-2xl font-bold",
-                  balanceSheet.equity >= 0 ? "variance-positive" : "variance-negative"
-                )}>
-                  {formatCurrency(balanceSheet.equity, false)}
-                </p>
-              </div>
-              <div className={cn(
-                "p-3 rounded-full",
-                balanceSheet.equity >= 0 ? "bg-success-muted" : "bg-destructive/10"
-              )}>
-                <Scale className={cn(
-                  "h-5 w-5",
-                  balanceSheet.equity >= 0 ? "variance-positive" : "variance-negative"
-                )} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Summary row */}
+      <div className="grid grid-cols-3 gap-4 text-center">
+        <div>
+          <p className="text-sm text-muted-foreground">Total Assets</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(balanceSheet.assets, false)}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Total Liabilities</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(balanceSheet.liabilities, false)}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Net Worth (Equity)</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(balanceSheet.equity, false)}
+          </p>
+        </div>
       </div>
 
       {/* Detailed Balance Sheet */}
@@ -141,7 +98,7 @@ export function BalanceSheetReport() {
         <table className="w-full text-sm">
           <tbody>
             {/* Assets Section */}
-            <tr className="bg-info-muted font-medium">
+            <tr className="bg-muted/50 font-medium">
               <td className="px-4 py-3 text-foreground" colSpan={2}>
                 ASSETS
               </td>
@@ -169,7 +126,7 @@ export function BalanceSheetReport() {
                 </td>
               </tr>
             )}
-            <tr className="border-t border-border bg-info-muted font-medium">
+            <tr className="border-t border-border bg-muted/30 font-medium">
               <td className="px-4 py-2 text-foreground">Total Assets</td>
               <td className="px-4 py-2 text-right font-mono text-foreground">
                 {formatCurrency(balanceSheet.assets, false)}
@@ -177,7 +134,7 @@ export function BalanceSheetReport() {
             </tr>
 
             {/* Liabilities Section */}
-            <tr className="bg-destructive/10 font-medium border-t-2 border-border">
+            <tr className="bg-muted/50 font-medium border-t-2 border-border">
               <td className="px-4 py-3 text-foreground" colSpan={2}>
                 LIABILITIES
               </td>
@@ -205,7 +162,7 @@ export function BalanceSheetReport() {
                 </td>
               </tr>
             )}
-            <tr className="border-t border-border bg-destructive/10 font-medium">
+            <tr className="border-t border-border bg-muted/30 font-medium">
               <td className="px-4 py-2 text-foreground">Total Liabilities</td>
               <td className="px-4 py-2 text-right font-mono text-foreground">
                 {formatCurrency(balanceSheet.liabilities, false)}
@@ -213,17 +170,9 @@ export function BalanceSheetReport() {
             </tr>
 
             {/* Equity */}
-            <tr className={cn(
-              "border-t-2 border-border font-bold",
-              balanceSheet.equity >= 0
-                ? "bg-success-muted"
-                : "bg-destructive/10"
-            )}>
+            <tr className="border-t-2 border-border font-bold bg-muted">
               <td className="px-4 py-3 text-foreground text-lg">NET WORTH (EQUITY)</td>
-              <td className={cn(
-                "px-4 py-3 text-right font-mono text-lg",
-                balanceSheet.equity >= 0 ? "variance-positive" : "variance-negative"
-              )}>
+              <td className="px-4 py-3 text-right font-mono text-lg text-foreground">
                 {formatCurrency(balanceSheet.equity, false)}
               </td>
             </tr>

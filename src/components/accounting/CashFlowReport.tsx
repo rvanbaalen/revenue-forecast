@@ -1,7 +1,4 @@
 import { useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import { ArrowDownLeft, ArrowUpRight, TrendingUp, Wallet } from 'lucide-react';
 import { useAccountingContext } from '@/context/AccountingContext';
 import { useRevenue } from '@/context/RevenueContext';
 import { formatCurrency } from '@/utils/format';
@@ -74,82 +71,32 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Cash Inflows</p>
-                <p className="text-2xl font-bold variance-positive">
-                  {formatCurrency(cashFlow.inflows, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-success-muted rounded-full">
-                <ArrowDownLeft className="h-5 w-5 variance-positive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Cash Outflows</p>
-                <p className="text-2xl font-bold variance-negative">
-                  {formatCurrency(cashFlow.outflows, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-destructive/10 rounded-full">
-                <ArrowUpRight className="h-5 w-5 variance-negative" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={cn(
-          cashFlow.netCashFlow >= 0 ? "border-success/50" : "border-destructive/50"
-        )}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Net Cash Flow</p>
-                <p className={cn(
-                  "text-2xl font-bold",
-                  cashFlow.netCashFlow >= 0 ? "variance-positive" : "variance-negative"
-                )}>
-                  {formatCurrency(cashFlow.netCashFlow, false)}
-                </p>
-              </div>
-              <div className={cn(
-                "p-3 rounded-full",
-                cashFlow.netCashFlow >= 0 ? "bg-success-muted" : "bg-destructive/10"
-              )}>
-                <TrendingUp className={cn(
-                  "h-5 w-5",
-                  cashFlow.netCashFlow >= 0 ? "variance-positive" : "variance-negative"
-                )} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Cash Position</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(runway.cashPosition, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-full">
-                <Wallet className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Summary row */}
+      <div className="grid grid-cols-4 gap-4 text-center">
+        <div>
+          <p className="text-sm text-muted-foreground">Cash Inflows</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(cashFlow.inflows, false)}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Cash Outflows</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(cashFlow.outflows, false)}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Net Cash Flow</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(cashFlow.netCashFlow, false)}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Cash Position</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(runway.cashPosition, false)}
+          </p>
+        </div>
       </div>
 
       {/* Monthly Chart (if showing full year) */}
@@ -162,12 +109,12 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
                 {/* Bars */}
                 <div className="flex-1 w-full flex flex-col justify-end gap-1">
                   <div
-                    className="w-full bg-success rounded-t opacity-80"
+                    className="w-full bg-chart-2 rounded-t opacity-80"
                     style={{ height: `${(data.inflows / maxFlow) * 100}%` }}
                     title={`Inflows: ${formatCurrency(data.inflows, false)}`}
                   />
                   <div
-                    className="w-full bg-destructive rounded-b opacity-80"
+                    className="w-full bg-chart-1 rounded-b opacity-80"
                     style={{ height: `${(data.outflows / maxFlow) * 100}%` }}
                     title={`Outflows: ${formatCurrency(data.outflows, false)}`}
                   />
@@ -179,11 +126,11 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
           </div>
           <div className="flex items-center justify-center gap-6 mt-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-success" />
+              <div className="w-3 h-3 rounded bg-chart-2" />
               <span className="text-muted-foreground">Inflows</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-destructive" />
+              <div className="w-3 h-3 rounded bg-chart-1" />
               <span className="text-muted-foreground">Outflows</span>
             </div>
           </div>
@@ -199,13 +146,13 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground">Average Monthly Expenses</p>
-              <p className="text-xl font-bold variance-negative">
+              <p className="text-xl font-bold text-foreground">
                 {formatCurrency(runway.monthlyBurn, false)}/mo
               </p>
             </div>
             <div className="p-4 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground">Average Monthly Revenue</p>
-              <p className="text-xl font-bold variance-positive">
+              <p className="text-xl font-bold text-foreground">
                 {formatCurrency(runway.monthlyRevenue, false)}/mo
               </p>
             </div>
@@ -230,10 +177,7 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
                 <p className="text-sm text-muted-foreground mb-1">
                   Runway (net of revenue)
                 </p>
-                <p className={cn(
-                  "text-2xl font-bold",
-                  runway.netMonthlyBurn <= 0 ? "variance-positive" : "text-foreground"
-                )}>
+                <p className="text-2xl font-bold text-foreground">
                   {runway.netMonthlyBurn <= 0
                     ? 'Cash positive'
                     : `${Math.floor(runway.runwayMonths)} months`}
@@ -261,27 +205,19 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
           <tbody>
             <tr className="border-b border-border">
               <td className="px-4 py-3 text-foreground">Cash Inflows</td>
-              <td className="px-4 py-3 text-right font-mono variance-positive">
+              <td className="px-4 py-3 text-right font-mono text-foreground">
                 +{formatCurrency(cashFlow.inflows, false)}
               </td>
             </tr>
             <tr className="border-b border-border">
               <td className="px-4 py-3 text-foreground">Cash Outflows</td>
-              <td className="px-4 py-3 text-right font-mono variance-negative">
+              <td className="px-4 py-3 text-right font-mono text-foreground">
                 -{formatCurrency(cashFlow.outflows, false)}
               </td>
             </tr>
-            <tr className={cn(
-              "font-bold",
-              cashFlow.netCashFlow >= 0
-                ? "bg-success-muted"
-                : "bg-destructive/10"
-            )}>
+            <tr className="font-bold bg-muted">
               <td className="px-4 py-3 text-foreground">Net Cash Flow</td>
-              <td className={cn(
-                "px-4 py-3 text-right font-mono",
-                cashFlow.netCashFlow >= 0 ? "variance-positive" : "variance-negative"
-              )}>
+              <td className="px-4 py-3 text-right font-mono text-foreground">
                 {cashFlow.netCashFlow >= 0 ? '+' : ''}{formatCurrency(cashFlow.netCashFlow, false)}
               </td>
             </tr>
