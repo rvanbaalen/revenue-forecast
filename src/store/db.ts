@@ -528,7 +528,7 @@ class RevenueDB {
     });
   }
 
-  // Export all data
+  // Export all data as a backup
   async exportData(): Promise<string> {
     const config = await this.getConfig();
     const sources = await this.getSources();
@@ -540,21 +540,68 @@ class RevenueDB {
     const chartAccounts = await this.getChartAccounts();
     const journalEntries = await this.getJournalEntries();
     return JSON.stringify({
-      config,
-      sources,
-      salaries,
-      salaryTaxes,
-      bankAccounts,
-      bankTransactions,
-      mappingRules,
-      chartAccounts,
-      journalEntries,
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      dbVersion: DB_VERSION,
+      data: {
+        config,
+        sources,
+        salaries,
+        salaryTaxes,
+        bankAccounts,
+        bankTransactions,
+        mappingRules,
+        chartAccounts,
+        journalEntries,
+      },
     }, null, 2);
   }
 
-  // Import data
+  // Validate backup data structure
+  validateBackup(jsonData: string): { valid: boolean; version?: string; exportedAt?: string; error?: string; recordCounts?: Record<string, number> } {
+    try {
+      const parsed = JSON.parse(jsonData);
+
+      // Check if it's the new format with metadata
+      const isNewFormat = parsed.version && parsed.data;
+      const data = isNewFormat ? parsed.data : parsed;
+
+      // Validate required structure
+      const recordCounts: Record<string, number> = {};
+
+      if (data.config) recordCounts.config = 1;
+      if (data.sources) recordCounts.sources = data.sources.length;
+      if (data.salaries) recordCounts.salaries = data.salaries.length;
+      if (data.salaryTaxes) recordCounts.salaryTaxes = data.salaryTaxes.length;
+      if (data.bankAccounts) recordCounts.bankAccounts = data.bankAccounts.length;
+      if (data.bankTransactions) recordCounts.bankTransactions = data.bankTransactions.length;
+      if (data.mappingRules) recordCounts.mappingRules = data.mappingRules.length;
+      if (data.chartAccounts) recordCounts.chartAccounts = data.chartAccounts.length;
+      if (data.journalEntries) recordCounts.journalEntries = data.journalEntries.length;
+
+      // Must have at least some data
+      if (Object.keys(recordCounts).length === 0) {
+        return { valid: false, error: 'No recognizable data found in backup file' };
+      }
+
+      return {
+        valid: true,
+        version: isNewFormat ? parsed.version : 'legacy',
+        exportedAt: isNewFormat ? parsed.exportedAt : undefined,
+        recordCounts,
+      };
+    } catch (err) {
+      return { valid: false, error: `Invalid JSON: ${err}` };
+    }
+  }
+
+  // Import data from backup
   async importData(jsonData: string, clearExisting = true): Promise<void> {
-    const data = JSON.parse(jsonData);
+    const parsed = JSON.parse(jsonData);
+
+    // Support both new format (with metadata) and old format (direct data)
+    const isNewFormat = parsed.version && parsed.data;
+    const data = isNewFormat ? parsed.data : parsed;
 
     if (data.config) {
       await this.saveConfig(data.config);

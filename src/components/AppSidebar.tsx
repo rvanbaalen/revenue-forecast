@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import {
   LayoutDashboard,
@@ -9,14 +9,14 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Download,
-  Upload,
+  HardDrive,
   Building2,
   Calculator,
   Wand2,
 } from 'lucide-react';
 import { useRevenue } from '@/context/RevenueContext';
 import { useTime } from '@/hooks/useTime';
+import { BackupRestoreModal } from '@/components/BackupRestoreModal';
 import {
   Sidebar,
   SidebarContent,
@@ -85,67 +85,28 @@ function YearSelector() {
   );
 }
 
-function ImportExportButtons() {
-  const { config, exportData, importData } = useRevenue();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleExport = async () => {
-    const data = await exportData();
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `revenue-${config.year}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        await importData(event.target?.result as string);
-      } catch {
-        alert('Failed to import data');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
+function BackupRestoreButton() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
-    <SidebarGroup>
-      <SidebarGroupContent>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleImport}
-          className="hidden"
-        />
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => fileInputRef.current?.click()}
-              tooltip="Import"
-            >
-              <Upload className="size-4" />
-              <span>Import</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleExport} tooltip="Export">
-              <Download className="size-4" />
-              <span>Export</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <>
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => setIsModalOpen(true)}
+                tooltip="Backup & Restore"
+              >
+                <HardDrive className="size-4" />
+                <span>Backup & Restore</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+      <BackupRestoreModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </>
   );
 }
 
@@ -195,7 +156,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
-        <ImportExportButtons />
+        <BackupRestoreButton />
       </SidebarFooter>
 
       <SidebarRail />

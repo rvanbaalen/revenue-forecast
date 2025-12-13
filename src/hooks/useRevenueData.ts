@@ -321,9 +321,13 @@ export function useRevenueData() {
     };
   }, [sources, salaries, getSourceTotalCg, getProfitTax, getSourceVat, getSalaryTotal, getSalaryTaxCg]);
 
-  // Export/Import
+  // Backup/Restore
   const exportData = useCallback(async () => {
     return await db.exportData();
+  }, []);
+
+  const validateBackup = useCallback((jsonData: string) => {
+    return db.validateBackup(jsonData);
   }, []);
 
   const importData = useCallback(async (jsonData: string, clearExisting = true) => {
@@ -391,8 +395,9 @@ export function useRevenueData() {
     getMonthlySalary,
     getTotals,
 
-    // Export/Import
+    // Backup/Restore
     exportData,
+    validateBackup,
     importData,
   };
 }
