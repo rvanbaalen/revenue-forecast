@@ -33,6 +33,112 @@ export interface SuggestedCategory {
   description?: string;
 }
 
+// Business type definitions for contextual category suggestions
+export type BusinessType =
+  | 'saas'
+  | 'freelancer'
+  | 'ecommerce'
+  | 'agency'
+  | 'professional'
+  | 'restaurant'
+  | 'retail'
+  | 'construction'
+  | 'other';
+
+export interface BusinessTypeInfo {
+  id: BusinessType;
+  label: string;
+  description: string;
+  commonCategories: {
+    revenue: string[];
+    expense: string[];
+  };
+}
+
+export const BUSINESS_TYPES: BusinessTypeInfo[] = [
+  {
+    id: 'saas',
+    label: 'SaaS / Software',
+    description: 'Software as a Service, digital products, apps',
+    commonCategories: {
+      revenue: ['Subscription Revenue', 'License Sales', 'Setup Fees', 'Support Revenue'],
+      expense: ['Cloud Hosting (AWS, GCP, Azure)', 'Domain & DNS Services', 'API Services', 'Development Tools', 'Code Signing & Certificates', 'Error Monitoring (Sentry, etc.)', 'Analytics Tools', 'Customer Support Tools'],
+    },
+  },
+  {
+    id: 'freelancer',
+    label: 'Freelancer / Consultant',
+    description: 'Independent professional services',
+    commonCategories: {
+      revenue: ['Consulting Revenue', 'Project Revenue', 'Retainer Income', 'Training Revenue'],
+      expense: ['Home Office', 'Professional Development', 'Client Entertainment', 'Coworking Space', 'Portfolio/Website', 'Professional Memberships', 'Liability Insurance'],
+    },
+  },
+  {
+    id: 'ecommerce',
+    label: 'E-commerce / Online Retail',
+    description: 'Selling products online',
+    commonCategories: {
+      revenue: ['Product Sales', 'Shipping Revenue', 'Wholesale Revenue'],
+      expense: ['Cost of Goods Sold', 'Shipping & Fulfillment', 'Packaging Materials', 'Marketplace Fees (Amazon, eBay)', 'Payment Processing', 'Inventory Storage', 'Product Photography', 'Returns & Refunds'],
+    },
+  },
+  {
+    id: 'agency',
+    label: 'Creative / Marketing Agency',
+    description: 'Design, marketing, advertising services',
+    commonCategories: {
+      revenue: ['Project Revenue', 'Retainer Revenue', 'Media Buying Commission'],
+      expense: ['Creative Software (Adobe, Figma)', 'Stock Photos/Videos', 'Freelancer/Contractor Payments', 'Ad Spend (on behalf of clients)', 'Project Management Tools', 'Client Gifts'],
+    },
+  },
+  {
+    id: 'professional',
+    label: 'Professional Services',
+    description: 'Legal, accounting, medical, etc.',
+    commonCategories: {
+      revenue: ['Service Revenue', 'Consultation Fees', 'Retainer Revenue'],
+      expense: ['Professional Licenses', 'Continuing Education', 'Malpractice Insurance', 'Practice Management Software', 'Professional Association Dues', 'Reference Materials'],
+    },
+  },
+  {
+    id: 'restaurant',
+    label: 'Restaurant / Food Service',
+    description: 'Restaurants, cafes, catering',
+    commonCategories: {
+      revenue: ['Food Sales', 'Beverage Sales', 'Catering Revenue', 'Delivery Revenue'],
+      expense: ['Food Cost', 'Beverage Cost', 'Kitchen Equipment', 'Delivery Fees', 'POS System', 'Food Delivery Platform Fees', 'Health Permits', 'Uniforms'],
+    },
+  },
+  {
+    id: 'retail',
+    label: 'Retail / Brick & Mortar',
+    description: 'Physical store retail',
+    commonCategories: {
+      revenue: ['Product Sales', 'Service Revenue'],
+      expense: ['Cost of Goods Sold', 'Rent', 'Store Fixtures', 'POS System', 'Security', 'Store Supplies', 'Signage', 'Shopping Bags'],
+    },
+  },
+  {
+    id: 'construction',
+    label: 'Construction / Trades',
+    description: 'Building, plumbing, electrical, etc.',
+    commonCategories: {
+      revenue: ['Contract Revenue', 'Service Calls', 'Material Markup'],
+      expense: ['Materials', 'Equipment Rental', 'Vehicle Expenses', 'Tools', 'Permits & Licenses', 'Safety Equipment', 'Subcontractor Payments', 'Bonding & Insurance'],
+    },
+  },
+  {
+    id: 'other',
+    label: 'Other / General',
+    description: 'General business categories',
+    commonCategories: {
+      revenue: ['Service Revenue', 'Product Revenue', 'Other Income'],
+      expense: ['Office Supplies', 'Software & Subscriptions', 'Professional Services', 'Marketing', 'Travel', 'Meals & Entertainment'],
+    },
+  },
+];
+
 export interface TransactionMapping {
   fitId: string;
   transactionName: string;
@@ -138,7 +244,10 @@ export function analyzeTransactionPatterns(transactions: ParsedOFXTransaction[])
 /**
  * Generate a prompt for an LLM to suggest categories based on transaction data
  */
-export function generateCategoryPrompt(transactions: ParsedOFXTransaction[]): string {
+export function generateCategoryPrompt(
+  transactions: ParsedOFXTransaction[],
+  businessType?: BusinessType
+): string {
   const { nameMemoPairs } = extractUniqueTransactionInfo(transactions);
   const patterns = analyzeTransactionPatterns(transactions);
 
@@ -152,9 +261,30 @@ export function generateCategoryPrompt(transactions: ParsedOFXTransaction[]): st
     })
     .join('\n');
 
+  // Build business type context if provided
+  let businessContext = '';
+  if (businessType) {
+    const typeInfo = BUSINESS_TYPES.find(t => t.id === businessType);
+    if (typeInfo) {
+      businessContext = `
+## Business Type Context
+
+This is a **${typeInfo.label}** business (${typeInfo.description}).
+
+**Common revenue categories for this business type:**
+${typeInfo.commonCategories.revenue.map(c => `- ${c}`).join('\n')}
+
+**Common expense categories for this business type:**
+${typeInfo.commonCategories.expense.map(c => `- ${c}`).join('\n')}
+
+Consider these industry-specific categories when analyzing the transactions, but also include general categories as needed.
+`;
+    }
+  }
+
   return `# Task: Analyze Bank Transactions and Suggest Chart of Accounts Categories
 
-You are helping a freelancer/small business owner categorize their bank transactions. Based on the transaction names and memos below, suggest appropriate accounting categories for their Chart of Accounts.
+You are helping a small business owner categorize their bank transactions. Based on the transaction names and memos below, suggest appropriate accounting categories for their Chart of Accounts.
 
 ## Our Chart of Accounts Structure
 
@@ -167,7 +297,7 @@ Each category needs:
 - **name**: A clear, concise name (2-4 words)
 - **type**: Either "REVENUE" or "EXPENSE"
 - **description**: Brief explanation of what goes in this category
-
+${businessContext}
 ## Transaction Summary
 - Date range: ${patterns.dateRange.start} to ${patterns.dateRange.end}
 - Total income transactions: ${patterns.creditCount} (total: ${patterns.totalCredits.toFixed(2)})

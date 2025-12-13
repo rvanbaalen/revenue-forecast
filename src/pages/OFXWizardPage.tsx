@@ -29,6 +29,8 @@ import {
   type WizardStep,
   type SuggestedCategory,
   type TransactionMapping,
+  type BusinessType,
+  BUSINESS_TYPES,
   generateCategoryPrompt,
   generateMappingPrompt,
   parseCategoryResponse,
@@ -72,6 +74,7 @@ export function OFXWizardPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Step 2: Categories
+  const [businessType, setBusinessType] = useState<BusinessType | undefined>(undefined);
   const [categoryPrompt, setCategoryPrompt] = useState<string>('');
   const [categoryJson, setCategoryJson] = useState<string>('');
   const [suggestedCategories, setSuggestedCategories] = useState<SuggestedCategory[]>([]);
@@ -122,7 +125,7 @@ export function OFXWizardPage() {
 
       // Generate prompts when entering steps
       if (nextStep === 'categories' && parsedData) {
-        const prompt = generateCategoryPrompt(parsedData.transactions);
+        const prompt = generateCategoryPrompt(parsedData.transactions, businessType);
         setCategoryPrompt(prompt);
       } else if (nextStep === 'mapping' && parsedData && suggestedCategories.length > 0) {
         const prompt = generateMappingPrompt(parsedData.transactions, suggestedCategories);
@@ -199,6 +202,15 @@ export function OFXWizardPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, []);
+
+  const handleBusinessTypeChange = useCallback((type: BusinessType | undefined) => {
+    setBusinessType(type);
+    // Regenerate prompt with new business type context
+    if (parsedData) {
+      const prompt = generateCategoryPrompt(parsedData.transactions, type);
+      setCategoryPrompt(prompt);
+    }
+  }, [parsedData]);
 
   const handleCategoryJsonPaste = useCallback(() => {
     setError(null);
@@ -565,11 +577,41 @@ export function OFXWizardPage() {
           How it works
         </h4>
         <ol className="text-sm text-muted-foreground list-decimal list-inside flex flex-col gap-1">
+          <li>Optionally select your business type below for better suggestions</li>
           <li>Copy the instructions below</li>
           <li>Paste them into ChatGPT, Claude, or any LLM of your choice</li>
           <li>Copy the JSON response from the AI</li>
           <li>Paste the JSON in the input below</li>
         </ol>
+      </div>
+
+      {/* Business type selector */}
+      <div>
+        <label className="text-sm font-medium text-foreground block mb-2">
+          Business Type <span className="text-muted-foreground font-normal">(optional)</span>
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {BUSINESS_TYPES.map((type) => (
+            <button
+              key={type.id}
+              onClick={() => handleBusinessTypeChange(businessType === type.id ? undefined : type.id)}
+              className={cn(
+                "p-3 rounded-lg border text-left transition-colors",
+                businessType === type.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-muted-foreground"
+              )}
+            >
+              <p className="text-sm font-medium text-foreground">{type.label}</p>
+              <p className="text-xs text-muted-foreground">{type.description}</p>
+            </button>
+          ))}
+        </div>
+        {businessType && (
+          <p className="text-xs text-muted-foreground mt-2">
+            The LLM prompt includes industry-specific category suggestions for your business type.
+          </p>
+        )}
       </div>
 
       {/* Prompt display */}
