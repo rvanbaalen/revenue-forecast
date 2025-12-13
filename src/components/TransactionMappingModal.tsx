@@ -134,7 +134,7 @@ export function TransactionMappingModal({
         }
 
         // Create journal entry if we have a linked chart account for the bank
-        if (bankChartAccount && categoryType === 'expense') {
+        if (bankChartAccount) {
           try {
             await createJournalEntryFromTransaction(
               {
