@@ -40,7 +40,7 @@ export function SalaryTable() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">Salaries</h2>
         <Button onClick={addSalary} size="sm" variant="outline">
-          <Plus className="h-4 w-4" />
+          <Plus className="size-4" />
           Add Employee
         </Button>
       </div>
@@ -132,7 +132,7 @@ export function SalaryTable() {
                       onClick={() => deleteSalary(salary.id)}
                       className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-4" />
                     </Button>
                   </TableCell>
                 </TableRow>

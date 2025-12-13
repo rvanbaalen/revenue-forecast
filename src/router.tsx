@@ -31,8 +31,19 @@ import {
   Building2,
   Calculator,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { createContext, useContext, useRef, useState } from 'react';
 import { cn } from './lib/utils';
+
+// Sidebar collapse context
+const SidebarContext = createContext<{
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
+}>({
+  collapsed: false,
+  setCollapsed: () => {},
+});
+
+const useSidebar = () => useContext(SidebarContext);
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -50,7 +61,7 @@ function Sidebar() {
   const currentPath = routerState.location.pathname;
   const { config, updateConfig, exportData, importData } = useRevenue();
   const { time } = useTime();
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, setCollapsed } = useSidebar();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
@@ -89,8 +100,8 @@ function Sidebar() {
       {/* Logo */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <TrendingUp className="w-4 h-4 text-primary-foreground" />
+          <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
+            <TrendingUp className="size-4 text-primary-foreground" />
           </div>
           {!collapsed && (
             <span className="font-semibold text-foreground truncate">Revenue</span>
@@ -108,7 +119,7 @@ function Sidebar() {
             onClick={() => updateConfig({ year: config.year - 1 })}
             className="p-1.5 rounded hover:bg-accent text-muted-foreground"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="size-4" />
           </button>
           {!collapsed && (
             <span className={cn(
@@ -122,7 +133,7 @@ function Sidebar() {
             onClick={() => updateConfig({ year: config.year + 1 })}
             className="p-1.5 rounded hover:bg-accent text-muted-foreground"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="size-4" />
           </button>
         </div>
         {!collapsed && config.year !== time.currentYear && (
@@ -152,7 +163,7 @@ function Sidebar() {
               )}
               title={collapsed ? item.label : undefined}
             >
-              <Icon className="w-4 h-4 flex-shrink-0" />
+              <Icon className="size-4 flex-shrink-0" />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );
@@ -176,7 +187,7 @@ function Sidebar() {
           )}
           title={collapsed ? "Import" : undefined}
         >
-          <Upload className="w-4 h-4 flex-shrink-0" />
+          <Upload className="size-4 flex-shrink-0" />
           {!collapsed && <span>Import</span>}
         </button>
         <button
@@ -187,7 +198,7 @@ function Sidebar() {
           )}
           title={collapsed ? "Export" : undefined}
         >
-          <Download className="w-4 h-4 flex-shrink-0" />
+          <Download className="size-4 flex-shrink-0" />
           {!collapsed && <span>Export</span>}
         </button>
       </div>
@@ -202,10 +213,10 @@ function Sidebar() {
           )}
         >
           {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="size-4" />
           ) : (
             <>
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="size-4" />
               <span>Collapse</span>
             </>
           )}
@@ -216,20 +227,22 @@ function Sidebar() {
 }
 
 function RootLayout() {
-  const [sidebarCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <main className={cn(
-        "transition-all duration-200 min-h-screen",
-        sidebarCollapsed ? "ml-16" : "ml-56"
-      )}>
-        <div className="p-6 max-w-[1600px]">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+    <SidebarContext.Provider value={{ collapsed, setCollapsed }}>
+      <div className="min-h-screen bg-background">
+        <Sidebar />
+        <main className={cn(
+          "transition-all duration-200 min-h-screen",
+          collapsed ? "ml-16" : "ml-56"
+        )}>
+          <div className="p-6 max-w-[1600px]">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </SidebarContext.Provider>
   );
 }
 

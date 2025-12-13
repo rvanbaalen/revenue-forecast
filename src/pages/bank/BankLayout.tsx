@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  StatCard,
+  StatCardIcon,
+  StatCardContent,
+  StatCardLabel,
+  StatCardValue,
+} from '@/components/ui/stat-card';
 import { cn } from '@/lib/utils';
 import {
   Upload,
@@ -43,84 +49,58 @@ export function BankLayout() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Bank Import</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-semibold text-foreground">Bank Import</h1>
+          <p className="text-muted-foreground mt-1">
             Import and manage bank transactions from OFX files.
           </p>
         </div>
         <Button onClick={() => setIsImportModalOpen(true)}>
-          <Upload className="h-4 w-4" />
+          <Upload className="size-4" />
           Import OFX
         </Button>
       </div>
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Bank Accounts</p>
-                <p className="text-2xl font-bold text-foreground">{accounts.length}</p>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-full">
-                <Building2 className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard>
+          <StatCardIcon variant="primary">
+            <Building2 className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Bank Accounts</StatCardLabel>
+            <StatCardValue>{accounts.length}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{config.year} Credits</p>
-                <p className="text-2xl font-bold variance-positive">
-                  +{formatCurrency(yearCredits, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-success-muted rounded-full">
-                <TrendingUp className="h-5 w-5 variance-positive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard>
+          <StatCardIcon variant="success">
+            <TrendingUp className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>{config.year} Credits</StatCardLabel>
+            <StatCardValue variant="positive">+{formatCurrency(yearCredits, false)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{config.year} Debits</p>
-                <p className="text-2xl font-bold variance-negative">
-                  -{formatCurrency(yearDebits, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-destructive/10 rounded-full">
-                <TrendingDown className="h-5 w-5 variance-negative" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard>
+          <StatCardIcon variant="destructive">
+            <TrendingDown className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>{config.year} Debits</StatCardLabel>
+            <StatCardValue variant="negative">-{formatCurrency(yearDebits, false)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <Card className={unmappedTransactions.length > 0 ? 'border-warning' : ''}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Unmapped Revenue</p>
-                <p className="text-2xl font-bold text-foreground">{unmappedTransactions.length}</p>
-              </div>
-              <div className={cn(
-                "p-3 rounded-full",
-                unmappedTransactions.length > 0 ? "bg-warning/10" : "bg-muted"
-              )}>
-                <AlertCircle className={cn(
-                  "h-5 w-5",
-                  unmappedTransactions.length > 0 ? "text-warning" : "text-muted-foreground"
-                )} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard variant={unmappedTransactions.length > 0 ? 'warning' : undefined}>
+          <StatCardIcon variant={unmappedTransactions.length > 0 ? 'warning' : 'muted'}>
+            <AlertCircle className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Unmapped Revenue</StatCardLabel>
+            <StatCardValue>{unmappedTransactions.length}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
       </div>
 
       {/* Tab navigation */}
@@ -142,7 +122,7 @@ export function BankLayout() {
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="size-4" />
               {tab.label}
               {tab.count !== undefined && (
                 <span className="text-xs text-muted-foreground">({tab.count})</span>

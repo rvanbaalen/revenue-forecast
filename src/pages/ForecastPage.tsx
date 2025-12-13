@@ -273,11 +273,11 @@ export function ForecastPage() {
                     trendInfo.trend === 'downward' ? 'bg-destructive/10' : 'bg-muted'
                   )}>
                     {trendInfo.trend === 'upward' ? (
-                      <TrendingUp className="w-5 h-5 variance-positive" />
+                      <TrendingUp className="size-5 variance-positive" />
                     ) : trendInfo.trend === 'downward' ? (
-                      <TrendingDown className="w-5 h-5 variance-negative" />
+                      <TrendingDown className="size-5 variance-negative" />
                     ) : (
-                      <Minus className="w-5 h-5 text-muted-foreground" />
+                      <Minus className="size-5 text-muted-foreground" />
                     )}
                   </div>
                   <div>
@@ -336,7 +336,7 @@ export function ForecastPage() {
             {dataWithValues.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-muted-foreground">
                 <div className="text-center">
-                  <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <BarChart3 className="size-12 mx-auto mb-2 opacity-50" />
                   <p>No {dataSource} revenue data available yet.</p>
                   <p className="text-sm">Add revenue data to generate forecasts.</p>
                 </div>
@@ -402,7 +402,7 @@ export function ForecastPage() {
           <Card>
             <CardHeader className="border-b py-4">
               <CardTitle className="text-base font-medium flex items-center gap-2">
-                <Wallet className="h-4 w-4" />
+                <Wallet className="size-4" />
                 Cash Runway Analysis
               </CardTitle>
             </CardHeader>
@@ -453,7 +453,7 @@ export function ForecastPage() {
           <Card>
             <CardHeader className="border-b py-4">
               <CardTitle className="text-base font-medium flex items-center gap-2">
-                <Target className="h-4 w-4" />
+                <Target className="size-4" />
                 Forecast Details
               </CardTitle>
             </CardHeader>

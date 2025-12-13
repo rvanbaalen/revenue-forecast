@@ -71,7 +71,7 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <Calendar className="size-4 text-muted-foreground" />
             <span className="font-medium text-muted-foreground">{config.year}</span>
             {config.year !== time.currentYear && (
               <span className="text-xs text-muted-foreground">
@@ -97,15 +97,15 @@ export function DashboardPage() {
                     netVariance.isPositive ? "text-primary-foreground/90" : "text-primary-foreground/70"
                   )}>
                     {netVariance.isPositive ? (
-                      <TrendingUp className="w-4 h-4" />
+                      <TrendingUp className="size-4" />
                     ) : (
-                      <TrendingDown className="w-4 h-4" />
+                      <TrendingDown className="size-4" />
                     )}
                     <span>{netVariance.display} vs expected</span>
                   </div>
                 </div>
                 <div className="p-3 bg-primary-foreground/10 rounded-xl">
-                  <Wallet className="w-6 h-6" />
+                  <Wallet className="size-6" />
                 </div>
               </div>
             </CardContent>
@@ -133,7 +133,7 @@ export function DashboardPage() {
                   </div>
                 </div>
                 <div className="p-2 bg-secondary rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-foreground" />
+                  <TrendingUp className="size-5 text-foreground" />
                 </div>
               </div>
             </CardContent>
@@ -157,7 +157,7 @@ export function DashboardPage() {
                   )}
                 </div>
                 <div className="p-2 bg-secondary rounded-lg">
-                  <Calendar className="w-5 h-5 text-foreground" />
+                  <Calendar className="size-5 text-foreground" />
                 </div>
               </div>
             </CardContent>
@@ -248,7 +248,7 @@ export function DashboardPage() {
                     {formatCurrency(actualTotals.totalVat)}
                   </p>
                 </div>
-                <Receipt className="w-5 h-5 text-muted-foreground" />
+                <Receipt className="size-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -263,7 +263,7 @@ export function DashboardPage() {
                     {formatCurrency(actualTotals.totalProfitTax)}
                   </p>
                 </div>
-                <TrendingDown className="w-5 h-5 text-muted-foreground" />
+                <TrendingDown className="size-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -278,7 +278,7 @@ export function DashboardPage() {
                     {formatCurrency(totalSalaryCost)}
                   </p>
                 </div>
-                <Users className="w-5 h-5 text-muted-foreground" />
+                <Users className="size-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -292,14 +292,14 @@ export function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-secondary rounded-lg">
-                      <TrendingUp className="w-4 h-4 text-foreground" />
+                      <TrendingUp className="size-4 text-foreground" />
                     </div>
                     <div>
                       <p className="font-medium text-foreground">Expected Revenue</p>
                       <p className="text-sm text-muted-foreground">{sources.length} sources</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                  <ArrowRight className="size-4 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
@@ -311,14 +311,14 @@ export function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-secondary rounded-lg">
-                      <Receipt className="w-4 h-4 text-foreground" />
+                      <Receipt className="size-4 text-foreground" />
                     </div>
                     <div>
                       <p className="font-medium text-foreground">Actual Revenue</p>
                       <p className="text-sm text-muted-foreground">Track real income</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                  <ArrowRight className="size-4 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>

@@ -60,19 +60,35 @@ src/
 
 ## CSS/Tailwind Rules
 
+### Size Utility - Use `size-*` for Square Dimensions
+**ALWAYS use `size-*` instead of `w-* h-*` when width and height are the same.** The `size-*` utility sets both dimensions in a single class:
+
+```tsx
+// ✅ CORRECT - Use size-* for square dimensions
+<Icon className="size-4" />
+<Avatar className="size-8" />
+<Loader className="size-12" />
+
+// ❌ WRONG - Do NOT use separate w-* h-* when they match
+<Icon className="w-4 h-4" />
+<Icon className="h-4 w-4" />
+```
+
+Common sizes: `size-3`, `size-4`, `size-5`, `size-6`, `size-8`, `size-12`
+
 ### Button Icons - No Margin Classes
 **NEVER apply margin classes (`mr-*`, `ml-*`, `mx-*`, etc.) to icons inside Button components.** The Button component automatically handles icon spacing. Just add the icon without any margin:
 
 ```tsx
 // ✅ CORRECT
 <Button>
-  <Plus className="h-4 w-4" />
+  <Plus className="size-4" />
   Add Item
 </Button>
 
 // ❌ WRONG - Do NOT add margin classes
 <Button>
-  <Plus className="h-4 w-4 mr-2" />
+  <Plus className="size-4 mr-2" />
   Add Item
 </Button>
 ```
@@ -110,6 +126,141 @@ src/
 - Tables and data lists should be rendered directly without Card wrappers
 - Keep the UI clean and minimal - avoid unnecessary visual containers
 - Use borders and spacing for visual separation instead of cards
+
+## Design System
+
+### Typography
+
+**Page Headers:**
+```tsx
+<h1 className="text-2xl font-semibold text-foreground">Page Title</h1>
+<p className="text-muted-foreground mt-1">Page description</p>
+```
+
+**Section Headers:**
+```tsx
+<h2 className="text-lg font-medium">Section Title</h2>
+```
+
+### Stat Cards
+
+Use the `StatCard` component for displaying metrics consistently:
+
+```tsx
+import {
+  StatCard,
+  StatCardIcon,
+  StatCardContent,
+  StatCardLabel,
+  StatCardValue,
+} from '@/components/ui/stat-card';
+
+<StatCard>
+  <StatCardIcon variant="primary">
+    <DollarSign className="size-5" />
+  </StatCardIcon>
+  <StatCardContent>
+    <StatCardLabel>Total Revenue</StatCardLabel>
+    <StatCardValue>$10,000</StatCardValue>
+  </StatCardContent>
+</StatCard>
+
+// Icon variants: default, primary, success, warning, destructive, muted
+// Value variants: default, positive, negative
+```
+
+### Empty States
+
+Use the `Empty` component for empty states:
+
+```tsx
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from '@/components/ui/empty';
+
+<Empty className="border border-border rounded-lg">
+  <EmptyHeader>
+    <EmptyMedia variant="icon">
+      <TrendingUp />
+    </EmptyMedia>
+    <EmptyTitle>No data yet</EmptyTitle>
+    <EmptyDescription>
+      Add your first item to get started.
+    </EmptyDescription>
+  </EmptyHeader>
+  <EmptyContent>
+    <Button onClick={handleAdd}>
+      <Plus className="size-4" />
+      Add Item
+    </Button>
+  </EmptyContent>
+</Empty>
+```
+
+### Links as Buttons
+
+When a link should look like a button, use the `Button` component with `asChild`:
+
+```tsx
+// ✅ CORRECT - Use Button with asChild for styled links
+<Button asChild>
+  <Link to="/destination">
+    <Icon className="size-4" />
+    Link Text
+  </Link>
+</Button>
+
+// ❌ WRONG - Don't style links manually
+<Link className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground...">
+```
+
+### Status Colors
+
+The theme provides semantic color tokens. Use these for status indicators:
+
+| Status | Background | Text Class |
+|--------|------------|------------|
+| Success/Positive | `bg-success/10` | `variance-positive` |
+| Warning | `bg-warning/10` | `text-warning` |
+| Error/Negative | `bg-destructive/10` | `variance-negative` or `text-destructive` |
+| Info | `bg-info/10` | `text-info` |
+
+### Icon Container Styling
+
+Use `rounded-lg` for icon containers in stat cards and metrics:
+
+```tsx
+// ✅ CORRECT
+<div className="p-2 bg-primary/10 rounded-lg">
+  <Icon className="size-5 text-primary" />
+</div>
+
+// ❌ WRONG - Don't mix rounded-full and rounded-lg
+<div className="p-2 bg-primary/10 rounded-full">
+```
+
+### Wide Tables
+
+For tables with many columns (like monthly data), wrap in a scrollable container:
+
+```tsx
+<div className="overflow-x-auto scrollbar-thin">
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead className="sticky left-0 bg-background z-10">Name</TableHead>
+        {/* ... more columns */}
+      </TableRow>
+    </TableHeader>
+    {/* ... */}
+  </Table>
+</div>
+```
 
 ## shadcn/ui Components
 

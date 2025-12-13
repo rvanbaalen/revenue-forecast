@@ -273,7 +273,7 @@ export function MappingRulesTable() {
             onClick={handleExport}
             title="Export mapping rules"
           >
-            <Download className="h-4 w-4" />
+            <Download className="size-4" />
           </Button>
           <Button
             variant="outline"
@@ -281,18 +281,18 @@ export function MappingRulesTable() {
             onClick={handleImportClick}
             title="Import mapping rules"
           >
-            <Upload className="h-4 w-4" />
+            <Upload className="size-4" />
           </Button>
           <Button
             variant="outline"
             onClick={handleApplyRules}
             disabled={isApplying || mappingRules.length === 0}
           >
-            <Play className="h-4 w-4" />
+            <Play className="size-4" />
             {isApplying ? 'Applying...' : 'Apply Rules'}
           </Button>
           <Button onClick={() => setIsAddingRule(true)}>
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4" />
             Add Rule
           </Button>
         </div>
@@ -309,9 +309,9 @@ export function MappingRulesTable() {
           )}
         >
           {importResult.success ? (
-            <Check className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <Check className="size-4 mt-0.5 flex-shrink-0" />
           ) : (
-            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <AlertCircle className="size-4 mt-0.5 flex-shrink-0" />
           )}
           <span className="text-sm">{importResult.message}</span>
         </div>
@@ -391,7 +391,7 @@ export function MappingRulesTable() {
                         className="h-8 w-8"
                         onClick={() => openEditDialog(rule)}
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="size-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -399,7 +399,7 @@ export function MappingRulesTable() {
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => setDeletingRule(rule)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="size-4" />
                       </Button>
                     </div>
                   </TableCell>

@@ -5,6 +5,13 @@ import { formatCurrency } from '../utils/format';
 import { useTime } from '@/hooks/useTime';
 import { cn } from '@/lib/utils';
 import { Users, DollarSign, Percent, Calculator } from 'lucide-react';
+import {
+  StatCard,
+  StatCardIcon,
+  StatCardContent,
+  StatCardLabel,
+  StatCardValue,
+} from '@/components/ui/stat-card';
 
 export function SalaryPage() {
   const { salaries, config, getSalaryTotal, getSalaryTaxCg, getMonthlySalary } = useRevenue();
@@ -27,45 +34,45 @@ export function SalaryPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
-          <div className="p-2 bg-secondary rounded-lg">
-            <DollarSign className="w-5 h-5 text-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Total Gross</p>
-            <p className="text-xl font-semibold tabular-nums">{formatCurrency(totalGross)}</p>
-          </div>
-        </div>
+        <StatCard>
+          <StatCardIcon>
+            <DollarSign className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Total Gross</StatCardLabel>
+            <StatCardValue>{formatCurrency(totalGross)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
-          <div className="p-2 bg-secondary rounded-lg">
-            <Percent className="w-5 h-5 text-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Total Tax</p>
-            <p className="text-xl font-semibold tabular-nums">{formatCurrency(totalTax)}</p>
-          </div>
-        </div>
+        <StatCard>
+          <StatCardIcon>
+            <Percent className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Total Tax</StatCardLabel>
+            <StatCardValue>{formatCurrency(totalTax)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
-          <div className="p-2 bg-secondary rounded-lg">
-            <Calculator className="w-5 h-5 text-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Total Cost</p>
-            <p className="text-xl font-semibold tabular-nums">{formatCurrency(totalCost)}</p>
-          </div>
-        </div>
+        <StatCard>
+          <StatCardIcon>
+            <Calculator className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Total Cost</StatCardLabel>
+            <StatCardValue>{formatCurrency(totalCost)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
-          <div className="p-2 bg-secondary rounded-lg">
-            <Users className="w-5 h-5 text-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Employees</p>
-            <p className="text-xl font-semibold tabular-nums">{salaries.length}</p>
-          </div>
-        </div>
+        <StatCard>
+          <StatCardIcon>
+            <Users className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Employees</StatCardLabel>
+            <StatCardValue>{salaries.length}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
       </div>
 
       {/* Monthly Overview */}

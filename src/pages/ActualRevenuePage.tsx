@@ -7,6 +7,13 @@ import { RevenueTable, VatTable, MonthlyConfirmationModal } from '../components'
 import { formatCurrency, formatVariance } from '../utils/format';
 import { Receipt, DollarSign, TrendingUp, TrendingDown, Building2, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  StatCard,
+  StatCardIcon,
+  StatCardContent,
+  StatCardLabel,
+  StatCardValue,
+} from '@/components/ui/stat-card';
 
 export function ActualRevenuePage() {
   const { getTotals, config, sources, updateSourceRevenue } = useRevenue();
@@ -83,76 +90,75 @@ export function ActualRevenuePage() {
               onClick={handleSyncFromBank}
               disabled={isSyncing || mappedCount === 0}
             >
-              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`size-4 ${isSyncing ? 'animate-spin' : ''}`} />
               {isSyncing ? 'Syncing...' : 'Sync from Bank'}
             </Button>
-            <Link
-              to="/bank"
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              <Building2 className="h-4 w-4" />
-              View Bank Data
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            <Button asChild>
+              <Link to="/bank">
+                <Building2 className="size-4" />
+                View Bank Data
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
           </div>
         )}
       </div>
 
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
-          <div className="p-2 bg-secondary rounded-lg">
-            <DollarSign className="w-5 h-5 text-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Total Actual</p>
-            <p className="text-xl font-semibold tabular-nums">{formatCurrency(actualTotals.totalRevenue)}</p>
-          </div>
-        </div>
+        <StatCard>
+          <StatCardIcon>
+            <DollarSign className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Total Actual</StatCardLabel>
+            <StatCardValue>{formatCurrency(actualTotals.totalRevenue)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
-          <div className="p-2 bg-secondary rounded-lg">
-            <Receipt className="w-5 h-5 text-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">VAT to Reserve</p>
-            <p className="text-xl font-semibold tabular-nums">{formatCurrency(actualTotals.totalVat)}</p>
-          </div>
-        </div>
+        <StatCard>
+          <StatCardIcon>
+            <Receipt className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>VAT to Reserve</StatCardLabel>
+            <StatCardValue>{formatCurrency(actualTotals.totalVat)}</StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
-        <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
-          <div className={`p-2 rounded-lg ${variance.isPositive ? 'bg-secondary' : 'bg-destructive/10'}`}>
+        <StatCard>
+          <StatCardIcon variant={variance.isPositive ? 'success' : 'destructive'}>
             {variance.isPositive ? (
-              <TrendingUp className="w-5 h-5 text-foreground" />
+              <TrendingUp className="size-5" />
             ) : (
-              <TrendingDown className="w-5 h-5 text-destructive" />
+              <TrendingDown className="size-5" />
             )}
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">vs Expected</p>
-            <p className={`text-xl font-semibold tabular-nums ${variance.isPositive ? 'variance-positive' : 'variance-negative'}`}>
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>vs Expected</StatCardLabel>
+            <StatCardValue variant={variance.isPositive ? 'positive' : 'negative'}>
               {variance.display}
-            </p>
-          </div>
-        </div>
+            </StatCardValue>
+          </StatCardContent>
+        </StatCard>
 
         {hasBankData && (
-          <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Building2 className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Bank Revenue</p>
-              <p className="text-xl font-semibold tabular-nums variance-positive">{formatCurrency(bankTotal)}</p>
-            </div>
-          </div>
+          <StatCard>
+            <StatCardIcon variant="primary">
+              <Building2 className="size-5" />
+            </StatCardIcon>
+            <StatCardContent>
+              <StatCardLabel>Bank Revenue</StatCardLabel>
+              <StatCardValue variant="positive">{formatCurrency(bankTotal)}</StatCardValue>
+            </StatCardContent>
+          </StatCard>
         )}
       </div>
 
       {/* Bank reconciliation alert */}
       {hasBankData && unmappedCount > 0 && (
         <div className="flex items-center gap-3 p-4 bg-warning/10 border border-warning/20 rounded-lg">
-          <AlertCircle className="h-5 w-5 text-warning flex-shrink-0" />
+          <AlertCircle className="size-5 text-warning flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium text-foreground">
               {unmappedCount} bank transaction{unmappedCount !== 1 ? 's' : ''} need{unmappedCount === 1 ? 's' : ''} to be mapped to revenue sources
@@ -165,7 +171,7 @@ export function ActualRevenuePage() {
             to="/bank"
             className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
           >
-            Map Now <ArrowRight className="h-4 w-4" />
+            Map Now <ArrowRight className="size-4" />
           </Link>
         </div>
       )}
