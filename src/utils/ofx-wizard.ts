@@ -261,7 +261,7 @@ export interface UnifiedAnalysisData {
     match_type?: 'exact' | 'contains' | 'startsWith' | 'endsWith';
     match_field?: 'name' | 'memo' | 'both';
     category_name: string;
-    category_type: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE';
+    transaction_type: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE';
     revenue_source?: string;
   }[];
 }
@@ -474,26 +474,30 @@ Respond with JSON in a code block:
     {"name": "International Clients", "type": "foreign", "description": "Overseas income"}
   ],
   "rules": [
-    {"pattern": "STRIPE", "match_type": "contains", "category_name": "Service Revenue", "category_type": "REVENUE", "revenue_source": "Stripe"},
-    {"pattern": "AMAZON WEB", "match_type": "contains", "category_name": "Cloud Hosting", "category_type": "EXPENSE"},
-    {"pattern": "TRANSFER", "match_type": "contains", "category_name": "Transfer", "category_type": "TRANSFER"}
+    {"pattern": "STRIPE", "match_type": "contains", "category_name": "Service Revenue", "transaction_type": "REVENUE", "revenue_source": "Stripe"},
+    {"pattern": "AMAZON WEB", "match_type": "contains", "category_name": "Cloud Hosting", "transaction_type": "EXPENSE"},
+    {"pattern": "TRANSFER", "match_type": "contains", "category_name": "Transfer", "transaction_type": "TRANSFER"}
   ]
 }
 \`\`\`
 
 ## Key Points
 
-**Categories:** Only REVENUE or EXPENSE types allowed. Use codes 4xxx for REVENUE, 5xxx for EXPENSE. Do NOT create categories for transfers - those are handled in rules only.
+**Categories (Chart of Accounts):** Only REVENUE or EXPENSE account types allowed. Use codes 4xxx for REVENUE, 5xxx for EXPENSE. Do NOT create categories for transfers.
 
 **Rules:** Create general patterns that match multiple transactions:
 - "contains" (default): Pattern appears anywhere
 - "startsWith"/"endsWith": Pattern at start/end
 - "exact": Exact match only
-- category_type can be: REVENUE, EXPENSE, TRANSFER, or IGNORE
+- transaction_type: REVENUE, EXPENSE, TRANSFER, or IGNORE
 
 **Revenue Sources:** Group income by source (Stripe, PayPal, Client X, etc.). Use "Misc" for uncategorized.
 
-**TRANSFER & IGNORE:** These are special category_types for rules ONLY (not categories). Use TRANSFER for account transfers/payments between accounts. Use IGNORE for duplicates/corrections.
+**Transaction Types:**
+- REVENUE: Income transaction, links to a revenue category
+- EXPENSE: Spending transaction, links to an expense category
+- TRANSFER: Money moving between accounts (no category needed)
+- IGNORE: Skip this transaction (duplicates, corrections)
 
 Now analyze and respond with JSON:`;
 }
@@ -615,9 +619,9 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
         continue;
       }
 
-      const categoryType = (rule.category_type || '').toUpperCase();
-      if (!['REVENUE', 'EXPENSE', 'TRANSFER', 'IGNORE'].includes(categoryType)) {
-        warnings.push(`Invalid category_type "${rule.category_type}" for "${rule.pattern}"`);
+      const transactionType = (rule.transaction_type || '').toUpperCase();
+      if (!['REVENUE', 'EXPENSE', 'TRANSFER', 'IGNORE'].includes(transactionType)) {
+        warnings.push(`Invalid transaction_type "${rule.transaction_type}" for "${rule.pattern}"`);
         continue;
       }
 
@@ -638,7 +642,7 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
       }
 
       let revenueSource: string | undefined;
-      if (categoryType === 'REVENUE') {
+      if (transactionType === 'REVENUE') {
         if (rule.revenue_source) {
           if (!revenueSourceNames.has(rule.revenue_source.toLowerCase())) {
             revenueSources.push({ name: rule.revenue_source, type: 'local' });
@@ -655,7 +659,7 @@ export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysi
         matchType,
         matchField,
         categoryName: rule.category_name.trim(),
-        categoryType: categoryType as 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE',
+        categoryType: transactionType as 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE',
         revenueSource,
       });
     }
