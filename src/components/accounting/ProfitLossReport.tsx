@@ -1,7 +1,4 @@
 import { useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { useAccountingContext } from '@/context/AccountingContext';
 import { useRevenue } from '@/context/RevenueContext';
 import { formatCurrency } from '@/utils/format';
@@ -71,66 +68,26 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold variance-positive">
-                  {formatCurrency(pnl.revenue, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-success-muted rounded-full">
-                <TrendingUp className="h-5 w-5 variance-positive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Expenses</p>
-                <p className="text-2xl font-bold variance-negative">
-                  {formatCurrency(pnl.expenses, false)}
-                </p>
-              </div>
-              <div className="p-3 bg-destructive/10 rounded-full">
-                <TrendingDown className="h-5 w-5 variance-negative" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={cn(
-          pnl.netIncome >= 0 ? "border-success/50" : "border-destructive/50"
-        )}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Net Income</p>
-                <p className={cn(
-                  "text-2xl font-bold",
-                  pnl.netIncome >= 0 ? "variance-positive" : "variance-negative"
-                )}>
-                  {formatCurrency(pnl.netIncome, false)}
-                </p>
-              </div>
-              <div className={cn(
-                "p-3 rounded-full",
-                pnl.netIncome >= 0 ? "bg-success-muted" : "bg-destructive/10"
-              )}>
-                <DollarSign className={cn(
-                  "h-5 w-5",
-                  pnl.netIncome >= 0 ? "variance-positive" : "variance-negative"
-                )} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Summary row */}
+      <div className="grid grid-cols-3 gap-4 text-center">
+        <div>
+          <p className="text-sm text-muted-foreground">Total Revenue</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(pnl.revenue, false)}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Total Expenses</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(pnl.expenses, false)}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Net Income</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatCurrency(pnl.netIncome, false)}
+          </p>
+        </div>
       </div>
 
       {/* Detailed P&L */}
@@ -153,7 +110,7 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
               revenueByCategory.map((item, idx) => (
                 <tr key={idx} className="border-t border-border">
                   <td className="px-4 py-2 pl-8 text-foreground">{item.name}</td>
-                  <td className="px-4 py-2 text-right font-mono variance-positive">
+                  <td className="px-4 py-2 text-right font-mono text-foreground">
                     {formatCurrency(item.amount, false)}
                   </td>
                 </tr>
@@ -165,9 +122,9 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
                 </td>
               </tr>
             )}
-            <tr className="border-t border-border bg-success-muted font-medium">
+            <tr className="border-t border-border bg-muted/30 font-medium">
               <td className="px-4 py-2 text-foreground">Total Revenue</td>
-              <td className="px-4 py-2 text-right font-mono variance-positive">
+              <td className="px-4 py-2 text-right font-mono text-foreground">
                 {formatCurrency(pnl.revenue, false)}
               </td>
             </tr>
@@ -186,7 +143,7 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
                     {category.accounts.map((account, accountIdx) => (
                       <div key={accountIdx} className="flex justify-between py-1 pl-8 text-muted-foreground">
                         <span>{account.name}</span>
-                        <span className="font-mono variance-negative">
+                        <span className="font-mono text-foreground">
                           {formatCurrency(account.amount, false)}
                         </span>
                       </div>
@@ -201,25 +158,17 @@ export function ProfitLossReport({ month }: ProfitLossReportProps) {
                 </td>
               </tr>
             )}
-            <tr className="border-t border-border bg-destructive/10 font-medium">
+            <tr className="border-t border-border bg-muted/30 font-medium">
               <td className="px-4 py-2 text-foreground">Total Expenses</td>
-              <td className="px-4 py-2 text-right font-mono variance-negative">
+              <td className="px-4 py-2 text-right font-mono text-foreground">
                 {formatCurrency(pnl.expenses, false)}
               </td>
             </tr>
 
             {/* Net Income */}
-            <tr className={cn(
-              "border-t-2 border-border font-bold",
-              pnl.netIncome >= 0
-                ? "bg-success-muted"
-                : "bg-destructive/10"
-            )}>
+            <tr className="border-t-2 border-border font-bold bg-muted">
               <td className="px-4 py-3 text-foreground text-lg">NET INCOME</td>
-              <td className={cn(
-                "px-4 py-3 text-right font-mono text-lg",
-                pnl.netIncome >= 0 ? "variance-positive" : "variance-negative"
-              )}>
+              <td className="px-4 py-3 text-right font-mono text-lg text-foreground">
                 {formatCurrency(pnl.netIncome, false)}
               </td>
             </tr>

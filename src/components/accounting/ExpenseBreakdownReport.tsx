@@ -84,7 +84,7 @@ export function ExpenseBreakdownReport({ month }: ExpenseBreakdownReportProps) {
     ? `${MONTH_LABELS[month]} ${config.year}`
     : `Year ${config.year}`;
 
-  // Colors for the bar chart - using semantic chart colors
+  // Colors for the bar chart - using shadcn chart colors
   const colors = [
     'bg-chart-1',
     'bg-chart-2',
@@ -92,8 +92,8 @@ export function ExpenseBreakdownReport({ month }: ExpenseBreakdownReportProps) {
     'bg-chart-4',
     'bg-chart-5',
     'bg-primary',
-    'bg-accent',
     'bg-muted-foreground',
+    'bg-accent-foreground',
   ];
 
   return (
@@ -104,7 +104,7 @@ export function ExpenseBreakdownReport({ month }: ExpenseBreakdownReportProps) {
         </h3>
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Total Expenses</p>
-          <p className="text-xl font-bold variance-negative">
+          <p className="text-xl font-bold text-foreground">
             {formatCurrency(pnl.expenses, false)}
           </p>
         </div>
