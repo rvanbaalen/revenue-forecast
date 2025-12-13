@@ -11,7 +11,7 @@ import type { ParsedOFXTransaction, AccountType, ChartAccount } from '../types';
 // Types
 // ============================================
 
-export type WizardStep = 'upload' | 'categories' | 'mapping' | 'review' | 'complete';
+export type WizardStep = 'upload' | 'analyze' | 'review' | 'complete';
 
 export interface WizardState {
   step: WizardStep;
@@ -224,6 +224,62 @@ export interface MappingRulesImportData {
 }
 
 // ============================================
+// Unified Analysis (Single LLM Call)
+// ============================================
+
+/**
+ * Unified response format for the single LLM analysis step
+ * Combines: categories, category changes, mapping rules, and revenue sources
+ */
+export interface UnifiedAnalysisData {
+  // Category changes (rename, merge, update existing categories)
+  category_changes?: {
+    action: 'rename' | 'merge' | 'update_description';
+    from_name: string;
+    merge_from?: string[];
+    to_name: string;
+    to_code?: string;
+    to_type?: 'REVENUE' | 'EXPENSE';
+    to_description?: string;
+  }[];
+  // New categories to create
+  categories?: {
+    code: string;
+    name: string;
+    type: 'REVENUE' | 'EXPENSE';
+    description?: string;
+  }[];
+  // Revenue sources for tracking income streams
+  revenue_sources?: {
+    name: string;
+    type: 'local' | 'foreign';
+    description?: string;
+  }[];
+  // Mapping rules for auto-categorization
+  rules: {
+    pattern: string;
+    match_type?: 'exact' | 'contains' | 'startsWith' | 'endsWith';
+    match_field?: 'name' | 'memo' | 'both';
+    category_name: string;
+    category_type: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE';
+    revenue_source?: string;
+  }[];
+}
+
+/**
+ * Parsed result from unified analysis
+ */
+export interface UnifiedAnalysisResult {
+  success: boolean;
+  categories: SuggestedCategory[];
+  categoryChanges: CategoryChange[];
+  revenueSources: SuggestedRevenueSource[];
+  rules: MappingRuleInput[];
+  error?: string;
+  warnings: string[];
+}
+
+// ============================================
 // Transaction Analysis Helpers
 // ============================================
 
@@ -297,6 +353,324 @@ export function analyzeTransactionPatterns(transactions: ParsedOFXTransaction[])
       end: dates[dates.length - 1] || '',
     },
   };
+}
+
+// ============================================
+// Unified LLM Prompt (Single Step Analysis)
+// ============================================
+
+/**
+ * Generate a single unified prompt for the LLM to:
+ * 1. Analyze transactions and suggest categories (new or changes to existing)
+ * 2. Create mapping rules for auto-categorization
+ * 3. Identify revenue sources
+ */
+export function generateUnifiedAnalysisPrompt(
+  transactions: ParsedOFXTransaction[],
+  businessType?: BusinessType,
+  existingCategories?: { code: string; name: string; type: 'REVENUE' | 'EXPENSE'; description?: string }[]
+): string {
+  const { nameMemoPairs } = extractUniqueTransactionInfo(transactions);
+  const patterns = analyzeTransactionPatterns(transactions);
+
+  // Group by income vs expense
+  const incomePatterns = nameMemoPairs.filter(p => p.totalAmount >= 0);
+  const expensePatterns = nameMemoPairs.filter(p => p.totalAmount < 0);
+
+  // Format patterns for display
+  const formatPatternList = (items: typeof nameMemoPairs, limit = 50) =>
+    items
+      .slice(0, limit)
+      .map(item => {
+        const memo = item.memo ? ` | memo: "${item.memo}"` : '';
+        const avgAmount = Math.abs(item.totalAmount / item.count).toFixed(2);
+        return `- "${item.name}"${memo} [${item.count}x, avg: ${avgAmount}]`;
+      })
+      .join('\n');
+
+  // Business type context
+  let businessContext = '';
+  if (businessType) {
+    const typeInfo = BUSINESS_TYPES.find(t => t.id === businessType);
+    if (typeInfo) {
+      businessContext = `
+## Business Type: ${typeInfo.label}
+${typeInfo.description}
+
+Common categories for this business:
+- Revenue: ${typeInfo.commonCategories.revenue.slice(0, 5).join(', ')}
+- Expenses: ${typeInfo.commonCategories.expense.slice(0, 5).join(', ')}
+`;
+    }
+  }
+
+  // Existing categories section
+  let existingSection = '';
+  if (existingCategories && existingCategories.length > 0) {
+    const revenue = existingCategories.filter(c => c.type === 'REVENUE');
+    const expense = existingCategories.filter(c => c.type === 'EXPENSE');
+    existingSection = `
+## Existing Categories (use these in rules, or suggest changes)
+
+**Revenue (${revenue.length}):** ${revenue.map(c => c.name).join(', ') || 'none'}
+**Expense (${expense.length}):** ${expense.map(c => c.name).join(', ') || 'none'}
+
+You can rename, merge, or update existing categories using "category_changes".
+`;
+  }
+
+  const hasMoreIncome = incomePatterns.length > 50;
+  const hasMoreExpense = expensePatterns.length > 50;
+
+  return `# Analyze Bank Transactions
+
+Analyze these transactions and provide:
+1. **Categories** - New accounting categories needed (or changes to existing ones)
+2. **Rules** - Pattern-matching rules to auto-categorize transactions
+3. **Revenue Sources** - Distinct income streams (clients, platforms, etc.)
+${businessContext}${existingSection}
+## Transaction Summary
+- Total: ${transactions.length} transactions
+- Income: ${patterns.creditCount} (${patterns.totalCredits.toFixed(2)})
+- Expenses: ${patterns.debitCount} (${patterns.totalDebits.toFixed(2)})
+- Period: ${patterns.dateRange.start} to ${patterns.dateRange.end}
+
+## Transaction Patterns
+
+### Income (${incomePatterns.length} unique patterns)
+${formatPatternList(incomePatterns)}${hasMoreIncome ? `\n... and ${incomePatterns.length - 50} more` : ''}
+
+### Expenses (${expensePatterns.length} unique patterns)
+${formatPatternList(expensePatterns)}${hasMoreExpense ? `\n... and ${expensePatterns.length - 50} more` : ''}
+
+## Response Format
+
+Respond with JSON in a code block:
+
+\`\`\`json
+{
+  ${existingCategories?.length ? `"category_changes": [
+    {"action": "rename", "from_name": "Old Name", "to_name": "Better Name", "to_description": "..."},
+    {"action": "merge", "from_name": "Keep This", "merge_from": ["Merge This", "And This"], "to_name": "Combined"}
+  ],
+  ` : ''}"categories": [
+    {"code": "4100", "name": "Service Revenue", "type": "REVENUE", "description": "Income from services"},
+    {"code": "5100", "name": "Software & Tools", "type": "EXPENSE", "description": "Software subscriptions"}
+  ],
+  "revenue_sources": [
+    {"name": "Stripe", "type": "local", "description": "Online payments"},
+    {"name": "International Clients", "type": "foreign", "description": "Overseas income"}
+  ],
+  "rules": [
+    {"pattern": "STRIPE", "match_type": "contains", "category_name": "Service Revenue", "category_type": "REVENUE", "revenue_source": "Stripe"},
+    {"pattern": "AMAZON WEB", "match_type": "contains", "category_name": "Cloud Hosting", "category_type": "EXPENSE"},
+    {"pattern": "TRANSFER", "match_type": "contains", "category_name": "Transfer", "category_type": "TRANSFER"}
+  ]
+}
+\`\`\`
+
+## Key Points
+
+**Categories:** Use codes 4xxx for REVENUE, 5xxx for EXPENSE. Only add NEW categories not covered by existing ones.
+
+**Rules:** Create general patterns that match multiple transactions:
+- "contains" (default): Pattern appears anywhere
+- "startsWith"/"endsWith": Pattern at start/end
+- "exact": Exact match only
+
+**Revenue Sources:** Group income by source (Stripe, PayPal, Client X, etc.). Use "Misc" for uncategorized.
+
+**Special Types:** Use TRANSFER for account transfers, IGNORE for duplicates/corrections.
+
+Now analyze and respond with JSON:`;
+}
+
+/**
+ * Parse the unified analysis response from LLM
+ */
+export function parseUnifiedAnalysisResponse(jsonString: string): UnifiedAnalysisResult {
+  const warnings: string[] = [];
+
+  try {
+    // Extract JSON from markdown code blocks
+    let cleanJson = jsonString.trim();
+    const jsonMatch = cleanJson.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      cleanJson = jsonMatch[1].trim();
+    }
+    const objectMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      cleanJson = objectMatch[0];
+    }
+
+    const data = JSON.parse(cleanJson) as UnifiedAnalysisData;
+
+    // Parse categories
+    const categories: SuggestedCategory[] = [];
+    const usedCodes = new Set<string>();
+
+    if (data.categories && Array.isArray(data.categories)) {
+      for (const cat of data.categories) {
+        if (!cat.name || typeof cat.name !== 'string') continue;
+
+        const type = (cat.type || '').toUpperCase();
+        if (type !== 'REVENUE' && type !== 'EXPENSE') {
+          warnings.push(`Invalid type for "${cat.name}": ${cat.type}`);
+          continue;
+        }
+
+        let code = (cat.code || '').toString().trim();
+        if (!code || !/^\d{4}$/.test(code)) {
+          let codeNum = type === 'REVENUE' ? 4100 : 5100;
+          while (usedCodes.has(String(codeNum))) codeNum += 10;
+          code = String(codeNum);
+        }
+
+        if (type === 'REVENUE' && !code.startsWith('4')) code = '4' + code.slice(1);
+        else if (type === 'EXPENSE' && !code.startsWith('5')) code = '5' + code.slice(1);
+
+        usedCodes.add(code);
+        categories.push({
+          code,
+          name: cat.name.trim(),
+          type: type as 'REVENUE' | 'EXPENSE',
+          description: cat.description?.trim(),
+        });
+      }
+    }
+
+    // Parse category changes
+    const categoryChanges: CategoryChange[] = [];
+    if (data.category_changes && Array.isArray(data.category_changes)) {
+      for (const change of data.category_changes) {
+        if (!change.action || !change.from_name || !change.to_name) continue;
+        const action = change.action.toLowerCase();
+        if (!['rename', 'merge', 'update_description'].includes(action)) continue;
+
+        categoryChanges.push({
+          action: action as CategoryChange['action'],
+          from_name: change.from_name.trim(),
+          merge_from: change.merge_from?.map((n: string) => n.trim()),
+          to_name: change.to_name.trim(),
+          to_code: change.to_code?.toString().trim(),
+          to_type: change.to_type,
+          to_description: change.to_description?.trim(),
+        });
+      }
+    }
+
+    // Parse revenue sources
+    const revenueSources: SuggestedRevenueSource[] = [];
+    const revenueSourceNames = new Set<string>();
+
+    if (data.revenue_sources && Array.isArray(data.revenue_sources)) {
+      for (const source of data.revenue_sources) {
+        if (source.name && !revenueSourceNames.has(source.name.toLowerCase())) {
+          revenueSourceNames.add(source.name.toLowerCase());
+          revenueSources.push({
+            name: source.name,
+            type: source.type === 'foreign' ? 'foreign' : 'local',
+            description: source.description,
+          });
+        }
+      }
+    }
+
+    // Ensure Misc source exists
+    if (!revenueSourceNames.has('misc')) {
+      revenueSources.push({ name: 'Misc', type: 'local', description: 'Uncategorized revenue' });
+    }
+
+    // Parse rules
+    const rules: MappingRuleInput[] = [];
+
+    if (!data.rules || !Array.isArray(data.rules)) {
+      return {
+        success: false,
+        categories: [],
+        categoryChanges: [],
+        revenueSources: [],
+        rules: [],
+        error: 'Missing "rules" array in response',
+        warnings,
+      };
+    }
+
+    for (const rule of data.rules) {
+      if (!rule.pattern || !rule.category_name) {
+        warnings.push(`Invalid rule: missing pattern or category_name`);
+        continue;
+      }
+
+      const categoryType = (rule.category_type || '').toUpperCase();
+      if (!['REVENUE', 'EXPENSE', 'TRANSFER', 'IGNORE'].includes(categoryType)) {
+        warnings.push(`Invalid category_type "${rule.category_type}" for "${rule.pattern}"`);
+        continue;
+      }
+
+      let matchType: 'exact' | 'contains' | 'startsWith' | 'endsWith' = 'contains';
+      if (rule.match_type) {
+        const mt = rule.match_type.toLowerCase();
+        if (['exact', 'contains', 'startswith', 'endswith'].includes(mt)) {
+          matchType = mt === 'startswith' ? 'startsWith' : mt === 'endswith' ? 'endsWith' : mt as 'exact' | 'contains';
+        }
+      }
+
+      let matchField: 'name' | 'memo' | 'both' = 'name';
+      if (rule.match_field) {
+        const mf = rule.match_field.toLowerCase();
+        if (['name', 'memo', 'both'].includes(mf)) {
+          matchField = mf as 'name' | 'memo' | 'both';
+        }
+      }
+
+      let revenueSource: string | undefined;
+      if (categoryType === 'REVENUE') {
+        if (rule.revenue_source) {
+          if (!revenueSourceNames.has(rule.revenue_source.toLowerCase())) {
+            revenueSources.push({ name: rule.revenue_source, type: 'local' });
+            revenueSourceNames.add(rule.revenue_source.toLowerCase());
+          }
+          revenueSource = rule.revenue_source;
+        } else {
+          revenueSource = 'Misc';
+        }
+      }
+
+      rules.push({
+        pattern: rule.pattern,
+        matchType,
+        matchField,
+        categoryName: rule.category_name.trim(),
+        categoryType: categoryType as 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'IGNORE',
+        revenueSource,
+      });
+    }
+
+    if (rules.length === 0) {
+      return {
+        success: false,
+        categories,
+        categoryChanges,
+        revenueSources,
+        rules: [],
+        error: 'No valid rules found',
+        warnings,
+      };
+    }
+
+    return { success: true, categories, categoryChanges, revenueSources, rules, warnings };
+  } catch (err) {
+    return {
+      success: false,
+      categories: [],
+      categoryChanges: [],
+      revenueSources: [],
+      rules: [],
+      error: `JSON parse error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      warnings: [],
+    };
+  }
 }
 
 // ============================================
