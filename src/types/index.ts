@@ -70,11 +70,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   ]
 };
 
-// Default revenue sources
-export const DEFAULT_SOURCES: Omit<RevenueSource, 'id'>[] = [
-  { name: 'Source 1', type: 'local', currency: 'Cg', isRecurring: false, recurringAmount: 0, expected: {}, actual: {} },
-  { name: 'Source 2', type: 'foreign', currency: 'USD', isRecurring: false, recurringAmount: 0, expected: {}, actual: {} },
-];
+// Default revenue sources (empty - users create via wizard or manually)
+export const DEFAULT_SOURCES: Omit<RevenueSource, 'id'>[] = [];
 
 // Default salaries
 export const DEFAULT_SALARIES: Omit<Salary, 'id'>[] = [
