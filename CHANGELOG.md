@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.3.0...v1.4.0) (2025-12-13)
+
+
+### Features
+
+* Add account types and expense categorization ([#20](https://github.com/rvanbaalen/revenue-forecast/issues/20)) ([e269047](https://github.com/rvanbaalen/revenue-forecast/commit/e269047b95d9de80bc3eaab6d6b805427738a98c))
+
 ## [1.3.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.2.0...v1.3.0) (2025-12-12)
 
 
