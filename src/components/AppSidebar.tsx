@@ -27,7 +27,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  useSidebar,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
@@ -45,35 +44,26 @@ const NAV_ITEMS = [
 function YearSelector() {
   const { config, updateConfig } = useRevenue();
   const { time } = useTime();
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
 
   return (
-    <div className="px-2">
-      <div
-        className={cn(
-          'flex items-center',
-          isCollapsed ? 'justify-center' : 'justify-between'
-        )}
-      >
+    <div className="px-2 group-data-[collapsible=icon]:hidden">
+      <div className="flex items-center justify-between">
         <button
           onClick={() => updateConfig({ year: config.year - 1 })}
           className="p-1.5 rounded hover:bg-sidebar-accent text-sidebar-foreground/70"
         >
           <ChevronLeft className="size-4" />
         </button>
-        {!isCollapsed && (
-          <span
-            className={cn(
-              'text-sm font-medium tabular-nums',
-              config.year === time.currentYear
-                ? 'text-sidebar-foreground'
-                : 'text-sidebar-foreground/70'
-            )}
-          >
-            {config.year}
-          </span>
-        )}
+        <span
+          className={cn(
+            'text-sm font-medium tabular-nums',
+            config.year === time.currentYear
+              ? 'text-sidebar-foreground'
+              : 'text-sidebar-foreground/70'
+          )}
+        >
+          {config.year}
+        </span>
         <button
           onClick={() => updateConfig({ year: config.year + 1 })}
           className="p-1.5 rounded hover:bg-sidebar-accent text-sidebar-foreground/70"
@@ -81,7 +71,7 @@ function YearSelector() {
           <ChevronRight className="size-4" />
         </button>
       </div>
-      {!isCollapsed && config.year !== time.currentYear && (
+      {config.year !== time.currentYear && (
         <button
           onClick={() => updateConfig({ year: time.currentYear })}
           className="w-full mt-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground"
@@ -95,8 +85,6 @@ function YearSelector() {
 
 function ImportExportButtons() {
   const { config, exportData, importData } = useRevenue();
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
@@ -141,17 +129,14 @@ function ImportExportButtons() {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => fileInputRef.current?.click()}
-              tooltip={isCollapsed ? 'Import' : undefined}
+              tooltip="Import"
             >
               <Upload className="size-4" />
               <span>Import</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={handleExport}
-              tooltip={isCollapsed ? 'Export' : undefined}
-            >
+            <SidebarMenuButton onClick={handleExport} tooltip="Export">
               <Download className="size-4" />
               <span>Export</span>
             </SidebarMenuButton>
@@ -165,22 +150,20 @@ function ImportExportButtons() {
 export function AppSidebar() {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-3 px-2 py-1">
-          <div className="size-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-            <TrendingUp className="size-4 text-sidebar-primary-foreground" />
-          </div>
-          {!isCollapsed && (
-            <span className="font-semibold text-sidebar-foreground truncate">
-              Revenue
-            </span>
-          )}
-        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" className="pointer-events-none">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <TrendingUp className="size-4" />
+              </div>
+              <span className="font-semibold truncate">Revenue</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <YearSelector />
       </SidebarHeader>
 
@@ -195,11 +178,7 @@ export function AppSidebar() {
                   currentPath.startsWith(item.path + '/');
                 return (
                   <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={isCollapsed ? item.label : undefined}
-                    >
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
                       <Link to={item.path}>
                         <Icon className="size-4" />
                         <span>{item.label}</span>
