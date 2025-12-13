@@ -206,7 +206,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
 
         {/* Preview state */}
         {state === 'preview' && preview && (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {/* File info */}
             <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
               <FileText className="h-6 w-6 text-primary flex-shrink-0" />
@@ -255,7 +255,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
             </div>
 
             {/* Date range & balance */}
-            <div className="p-3 bg-muted/50 rounded-lg space-y-2 text-sm">
+            <div className="p-3 bg-muted/50 rounded-lg flex flex-col gap-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
@@ -288,7 +288,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
 
         {/* Success state */}
         {state === 'success' && result && (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div className="text-center py-4">
               <CheckCircle2 className="h-12 w-12 mx-auto variance-positive mb-4" />
               <p className="text-lg font-medium text-foreground">Import Successful!</p>
@@ -341,7 +341,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
                 Choose Different File
               </Button>
               <Button onClick={handleImport}>
-                <Upload className="h-4 w-4 mr-2" />
+                <Upload className="h-4 w-4" />
                 Import {preview?.transactions.length} Transactions
               </Button>
             </>
@@ -349,7 +349,7 @@ export function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
 
           {state === 'importing' && (
             <Button disabled>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
               Importing...
             </Button>
           )}

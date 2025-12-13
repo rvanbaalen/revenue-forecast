@@ -381,7 +381,7 @@ export function BankTransactionTable({
   const pageRows = table.getRowModel().rows;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Filters */}
       {showFilters && (
         <div className="flex flex-wrap gap-3 items-center">
@@ -502,7 +502,7 @@ export function BankTransactionTable({
                 variant="outline"
                 onClick={() => setSelectedIds(new Set())}
               >
-                <X className="h-3 w-3 mr-1" />
+                <X className="h-3 w-3" />
                 Clear
               </Button>
               <div className="h-4 w-px bg-border" />
@@ -529,7 +529,7 @@ export function BankTransactionTable({
                 variant="outline"
                 onClick={handleBulkIgnore}
               >
-                <Link2Off className="h-3 w-3 mr-1" />
+                <Link2Off className="h-3 w-3" />
                 Mark Ignored
               </Button>
             </div>

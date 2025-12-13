@@ -33,7 +33,7 @@ export function AccountingLayout() {
   ];
 
   return (
-    <div className="space-y-6 fade-in">
+    <div className="flex flex-col gap-6 fade-in">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Accounting</h1>

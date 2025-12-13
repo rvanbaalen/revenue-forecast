@@ -39,7 +39,7 @@ export function BankLayout() {
   ];
 
   return (
-    <div className="space-y-6 fade-in">
+    <div className="flex flex-col gap-6 fade-in">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -49,7 +49,7 @@ export function BankLayout() {
           </p>
         </div>
         <Button onClick={() => setIsImportModalOpen(true)}>
-          <Upload className="h-4 w-4 mr-2" />
+          <Upload className="h-4 w-4" />
           Import OFX
         </Button>
       </div>

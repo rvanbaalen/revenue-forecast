@@ -16,7 +16,7 @@ export function SalaryPage() {
   const totalCost = totalGross + totalTax;
 
   return (
-    <div className="fade-in space-y-6">
+    <div className="fade-in flex flex-col gap-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Salaries & Payroll</h1>
@@ -69,7 +69,7 @@ export function SalaryPage() {
       </div>
 
       {/* Monthly Overview */}
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <h2 className="text-lg font-medium">Monthly Overview</h2>
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
           {MONTHS.map(month => {
@@ -106,14 +106,14 @@ export function SalaryPage() {
 
       {/* Tax Configuration Section */}
       {salaries.length > 0 && (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <div>
             <h2 className="text-lg font-medium">Tax Configuration</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Configure taxes for each employee. Taxes can be percentage-based or fixed amount per month worked.
             </p>
           </div>
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {salaries.map(salary => (
               <SalaryTaxConfig key={salary.id} salaryId={salary.id} />
             ))}

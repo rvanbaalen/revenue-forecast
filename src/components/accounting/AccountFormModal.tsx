@@ -117,8 +117,8 @@ export function AccountFormModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="name">Account Name</Label>
             <Input
               id="name"
@@ -128,7 +128,7 @@ export function AccountFormModal({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="type">Account Type</Label>
             <Select
               value={type}
@@ -151,7 +151,7 @@ export function AccountFormModal({
             </Select>
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="parent">Parent Account</Label>
             <Select
               value={selectedParentId || 'none'}
@@ -171,7 +171,7 @@ export function AccountFormModal({
             </Select>
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="subtype">Subtype (optional)</Label>
             <Input
               id="subtype"
@@ -181,7 +181,7 @@ export function AccountFormModal({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="description">Description (optional)</Label>
             <Textarea
               id="description"

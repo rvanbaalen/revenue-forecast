@@ -73,7 +73,7 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
     : 1;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -195,7 +195,7 @@ export function CashFlowReport({ month }: CashFlowReportProps) {
         <div className="bg-muted px-4 py-3 border-b border-border">
           <h3 className="font-semibold text-foreground">Runway Analysis</h3>
         </div>
-        <div className="p-4 space-y-4">
+        <div className="p-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground">Average Monthly Expenses</p>

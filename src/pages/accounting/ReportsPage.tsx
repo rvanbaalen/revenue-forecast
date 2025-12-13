@@ -23,7 +23,7 @@ export function ReportsPage() {
   const month = selectedMonth === 'all' ? undefined : selectedMonth;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Financial Reports</h2>
@@ -50,7 +50,7 @@ export function ReportsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="pnl" className="space-y-6">
+      <Tabs defaultValue="pnl" className="flex flex-col gap-6">
         <TabsList>
           <TabsTrigger value="pnl">Profit & Loss</TabsTrigger>
           <TabsTrigger value="balance">Balance Sheet</TabsTrigger>

@@ -58,6 +58,52 @@ src/
 - Keep components under 200 lines when possible
 - Extract complex logic into custom hooks
 
+## CSS/Tailwind Rules
+
+### Button Icons - No Margin Classes
+**NEVER apply margin classes (`mr-*`, `ml-*`, `mx-*`, etc.) to icons inside Button components.** The Button component automatically handles icon spacing. Just add the icon without any margin:
+
+```tsx
+// ✅ CORRECT
+<Button>
+  <Plus className="h-4 w-4" />
+  Add Item
+</Button>
+
+// ❌ WRONG - Do NOT add margin classes
+<Button>
+  <Plus className="h-4 w-4 mr-2" />
+  Add Item
+</Button>
+```
+
+### Spacing Classes - Use gap, Not space-x/space-y
+**NEVER use `space-x-*` or `space-y-*` classes.** Always use `gap-*`, `gap-x-*`, or `gap-y-*` instead:
+
+```tsx
+// ✅ CORRECT - Use gap classes with flex
+<div className="flex flex-col gap-4">
+  <Item />
+  <Item />
+</div>
+
+<div className="flex items-center gap-2">
+  <Icon />
+  <Text />
+</div>
+
+// ❌ WRONG - Do NOT use space-x or space-y
+<div className="space-y-4">
+  <Item />
+  <Item />
+</div>
+
+<div className="flex items-center space-x-2">
+  <Icon />
+  <Text />
+</div>
+```
+
 ## UI Preferences
 
 - **Do NOT wrap content in Card components** unless explicitly requested

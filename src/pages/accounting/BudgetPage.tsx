@@ -5,7 +5,7 @@ export function BudgetPage() {
   const { config } = useRevenue();
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-foreground">Expense Budget — {config.year}</h2>
         <p className="text-sm text-muted-foreground">

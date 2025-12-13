@@ -97,7 +97,7 @@ export function ExpenseBreakdownReport({ month }: ExpenseBreakdownReportProps) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-foreground">
           Expense Breakdown — {periodLabel}
@@ -131,7 +131,7 @@ export function ExpenseBreakdownReport({ month }: ExpenseBreakdownReportProps) {
           </div>
 
           {/* Legend and details */}
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {expenseBreakdown.map((category, idx) => (
               <div key={category.id} className="border border-border rounded-lg overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3 bg-muted">

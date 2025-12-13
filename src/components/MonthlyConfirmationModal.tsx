@@ -144,7 +144,7 @@ export function MonthlyConfirmationModal({
           <span className="font-medium">{confirmedCount}/{sources.length}</span>
         </div>
 
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {sources.map(source => {
             const expected = getSourceValue(source, month, 'expected');
             const currentActual = editedValues[source.id] ?? getSourceValue(source, month, 'actual');
@@ -200,7 +200,7 @@ export function MonthlyConfirmationModal({
                         onClick={() => handleSaveSource(source.id)}
                         className="h-8"
                       >
-                        <Save className="h-3 w-3 mr-1" />
+                        <Save className="h-3 w-3" />
                         Save
                       </Button>
                     ) : isConfirmed ? (
@@ -214,7 +214,7 @@ export function MonthlyConfirmationModal({
                         onClick={() => handleConfirmSource(source.id)}
                         className="h-8"
                       >
-                        <Copy className="h-3 w-3 mr-1" />
+                        <Copy className="h-3 w-3" />
                         Use Expected
                       </Button>
                     )}
@@ -228,7 +228,7 @@ export function MonthlyConfirmationModal({
         <Separator />
 
         {/* Totals */}
-        <div className="space-y-2 text-sm">
+        <div className="flex flex-col gap-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Expected Total:</span>
             <span className="font-mono text-foreground">{formatCurrency(getMonthlyTotalExpected())}</span>
@@ -263,12 +263,12 @@ export function MonthlyConfirmationModal({
           >
             {allConfirmed ? (
               <>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <CheckCircle2 className="h-4 w-4" />
                 All Confirmed
               </>
             ) : (
               <>
-                <Copy className="h-4 w-4 mr-2" />
+                <Copy className="h-4 w-4" />
                 Use All Expected
               </>
             )}

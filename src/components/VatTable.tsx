@@ -37,7 +37,7 @@ export function VatTable({ dataType }: VatTableProps) {
   if (localSources.length === 0) return null;
 
   return (
-    <div className="space-y-4 mt-6">
+    <div className="flex flex-col gap-4 mt-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">
           VAT to Reserve
