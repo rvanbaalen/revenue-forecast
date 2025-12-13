@@ -5,7 +5,7 @@ import { useRevenue } from '../context/RevenueContext';
 import { useBank } from '../context/BankContext';
 import { RevenueTable, VatTable, MonthlyConfirmationModal } from '../components';
 import { formatCurrency, formatVariance } from '../utils/format';
-import { Receipt, DollarSign, TrendingUp, TrendingDown, Building2, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
+import { Receipt, DollarSign, TrendingUp, TrendingDown, Building2, ArrowRight, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   StatCard,
@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/stat-card';
 
 export function ActualRevenuePage() {
-  const { getTotals, config, sources, updateSourceRevenue } = useRevenue();
-  const { transactions, accounts, syncBankToActual } = useBank();
+  const { getTotals, config } = useRevenue();
+  const { transactions, accounts } = useBank();
   const actualTotals = getTotals('actual');
   const expectedTotals = getTotals('expected');
   const variance = formatVariance(expectedTotals.totalRevenue, actualTotals.totalRevenue);
@@ -26,33 +26,7 @@ export function ActualRevenuePage() {
   const yearTransactions = transactions.filter(tx => tx.year === config.year && tx.category === 'revenue');
   const bankTotal = yearTransactions.reduce((sum, tx) => sum + tx.amount, 0);
   const unmappedCount = yearTransactions.filter(tx => !tx.revenueSourceId).length;
-  const mappedCount = yearTransactions.filter(tx => tx.revenueSourceId).length;
   const hasBankData = accounts.length > 0;
-
-  // Sync state
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
-
-  const handleSyncFromBank = async () => {
-    setIsSyncing(true);
-    setSyncResult(null);
-    try {
-      const result = await syncBankToActual(config.year, sources, updateSourceRevenue);
-      setSyncResult({
-        success: true,
-        message: `Synced ${result.sourcesUpdated} source${result.sourcesUpdated !== 1 ? 's' : ''} from bank data`,
-      });
-      // Clear message after 5 seconds
-      setTimeout(() => setSyncResult(null), 5000);
-    } catch (error) {
-      setSyncResult({
-        success: false,
-        message: 'Failed to sync bank data',
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   // Modal state for monthly confirmation
   const [confirmationModal, setConfirmationModal] = useState<{ isOpen: boolean; month: Month }>({
@@ -79,28 +53,13 @@ export function ActualRevenuePage() {
           </p>
         </div>
         {hasBankData && (
-          <div className="flex items-center gap-3">
-            {syncResult && (
-              <span className={`text-sm ${syncResult.success ? 'variance-positive' : 'text-destructive'}`}>
-                {syncResult.message}
-              </span>
-            )}
-            <Button
-              variant="outline"
-              onClick={handleSyncFromBank}
-              disabled={isSyncing || mappedCount === 0}
-            >
-              <RefreshCw className={`size-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Sync from Bank'}
-            </Button>
-            <Button asChild>
-              <Link to="/bank">
-                <Building2 className="size-4" />
-                View Bank Data
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-          </div>
+          <Button asChild>
+            <Link to="/bank">
+              <Building2 className="size-4" />
+              View Bank Data
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
         )}
       </div>
 

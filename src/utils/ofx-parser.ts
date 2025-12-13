@@ -5,7 +5,34 @@
  * Most banks export in OFX 1.x SGML format which doesn't use closing tags.
  */
 
-import type { ParsedOFXFile, ParsedOFXTransaction, BankAccountType, BankTransactionType, Month } from '../types';
+import type { ParsedOFXFile, ParsedOFXTransaction, BankAccountType, BankTransactionType, Month, Currency } from '../types';
+
+/**
+ * Match or create a Currency object from an OFX currency code
+ * Checks if currency already exists in config, or creates a new one with the code as symbol
+ */
+export function matchOrCreateCurrency(
+  ofxCode: string,
+  existingCurrencies: Currency[]
+): { currency: Currency; isNew: boolean } {
+  // Check if currency already exists (case-insensitive match)
+  const existing = existingCurrencies.find(
+    c => c.code.toLowerCase() === ofxCode.toLowerCase()
+  );
+
+  if (existing) {
+    return { currency: existing, isNew: false };
+  }
+
+  // Create new currency - use code as symbol, rate defaults to 1
+  const newCurrency: Currency = {
+    code: ofxCode,
+    symbol: ofxCode,
+    rate: 1,
+  };
+
+  return { currency: newCurrency, isNew: true };
+}
 
 // Month mapping for converting date to Month type
 const MONTH_MAP: Month[] = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];

@@ -70,11 +70,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   ]
 };
 
-// Default revenue sources
-export const DEFAULT_SOURCES: Omit<RevenueSource, 'id'>[] = [
-  { name: 'Source 1', type: 'local', currency: 'Cg', isRecurring: false, recurringAmount: 0, expected: {}, actual: {} },
-  { name: 'Source 2', type: 'foreign', currency: 'USD', isRecurring: false, recurringAmount: 0, expected: {}, actual: {} },
-];
+// Default revenue sources (empty - users create via wizard or manually)
+export const DEFAULT_SOURCES: Omit<RevenueSource, 'id'>[] = [];
 
 // Default salaries
 export const DEFAULT_SALARIES: Omit<Salary, 'id'>[] = [
@@ -215,8 +212,9 @@ export interface OFXImportResult {
 export interface TransactionMappingRule {
   id: number;
   accountId?: number;              // Optional: apply only to specific account
-  pattern: string;                 // Regex or simple match pattern
+  pattern: string;                 // Text pattern to match
   matchField: 'name' | 'memo' | 'both';
+  matchType?: 'exact' | 'contains' | 'startsWith' | 'endsWith'; // How to match (default: 'contains')
   revenueSourceId?: number;        // Map to this source (if category is 'revenue')
   transferAccountId?: number;      // Map to this account (if category is 'transfer')
   category: TransactionCategory;
