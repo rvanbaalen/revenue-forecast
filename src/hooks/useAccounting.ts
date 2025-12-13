@@ -9,6 +9,7 @@ import type {
   BankAccount,
 } from '../types';
 import { NORMAL_BALANCE, MONTHS } from '../types';
+import { CATEGORY_PRESETS, type CategoryPreset } from '../data/categoryPresets';
 
 // Generate a UUID for new accounts
 function generateId(): string {
@@ -591,6 +592,35 @@ export function useAccounting() {
     };
   }, [journalEntries, getCashAccounts]);
 
+  // ============================================
+  // Category Import/Export Operations
+  // ============================================
+
+  const exportCategories = useCallback(async (): Promise<string> => {
+    return await db.exportChartAccounts();
+  }, []);
+
+  const importCategories = useCallback(async (
+    jsonData: string
+  ): Promise<{ imported: number; errors: string[] }> => {
+    const result = await db.importChartAccounts(jsonData);
+    await loadData();
+    return result;
+  }, [loadData]);
+
+  const applyPreset = useCallback(async (presetId: string): Promise<void> => {
+    const preset = CATEGORY_PRESETS.find(p => p.id === presetId);
+    if (!preset) {
+      throw new Error(`Preset not found: ${presetId}`);
+    }
+    await db.replaceChartAccountsWithPreset(preset.accounts);
+    await loadData();
+  }, [loadData]);
+
+  const getAvailablePresets = useCallback((): CategoryPreset[] => {
+    return CATEGORY_PRESETS;
+  }, []);
+
   return {
     // State
     chartAccounts,
@@ -638,6 +668,12 @@ export function useAccounting() {
     getProfitAndLoss,
     getBalanceSheet,
     getCashFlow,
+
+    // Category import/export
+    exportCategories,
+    importCategories,
+    applyPreset,
+    getAvailablePresets,
 
     // Reload
     reloadData: loadData,
