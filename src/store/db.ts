@@ -837,6 +837,82 @@ class RevenueDB {
     });
   }
 
+  // ============================================
+  // Category-Only Export/Import operations
+  // ============================================
+
+  // Export only chart accounts as JSON
+  async exportChartAccounts(): Promise<string> {
+    const chartAccounts = await this.getChartAccounts();
+    return JSON.stringify({
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      accounts: chartAccounts.map(({ createdAt, updatedAt, ...rest }) => rest),
+    }, null, 2);
+  }
+
+  // Import chart accounts from JSON (replaces all existing)
+  async importChartAccounts(jsonData: string): Promise<{ imported: number; errors: string[] }> {
+    const errors: string[] = [];
+    let imported = 0;
+
+    try {
+      const data = JSON.parse(jsonData);
+      const accounts = data.accounts || data;
+
+      if (!Array.isArray(accounts)) {
+        throw new Error('Invalid data format: expected an array of accounts');
+      }
+
+      // Clear existing accounts
+      await this.clearChartAccounts();
+
+      const now = new Date().toISOString();
+
+      // Import each account
+      for (const account of accounts) {
+        try {
+          if (!account.id || !account.code || !account.name || !account.type) {
+            errors.push(`Skipping invalid account: missing required fields`);
+            continue;
+          }
+
+          const fullAccount: ChartAccount = {
+            ...account,
+            isActive: account.isActive !== false,
+            isSystem: account.isSystem || false,
+            createdAt: now,
+            updatedAt: now,
+          };
+
+          await this.addChartAccount(fullAccount);
+          imported++;
+        } catch (err) {
+          errors.push(`Failed to import account ${account.code}: ${err}`);
+        }
+      }
+    } catch (err) {
+      errors.push(`Failed to parse JSON: ${err}`);
+    }
+
+    return { imported, errors };
+  }
+
+  // Replace chart accounts with a preset
+  async replaceChartAccountsWithPreset(accounts: Omit<ChartAccount, 'createdAt' | 'updatedAt'>[]): Promise<void> {
+    await this.clearChartAccounts();
+
+    const now = new Date().toISOString();
+    for (const account of accounts) {
+      const fullAccount: ChartAccount = {
+        ...account,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.addChartAccount(fullAccount);
+    }
+  }
+
   // Clear all data and reinitialize with defaults
   async clearAllData(): Promise<void> {
     if (!this.db) {
