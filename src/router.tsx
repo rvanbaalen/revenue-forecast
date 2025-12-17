@@ -10,6 +10,7 @@ import { ExpectedRevenuePage } from './pages/ExpectedRevenuePage';
 import { ActualRevenuePage } from './pages/ActualRevenuePage';
 import { SalaryPage } from './pages/SalaryPage';
 import { ForecastPage } from './pages/ForecastPage';
+import { RevenueIntelligencePage } from './pages/RevenueIntelligencePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OFXWizardPage } from './pages/OFXWizardPage';
 import { BankLayout, BankAccountsPage, BankTransactionsPage, BankMappingRulesPage } from './pages/bank';
@@ -64,6 +65,12 @@ const forecastRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/forecast',
   component: ForecastPage,
+});
+
+const intelligenceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/intelligence',
+  component: RevenueIntelligencePage,
 });
 
 const settingsRoute = createRoute({
@@ -160,6 +167,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   expectedRoute,
   actualRoute,
+  intelligenceRoute,
   bankRoute.addChildren([
     bankAccountsRoute,
     bankTransactionsRoute,

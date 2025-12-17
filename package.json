@@ -29,11 +29,13 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-router": "^1.141.1",
     "@tanstack/react-table": "^8.21.3",
+    "@types/react-sparklines": "^1.7.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.560.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "react-sparklines": "^1.7.0",
     "recharts": "^2.15.4",
     "tailwind-merge": "^3.4.0"
   },
