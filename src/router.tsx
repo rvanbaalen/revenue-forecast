@@ -12,6 +12,7 @@ import { SalaryPage } from './pages/SalaryPage';
 import { ForecastPage } from './pages/ForecastPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OFXWizardPage } from './pages/OFXWizardPage';
+import { JsonBeautifierPage } from './pages/JsonBeautifierPage';
 import { BankLayout, BankAccountsPage, BankTransactionsPage, BankMappingRulesPage } from './pages/bank';
 import { AccountingLayout, AccountingOverviewPage, ChartOfAccountsPage, BudgetPage, ReportsPage } from './pages/accounting';
 import { SidebarProvider, SidebarInset } from './components/ui/sidebar';
@@ -76,6 +77,12 @@ const wizardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/setup',
   component: OFXWizardPage,
+});
+
+const jsonBeautifierRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/json',
+  component: JsonBeautifierPage,
 });
 
 // Bank routes with nested structure
@@ -175,6 +182,7 @@ const routeTree = rootRoute.addChildren([
   forecastRoute,
   settingsRoute,
   wizardRoute,
+  jsonBeautifierRoute,
 ]);
 
 // Create router
