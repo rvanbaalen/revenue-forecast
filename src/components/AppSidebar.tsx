@@ -13,6 +13,7 @@ import {
   Building2,
   Calculator,
   Wand2,
+  Braces,
 } from 'lucide-react';
 import { useRevenue } from '@/context/RevenueContext';
 import { useTime } from '@/hooks/useTime';
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
   { path: '/accounting', label: 'Accounting', icon: Calculator },
   { path: '/salary', label: 'Salaries', icon: Users },
   { path: '/forecast', label: 'Forecast', icon: LineChart },
+  { path: '/json', label: 'JSON Beautifier', icon: Braces },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
