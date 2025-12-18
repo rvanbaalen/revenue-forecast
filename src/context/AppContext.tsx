@@ -722,9 +722,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const getProfitLoss = useCallback(
     (period: DateRange) => {
-      return generateProfitLoss(contextTransactions, period);
+      return generateProfitLoss(contextTransactions, period, contextSubcategories);
     },
-    [contextTransactions]
+    [contextTransactions, contextSubcategories]
   );
 
   const getCashFlow = useCallback(
@@ -736,9 +736,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const getCategorySpending = useCallback(
     (period: DateRange) => {
-      return generateCategorySpending(contextTransactions, period);
+      return generateCategorySpending(contextTransactions, period, contextSubcategories);
     },
-    [contextTransactions]
+    [contextTransactions, contextSubcategories]
   );
 
   const getSummaryMetrics = useCallback(
