@@ -19,8 +19,14 @@
 export interface Context {
   id: string;
   name: string;
+  currency: string; // ISO 4217 currency code (USD, EUR, etc.)
   createdAt: string; // ISO date
 }
+
+/**
+ * Default currency for new contexts
+ */
+export const DEFAULT_CURRENCY = 'USD';
 
 // ============================================
 // Bank Account Types

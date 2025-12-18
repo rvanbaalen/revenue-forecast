@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatPercentage } from '../utils/decimal';
+import { useContextCurrency } from '@/hooks/useContextCurrency';
+import { getCurrencySymbol } from '@/utils/currency';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -31,6 +33,8 @@ import type { DateRange } from '../types';
 export function ReportsPage() {
   const { getBalanceSheet, getProfitLoss, getCashFlow, getCategorySpending } =
     useApp();
+
+  const { symbol: currencySymbol } = useContextCurrency();
 
   // Date range state
   const currentYear = new Date().getFullYear();
@@ -126,13 +130,13 @@ export function ReportsPage() {
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Total Revenue</p>
               <p className="text-2xl font-bold variance-positive tabular-nums">
-                {formatCurrency(profitLoss.revenue.total, '$', 0)}
+                {formatCurrency(profitLoss.revenue.total, currencySymbol, 0)}
               </p>
             </div>
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Total Expenses</p>
               <p className="text-2xl font-bold variance-negative tabular-nums">
-                {formatCurrency(profitLoss.expenses.total, '$', 0)}
+                {formatCurrency(profitLoss.expenses.total, currencySymbol, 0)}
               </p>
             </div>
             <div className="p-4 bg-card border border-border rounded-lg">
@@ -140,13 +144,13 @@ export function ReportsPage() {
                 Tax ({parseFloat(profitLoss.tax.rate) * 100}% on local)
               </p>
               <p className="text-2xl font-bold text-foreground tabular-nums">
-                {formatCurrency(profitLoss.tax.amount, '$', 0)}
+                {formatCurrency(profitLoss.tax.amount, currencySymbol, 0)}
               </p>
             </div>
             <div className="p-4 bg-primary text-primary-foreground rounded-lg">
               <p className="text-sm text-primary-foreground/70">Net Profit</p>
               <p className="text-2xl font-bold tabular-nums">
-                {formatCurrency(profitLoss.netProfit, '$', 0)}
+                {formatCurrency(profitLoss.netProfit, currencySymbol, 0)}
               </p>
             </div>
           </div>
@@ -173,7 +177,7 @@ export function ReportsPage() {
                       <Badge variant="default">Local (taxed)</Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums variance-positive">
-                      {formatCurrency(item.amount, '$')}
+                      {formatCurrency(item.amount, currencySymbol)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -185,7 +189,7 @@ export function ReportsPage() {
                       <Badge variant="secondary">Foreign (exempt)</Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums variance-positive">
-                      {formatCurrency(item.amount, '$')}
+                      {formatCurrency(item.amount, currencySymbol)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -194,21 +198,21 @@ export function ReportsPage() {
                   <TableCell>Local Income Subtotal</TableCell>
                   <TableCell></TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency(profitLoss.revenue.local.total, '$')}
+                    {formatCurrency(profitLoss.revenue.local.total, currencySymbol)}
                   </TableCell>
                 </TableRow>
                 <TableRow className="bg-muted/50 font-medium">
                   <TableCell>Foreign Income Subtotal</TableCell>
                   <TableCell></TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency(profitLoss.revenue.foreign.total, '$')}
+                    {formatCurrency(profitLoss.revenue.foreign.total, currencySymbol)}
                   </TableCell>
                 </TableRow>
                 <TableRow className="bg-muted font-bold">
                   <TableCell>Total Revenue</TableCell>
                   <TableCell></TableCell>
                   <TableCell className="text-right tabular-nums variance-positive">
-                    {formatCurrency(profitLoss.revenue.total, '$')}
+                    {formatCurrency(profitLoss.revenue.total, currencySymbol)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -232,14 +236,14 @@ export function ReportsPage() {
                   <TableRow key={item.subcategory}>
                     <TableCell>{item.subcategory || 'Uncategorized'}</TableCell>
                     <TableCell className="text-right tabular-nums variance-negative">
-                      {formatCurrency(item.amount, '$')}
+                      {formatCurrency(item.amount, currencySymbol)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="bg-muted font-bold">
                   <TableCell>Total Expenses</TableCell>
                   <TableCell className="text-right tabular-nums variance-negative">
-                    {formatCurrency(profitLoss.expenses.total, '$')}
+                    {formatCurrency(profitLoss.expenses.total, currencySymbol)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -253,17 +257,17 @@ export function ReportsPage() {
                 <TableRow>
                   <TableCell className="font-medium">Gross Profit</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency(profitLoss.grossProfit, '$')}
+                    {formatCurrency(profitLoss.grossProfit, currencySymbol)}
                   </TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell className="font-medium">
                     Tax ({parseFloat(profitLoss.tax.rate) * 100}% on{' '}
-                    {formatCurrency(profitLoss.revenue.local.total, '$', 0)} local
+                    {formatCurrency(profitLoss.revenue.local.total, currencySymbol, 0)} local
                     income)
                   </TableCell>
                   <TableCell className="text-right tabular-nums variance-negative">
-                    -{formatCurrency(profitLoss.tax.amount, '$')}
+                    -{formatCurrency(profitLoss.tax.amount, currencySymbol)}
                   </TableCell>
                 </TableRow>
                 <TableRow className="bg-primary/10 font-bold">
@@ -276,7 +280,7 @@ export function ReportsPage() {
                         : 'variance-negative'
                     )}
                   >
-                    {formatCurrency(profitLoss.netProfit, '$')}
+                    {formatCurrency(profitLoss.netProfit, currencySymbol)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -291,19 +295,19 @@ export function ReportsPage() {
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Total Assets</p>
               <p className="text-2xl font-bold variance-positive tabular-nums">
-                {formatCurrency(balanceSheet.assets.total, '$', 0)}
+                {formatCurrency(balanceSheet.assets.total, currencySymbol, 0)}
               </p>
             </div>
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Total Liabilities</p>
               <p className="text-2xl font-bold variance-negative tabular-nums">
-                {formatCurrency(balanceSheet.liabilities.total, '$', 0)}
+                {formatCurrency(balanceSheet.liabilities.total, currencySymbol, 0)}
               </p>
             </div>
             <div className="p-4 bg-primary text-primary-foreground rounded-lg">
               <p className="text-sm text-primary-foreground/70">Net Worth</p>
               <p className="text-2xl font-bold tabular-nums">
-                {formatCurrency(balanceSheet.netWorth, '$', 0)}
+                {formatCurrency(balanceSheet.netWorth, currencySymbol, 0)}
               </p>
             </div>
           </div>
@@ -334,7 +338,7 @@ export function ReportsPage() {
                     </TableCell>
                     <TableCell>{account.currency}</TableCell>
                     <TableCell className="text-right tabular-nums variance-positive">
-                      {formatCurrency(account.balance, '$')}
+                      {formatCurrency(account.balance, getCurrencySymbol(account.currency))}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -351,7 +355,7 @@ export function ReportsPage() {
                 <TableRow className="bg-muted font-bold">
                   <TableCell colSpan={3}>Total Assets</TableCell>
                   <TableCell className="text-right tabular-nums variance-positive">
-                    {formatCurrency(balanceSheet.assets.total, '$')}
+                    {formatCurrency(balanceSheet.assets.total, currencySymbol)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -384,7 +388,7 @@ export function ReportsPage() {
                     </TableCell>
                     <TableCell>{account.currency}</TableCell>
                     <TableCell className="text-right tabular-nums variance-negative">
-                      {formatCurrency(account.balance, '$')}
+                      {formatCurrency(account.balance, getCurrencySymbol(account.currency))}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -401,7 +405,7 @@ export function ReportsPage() {
                 <TableRow className="bg-muted font-bold">
                   <TableCell colSpan={3}>Total Liabilities</TableCell>
                   <TableCell className="text-right tabular-nums variance-negative">
-                    {formatCurrency(balanceSheet.liabilities.total, '$')}
+                    {formatCurrency(balanceSheet.liabilities.total, currencySymbol)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -423,7 +427,7 @@ export function ReportsPage() {
                     : 'variance-negative'
                 )}
               >
-                {formatCurrency(balanceSheet.netWorth, '$')}
+                {formatCurrency(balanceSheet.netWorth, currencySymbol)}
               </span>
             </div>
           </div>
@@ -436,25 +440,25 @@ export function ReportsPage() {
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Inflows</p>
               <p className="text-2xl font-bold variance-positive tabular-nums">
-                {formatCurrency(cashFlow.inflows.total, '$', 0)}
+                {formatCurrency(cashFlow.inflows.total, currencySymbol, 0)}
               </p>
             </div>
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Outflows</p>
               <p className="text-2xl font-bold variance-negative tabular-nums">
-                {formatCurrency(cashFlow.outflows.total, '$', 0)}
+                {formatCurrency(cashFlow.outflows.total, currencySymbol, 0)}
               </p>
             </div>
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Transfers</p>
               <p className="text-2xl font-bold text-foreground tabular-nums">
-                {formatCurrency(cashFlow.transfers.total, '$', 0)}
+                {formatCurrency(cashFlow.transfers.total, currencySymbol, 0)}
               </p>
             </div>
             <div className="p-4 bg-primary text-primary-foreground rounded-lg">
               <p className="text-sm text-primary-foreground/70">Net Cash Flow</p>
               <p className="text-2xl font-bold tabular-nums">
-                {formatCurrency(cashFlow.netCashFlow, '$', 0)}
+                {formatCurrency(cashFlow.netCashFlow, currencySymbol, 0)}
               </p>
             </div>
           </div>
@@ -477,7 +481,7 @@ export function ReportsPage() {
                   <TableRow key={item.subcategory}>
                     <TableCell>{item.subcategory || 'Uncategorized'}</TableCell>
                     <TableCell className="text-right tabular-nums variance-positive">
-                      +{formatCurrency(item.amount, '$')}
+                      +{formatCurrency(item.amount, currencySymbol)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -494,7 +498,7 @@ export function ReportsPage() {
                 <TableRow className="bg-muted font-bold">
                   <TableCell>Total Inflows</TableCell>
                   <TableCell className="text-right tabular-nums variance-positive">
-                    +{formatCurrency(cashFlow.inflows.total, '$')}
+                    +{formatCurrency(cashFlow.inflows.total, currencySymbol)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -519,7 +523,7 @@ export function ReportsPage() {
                   <TableRow key={item.subcategory}>
                     <TableCell>{item.subcategory || 'Uncategorized'}</TableCell>
                     <TableCell className="text-right tabular-nums variance-negative">
-                      -{formatCurrency(item.amount, '$')}
+                      -{formatCurrency(item.amount, currencySymbol)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -536,7 +540,7 @@ export function ReportsPage() {
                 <TableRow className="bg-muted font-bold">
                   <TableCell>Total Outflows</TableCell>
                   <TableCell className="text-right tabular-nums variance-negative">
-                    -{formatCurrency(cashFlow.outflows.total, '$')}
+                    -{formatCurrency(cashFlow.outflows.total, currencySymbol)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -549,7 +553,7 @@ export function ReportsPage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Opening Balance</span>
                 <span className="tabular-nums">
-                  {formatCurrency(cashFlow.openingBalance, '$')}
+                  {formatCurrency(cashFlow.openingBalance, currencySymbol)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
@@ -563,13 +567,13 @@ export function ReportsPage() {
                   )}
                 >
                   {parseFloat(cashFlow.netCashFlow) >= 0 ? '+' : ''}
-                  {formatCurrency(cashFlow.netCashFlow, '$')}
+                  {formatCurrency(cashFlow.netCashFlow, currencySymbol)}
                 </span>
               </div>
               <div className="border-t border-border pt-2 flex items-center justify-between">
                 <span className="font-bold">Closing Balance</span>
                 <span className="text-xl font-bold tabular-nums">
-                  {formatCurrency(cashFlow.closingBalance, '$')}
+                  {formatCurrency(cashFlow.closingBalance, currencySymbol)}
                 </span>
               </div>
             </div>
@@ -583,7 +587,7 @@ export function ReportsPage() {
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Total Income</p>
               <p className="text-2xl font-bold variance-positive tabular-nums">
-                {formatCurrency(categorySpending.totalIncome, '$', 0)}
+                {formatCurrency(categorySpending.totalIncome, currencySymbol, 0)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {categorySpending.income.length} categories
@@ -592,7 +596,7 @@ export function ReportsPage() {
             <div className="p-4 bg-card border border-border rounded-lg">
               <p className="text-sm text-muted-foreground">Total Expenses</p>
               <p className="text-2xl font-bold variance-negative tabular-nums">
-                {formatCurrency(categorySpending.totalExpenses, '$', 0)}
+                {formatCurrency(categorySpending.totalExpenses, currencySymbol, 0)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {categorySpending.expenses.length} categories
@@ -625,7 +629,7 @@ export function ReportsPage() {
                       {item.transactionCount}
                     </TableCell>
                     <TableCell className="text-right tabular-nums variance-positive">
-                      {formatCurrency(item.amount, '$')}
+                      {formatCurrency(item.amount, currencySymbol)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
                       {formatPercentage(item.percentage, 1)}
@@ -671,7 +675,7 @@ export function ReportsPage() {
                       {item.transactionCount}
                     </TableCell>
                     <TableCell className="text-right tabular-nums variance-negative">
-                      {formatCurrency(item.amount, '$')}
+                      {formatCurrency(item.amount, currencySymbol)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
                       {formatPercentage(item.percentage, 1)}

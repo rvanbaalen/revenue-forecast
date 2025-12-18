@@ -57,6 +57,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { db } from '@/store/db';
 import type { Context, Subcategory, MappingRule, TransactionCategory } from '../types';
+import { DEFAULT_CURRENCY } from '../types';
+import { SUPPORTED_CURRENCIES, getCurrencySymbol } from '@/utils/currency';
 
 export function SettingsPage() {
   const {
@@ -79,6 +81,7 @@ export function SettingsPage() {
   const [contextDialog, setContextDialog] = useState<'add' | 'edit' | null>(null);
   const [editingContext, setEditingContext] = useState<Context | null>(null);
   const [contextName, setContextName] = useState('');
+  const [contextCurrency, setContextCurrency] = useState(DEFAULT_CURRENCY);
 
   // Subcategory state
   const [subcategoryDialog, setSubcategoryDialog] = useState<'add' | 'edit' | null>(null);
@@ -99,12 +102,14 @@ export function SettingsPage() {
   // Context handlers
   const openAddContext = () => {
     setContextName('');
+    setContextCurrency(DEFAULT_CURRENCY);
     setContextDialog('add');
   };
 
   const openEditContext = (ctx: Context) => {
     setEditingContext(ctx);
     setContextName(ctx.name);
+    setContextCurrency(ctx.currency || DEFAULT_CURRENCY);
     setContextDialog('edit');
   };
 
@@ -112,14 +117,15 @@ export function SettingsPage() {
     if (!contextName.trim()) return;
 
     if (contextDialog === 'add') {
-      await createContext(contextName.trim());
+      await createContext(contextName.trim(), contextCurrency);
     } else if (contextDialog === 'edit' && editingContext) {
-      await updateContext({ ...editingContext, name: contextName.trim() });
+      await updateContext({ ...editingContext, name: contextName.trim(), currency: contextCurrency });
     }
 
     setContextDialog(null);
     setEditingContext(null);
     setContextName('');
+    setContextCurrency(DEFAULT_CURRENCY);
   };
 
   const handleDeleteContext = async (ctx: Context) => {
@@ -269,6 +275,7 @@ export function SettingsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Currency</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
@@ -277,6 +284,11 @@ export function SettingsPage() {
                 {contexts.map((ctx) => (
                   <TableRow key={ctx.id}>
                     <TableCell className="font-medium">{ctx.name}</TableCell>
+                    <TableCell>
+                      <span className="text-muted-foreground">
+                        {getCurrencySymbol(ctx.currency || DEFAULT_CURRENCY)} ({ctx.currency || DEFAULT_CURRENCY})
+                      </span>
+                    </TableCell>
                     <TableCell>
                       {ctx.id === activeContext?.id && (
                         <Badge variant="default">Active</Badge>
@@ -527,7 +539,7 @@ export function SettingsPage() {
             <DialogDescription>
               {contextDialog === 'add'
                 ? 'Create a new context to organize your finances'
-                : 'Update the context name'}
+                : 'Update the context settings'}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
@@ -539,6 +551,24 @@ export function SettingsPage() {
                 onChange={(e) => setContextName(e.target.value)}
                 placeholder="e.g., Personal, Business"
               />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contextCurrency">Default Currency</Label>
+              <Select value={contextCurrency} onValueChange={setContextCurrency}>
+                <SelectTrigger id="contextCurrency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_CURRENCIES.map((currency) => (
+                    <SelectItem key={currency.code} value={currency.code}>
+                      {currency.symbol} - {currency.code} ({currency.name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                This currency will be used to format amounts in reports
+              </p>
             </div>
           </div>
           <DialogFooter>

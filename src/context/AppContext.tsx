@@ -29,7 +29,9 @@ import type {
 import {
   DEFAULT_INCOME_SUBCATEGORIES,
   DEFAULT_EXPENSE_SUBCATEGORIES,
+  DEFAULT_CURRENCY,
 } from '../types';
+import { getCurrencySymbol } from '../utils/currency';
 import { db } from '../store/db';
 import {
   generateBalanceSheet,
@@ -64,7 +66,7 @@ interface AppState {
 
 interface AppContextValue extends AppState {
   // Context operations
-  createContext: (name: string) => Promise<Context>;
+  createContext: (name: string, currency?: string) => Promise<Context>;
   updateContext: (context: Context) => Promise<void>;
   deleteContext: (id: string) => Promise<void>;
   setActiveContext: (id: string | null) => void;
@@ -114,6 +116,10 @@ interface AppContextValue extends AppState {
   contextSubcategories: Subcategory[];
   contextMappingRules: MappingRule[];
   uncategorizedCount: number;
+
+  // Currency helpers
+  contextCurrency: string; // ISO currency code (e.g., 'USD')
+  contextCurrencySymbol: string; // Currency symbol (e.g., '$')
 
   // Data operations
   refreshData: () => Promise<void>;
@@ -194,10 +200,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Context Operations
   // ============================================
 
-  const createContext = useCallback(async (name: string): Promise<Context> => {
+  const createContext = useCallback(async (name: string, currency: string = DEFAULT_CURRENCY): Promise<Context> => {
     const context: Context = {
       id: crypto.randomUUID(),
       name,
+      currency,
       createdAt: new Date().toISOString(),
     };
 
@@ -686,6 +693,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (t) => t.category === 'uncategorized'
   ).length;
 
+  // Currency helpers - handle legacy contexts without currency field
+  const contextCurrency = activeContext?.currency || DEFAULT_CURRENCY;
+  const contextCurrencySymbol = getCurrencySymbol(contextCurrency);
+
   // ============================================
   // Context Value
   // ============================================
@@ -738,6 +749,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     contextSubcategories,
     contextMappingRules,
     uncategorizedCount,
+
+    // Currency helpers
+    contextCurrency,
+    contextCurrencySymbol,
 
     // Data operations
     refreshData: loadAllData,

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatWholeNumber } from '../utils/decimal';
+import { useContextCurrency } from '@/hooks/useContextCurrency';
 import {
   StatCard,
   StatCardIcon,
@@ -33,6 +34,8 @@ export function DashboardPage() {
     contextTransactions: transactions,
     getSummaryMetrics,
   } = useApp();
+
+  const { symbol: currencySymbol } = useContextCurrency();
 
   // Get current year date range for metrics
   const now = new Date();
@@ -93,10 +96,10 @@ export function DashboardPage() {
               Net Profit ({now.getFullYear()})
             </StatCardLabel>
             <StatCardValue className="text-3xl text-primary-foreground">
-              {formatCurrency(metrics.netProfit, '$', 0)}
+              {formatCurrency(metrics.netProfit, currencySymbol, 0)}
             </StatCardValue>
             <p className="text-sm text-primary-foreground/70 mt-1">
-              After {formatCurrency(metrics.taxOwed, '$', 0)} tax on local income
+              After {formatCurrency(metrics.taxOwed, currencySymbol, 0)} tax on local income
             </p>
           </StatCardContent>
         </StatCard>
@@ -109,7 +112,7 @@ export function DashboardPage() {
           <StatCardContent>
             <StatCardLabel>Total Income</StatCardLabel>
             <StatCardValue variant="positive">
-              {formatCurrency(metrics.totalIncome, '$', 0)}
+              {formatCurrency(metrics.totalIncome, currencySymbol, 0)}
             </StatCardValue>
           </StatCardContent>
         </StatCard>
@@ -122,7 +125,7 @@ export function DashboardPage() {
           <StatCardContent>
             <StatCardLabel>Total Expenses</StatCardLabel>
             <StatCardValue variant="negative">
-              {formatCurrency(metrics.totalExpenses, '$', 0)}
+              {formatCurrency(metrics.totalExpenses, currencySymbol, 0)}
             </StatCardValue>
           </StatCardContent>
         </StatCard>
@@ -212,7 +215,7 @@ export function DashboardPage() {
                     : 'variance-negative'
                 )}
               >
-                {formatCurrency(metrics.netWorth, '$', 0)}
+                {formatCurrency(metrics.netWorth, currencySymbol, 0)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Assets - Liabilities
