@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.7.0...v1.8.0) (2025-12-18)
+
+
+### Features
+
+* Redesign revenue forecast vs actual UI ([#40](https://github.com/rvanbaalen/revenue-forecast/issues/40)) ([2cd978c](https://github.com/rvanbaalen/revenue-forecast/commit/2cd978c67ae4dab69d5a5cfd94f54d03676f3353))
+
 ## [1.7.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.6.0...v1.7.0) (2025-12-17)
 
 
