@@ -15,10 +15,11 @@ import type {
   Transaction,
   Subcategory,
   MappingRule,
+  Reconciliation,
 } from '../types';
 
 const DB_NAME = 'FinancialReports';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 class FinancialDB {
   private db: IDBDatabase | null = null;
@@ -71,6 +72,13 @@ class FinancialDB {
           const ruleStore = database.createObjectStore('mappingRules', { keyPath: 'id' });
           ruleStore.createIndex('contextId', 'contextId', { unique: false });
           ruleStore.createIndex('priority', 'priority', { unique: false });
+        }
+
+        // Reconciliations store (added in v2)
+        if (!database.objectStoreNames.contains('reconciliations')) {
+          const reconStore = database.createObjectStore('reconciliations', { keyPath: 'id' });
+          reconStore.createIndex('accountId', 'accountId', { unique: false });
+          reconStore.createIndex('reconciledDate', 'reconciledDate', { unique: false });
         }
       };
     });
@@ -254,15 +262,26 @@ class FinancialDB {
   async deleteAccount(id: string): Promise<void> {
     const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = db.transaction(['accounts', 'transactions'], 'readwrite');
+      const tx = db.transaction(['accounts', 'transactions', 'reconciliations'], 'readwrite');
 
       // Delete account
       tx.objectStore('accounts').delete(id);
 
       // Delete all transactions for this account
       const txStore = tx.objectStore('transactions');
-      const index = txStore.index('accountId');
-      index.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
+      const txIndex = txStore.index('accountId');
+      txIndex.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
+        const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
+
+      // Delete all reconciliations for this account
+      const reconStore = tx.objectStore('reconciliations');
+      const reconIndex = reconStore.index('accountId');
+      reconIndex.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
         const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
         if (cursor) {
           cursor.delete();
@@ -556,6 +575,74 @@ class FinancialDB {
   }
 
   // ============================================
+  // Reconciliation operations
+  // ============================================
+
+  async getReconciliations(): Promise<Reconciliation[]> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('reconciliations', 'readonly');
+      const request = tx.objectStore('reconciliations').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getReconciliationsByAccount(accountId: string): Promise<Reconciliation[]> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('reconciliations', 'readonly');
+      const index = tx.objectStore('reconciliations').index('accountId');
+      const request = index.getAll(IDBKeyRange.only(accountId));
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getLatestReconciliation(accountId: string): Promise<Reconciliation | undefined> {
+    const reconciliations = await this.getReconciliationsByAccount(accountId);
+    if (reconciliations.length === 0) return undefined;
+    // Sort by reconciledDate descending and return the latest
+    return reconciliations.sort((a, b) =>
+      b.reconciledDate.localeCompare(a.reconciledDate)
+    )[0];
+  }
+
+  async addReconciliation(reconciliation: Reconciliation): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('reconciliations', 'readwrite');
+      const request = tx.objectStore('reconciliations').add(reconciliation);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async deleteReconciliation(id: string): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('reconciliations', 'readwrite');
+      tx.objectStore('reconciliations').delete(id);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteReconciliationsByAccount(accountId: string): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('reconciliations', 'readwrite');
+      const store = tx.objectStore('reconciliations');
+      const index = store.index('accountId');
+      index.openCursor(IDBKeyRange.only(accountId)).onsuccess = (e) => {
+        const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  // ============================================
   // Export/Import operations
   // ============================================
 
@@ -565,10 +652,11 @@ class FinancialDB {
     const transactions = await this.getTransactions();
     const subcategories = await this.getSubcategories();
     const mappingRules = await this.getMappingRules();
+    const reconciliations = await this.getReconciliations();
 
     return JSON.stringify(
       {
-        version: '2.0',
+        version: '2.1',
         exportedAt: new Date().toISOString(),
         data: {
           contexts,
@@ -576,6 +664,7 @@ class FinancialDB {
           transactions,
           subcategories,
           mappingRules,
+          reconciliations,
         },
       },
       null,
@@ -633,6 +722,17 @@ class FinancialDB {
         }
       }
 
+      // Import reconciliations
+      if (data.reconciliations) {
+        for (const reconciliation of data.reconciliations) {
+          try {
+            await this.addReconciliation(reconciliation);
+          } catch {
+            // Skip duplicates
+          }
+        }
+      }
+
       return { success: true };
     } catch (err) {
       return { success: false, error: String(err) };
@@ -641,7 +741,7 @@ class FinancialDB {
 
   async clearAllData(): Promise<void> {
     const db = this.ensureDb();
-    const storeNames = ['contexts', 'accounts', 'transactions', 'subcategories', 'mappingRules'];
+    const storeNames = ['contexts', 'accounts', 'transactions', 'subcategories', 'mappingRules', 'reconciliations'];
 
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeNames, 'readwrite');

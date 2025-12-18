@@ -27,7 +27,9 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  Scale,
 } from 'lucide-react';
+import { ReconcileAccountDialog } from '../components/ReconcileAccountDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +53,7 @@ export function AccountsPage() {
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [editName, setEditName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<BankAccount | null>(null);
+  const [reconcileAccount, setReconcileAccount] = useState<BankAccount | null>(null);
 
   // Count transactions per account
   const transactionCounts = new Map<string, number>();
@@ -177,6 +180,10 @@ export function AccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setReconcileAccount(account)}>
+                          <Scale className="size-4" />
+                          Reconcile
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEdit(account)}>
                           <Pencil className="size-4" />
                           Rename
@@ -251,6 +258,13 @@ export function AccountsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reconcile Account Dialog */}
+      <ReconcileAccountDialog
+        account={reconcileAccount}
+        open={!!reconcileAccount}
+        onOpenChange={(open) => !open && setReconcileAccount(null)}
+      />
     </div>
   );
 }

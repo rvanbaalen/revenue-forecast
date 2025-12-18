@@ -49,7 +49,7 @@ export interface BankAccount {
 // Transaction Types
 // ============================================
 
-export type TransactionCategory = 'income' | 'expense' | 'transfer' | 'uncategorized';
+export type TransactionCategory = 'income' | 'expense' | 'transfer' | 'uncategorized' | 'adjustment';
 export type IncomeType = 'local' | 'foreign';
 
 /**
@@ -405,3 +405,33 @@ export const DEFAULT_EXPENSE_SUBCATEGORIES = [
   'Rent',
   'Other Expenses',
 ];
+
+// ============================================
+// Reconciliation Types
+// ============================================
+
+/**
+ * Reconciliation records when a user reconciled their account balance
+ * with their actual bank balance on a specific date
+ */
+export interface Reconciliation {
+  id: string;
+  accountId: string; // FK to BankAccount
+  reconciledDate: string; // ISO date - the date the balance was reconciled for
+  expectedBalance: string; // What the system calculated
+  actualBalance: string; // What the user entered from their bank
+  adjustmentAmount: string; // Difference (actual - expected)
+  adjustmentTransactionId: string | null; // FK to adjustment transaction if one was created
+  notes: string;
+  createdAt: string;
+}
+
+/**
+ * Result of a reconciliation operation
+ */
+export interface ReconciliationResult {
+  success: boolean;
+  reconciliation: Reconciliation;
+  adjustmentTransaction: Transaction | null;
+  message: string;
+}
