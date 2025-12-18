@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/rvanbaalen/revenue-forecast/compare/v3.0.0...v3.1.0) (2025-12-18)
+
+
+### Features
+
+* Replace tabs with nav sub-menu items for Reports and Settings ([#71](https://github.com/rvanbaalen/revenue-forecast/issues/71)) ([9636daa](https://github.com/rvanbaalen/revenue-forecast/commit/9636daa560850b1364c97d8f196157339b64d45c))
+
 ## [3.0.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.5.0...v3.0.0) (2025-12-18)
 
 
