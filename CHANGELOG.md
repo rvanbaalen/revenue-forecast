@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.8.0...v1.9.0) (2025-12-18)
+
+
+### Features
+
+* Add mobile sidebar support with toggle trigger ([#42](https://github.com/rvanbaalen/revenue-forecast/issues/42)) ([b319f2f](https://github.com/rvanbaalen/revenue-forecast/commit/b319f2f3909789d5ea36cd194ebd0b8f37337ec7))
+
 ## [1.8.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.7.0...v1.8.0) (2025-12-18)
 
 
