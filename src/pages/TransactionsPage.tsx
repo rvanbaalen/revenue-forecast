@@ -55,6 +55,7 @@ import {
   generateRulesetPrompt,
   parseRulesetResponse,
   applyRulesToTransactions,
+  convertLLMRuleToMappingRule,
 } from '../utils/llm-prompt';
 import type { RuleApplicationResult } from '../types';
 
@@ -81,6 +82,8 @@ export function TransactionsPage() {
     contextSubcategories: subcategories,
     updateTransaction,
     updateTransactions,
+    addMappingRule,
+    activeContextId,
   } = useApp();
 
   // Filters
@@ -201,6 +204,18 @@ export function TransactionsPage() {
 
     if (appliedCount > 0) {
       await updateTransactions(updatedTransactions);
+
+      // Save LLM-generated rules as MappingRules for future use
+      if (activeContextId) {
+        for (let i = 0; i < ruleApplications.length; i++) {
+          const mappingRule = convertLLMRuleToMappingRule(
+            ruleApplications[i].rule,
+            activeContextId,
+            ruleApplications.length - i // Higher priority for earlier rules
+          );
+          await addMappingRule(mappingRule);
+        }
+      }
     }
   };
 
