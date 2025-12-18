@@ -343,7 +343,6 @@ export function ImportPage() {
           {/* Import button */}
           <div className="flex justify-center pt-4">
             <Button
-              type="button"
               size="lg"
               onClick={handleImport}
               disabled={isImporting || parsedFiles.length === 0}
