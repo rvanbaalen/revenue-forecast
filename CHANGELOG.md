@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.5.0...v3.0.0) (2025-12-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* AppContext removed in favor of Zustand stores
+
+### Features
+
+* Evaluate Zustand for state management ([#70](https://github.com/rvanbaalen/revenue-forecast/issues/70)) ([029b2d0](https://github.com/rvanbaalen/revenue-forecast/commit/029b2d028997c08fcbfc5094df2bb2d5ad7cb6e2))
+
+
+### Bug Fixes
+
+* Sync transaction subcategories with Subcategory table ([#68](https://github.com/rvanbaalen/revenue-forecast/issues/68)) ([f6a60f5](https://github.com/rvanbaalen/revenue-forecast/commit/f6a60f528192ae670139196d31d44dc06dfdbcd5))
+
 ## [2.5.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.4.0...v2.5.0) (2025-12-18)
 
 
