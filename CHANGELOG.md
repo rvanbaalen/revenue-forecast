@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.3.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.2.0...v2.3.0) (2025-12-18)
+
+
+### Features
+
+* Add context selection and creation during OFX import ([#62](https://github.com/rvanbaalen/revenue-forecast/issues/62)) ([e1ce4dc](https://github.com/rvanbaalen/revenue-forecast/commit/e1ce4dcbe21f130ab8879746be3b02b44f90a899))
+* Add manual fiscal year override for transactions ([#59](https://github.com/rvanbaalen/revenue-forecast/issues/59)) ([59d22dc](https://github.com/rvanbaalen/revenue-forecast/commit/59d22dc13732f232da09d9dd335473562fc98841))
+* Switch to hash-based routing for GitHub Pages compatibility ([#60](https://github.com/rvanbaalen/revenue-forecast/issues/60)) ([b87a4bc](https://github.com/rvanbaalen/revenue-forecast/commit/b87a4bce10a7b717ac5d68757db23cdc7058cdd9))
+
 ## [2.2.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.1.1...v2.2.0) (2025-12-18)
 
 
