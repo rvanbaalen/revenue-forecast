@@ -211,7 +211,7 @@ export interface LLMCategorizationItem {
 }
 
 /**
- * LLM categorization response item
+ * LLM categorization response item (legacy per-transaction approach)
  */
 export interface LLMCategorizationResult {
   index: number;
@@ -223,10 +223,40 @@ export interface LLMCategorizationResult {
 }
 
 /**
- * Full LLM categorization response
+ * Full LLM categorization response (legacy per-transaction approach)
  */
 export interface LLMCategorizationResponse {
   categorizations: LLMCategorizationResult[];
+}
+
+/**
+ * LLM categorization rule - matches multiple transactions by pattern
+ */
+export interface LLMCategorizationRule {
+  pattern: string; // Pattern to match (e.g., "GITHUB", "AMAZON")
+  matchType: 'contains' | 'startsWith' | 'exact';
+  matchField: 'name' | 'memo' | 'both';
+  category: TransactionCategory;
+  subcategory: string;
+  incomeType: IncomeType | null;
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+}
+
+/**
+ * LLM ruleset response - efficient approach returning rules instead of per-transaction
+ */
+export interface LLMRulesetResponse {
+  rules: LLMCategorizationRule[];
+}
+
+/**
+ * Result of applying a rule to transactions
+ */
+export interface RuleApplicationResult {
+  rule: LLMCategorizationRule;
+  matchedTransactionIds: string[];
+  matchedCount: number;
 }
 
 // ============================================

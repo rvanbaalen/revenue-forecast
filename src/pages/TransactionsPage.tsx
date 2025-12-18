@@ -51,10 +51,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { Transaction, TransactionCategory, IncomeType } from '../types';
 import {
-  generateCategorizationPrompt,
-  parseLLMResponse,
-  applyCategorizationsToTransactions,
+  generateRulesetPrompt,
+  parseRulesetResponse,
+  applyRulesToTransactions,
 } from '../utils/llm-prompt';
+import type { RuleApplicationResult } from '../types';
 
 const CATEGORY_COLORS: Record<TransactionCategory, string> = {
   income: 'bg-green-500/10 text-green-700 dark:text-green-400',
@@ -96,6 +97,11 @@ export function TransactionsPage() {
   const [llmResponse, setLlmResponse] = useState('');
   const [copied, setCopied] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [applyResults, setApplyResults] = useState<{
+    appliedCount: number;
+    unmatchedCount: number;
+    ruleApplications: RuleApplicationResult[];
+  } | null>(null);
 
   // Create account lookup map
   const accountMap = useMemo(() => {
@@ -163,10 +169,11 @@ export function TransactionsPage() {
 
   // Handle LLM categorization
   const openLLMDialog = () => {
-    const prompt = generateCategorizationPrompt(uncategorizedTx, subcategories);
+    const prompt = generateRulesetPrompt(uncategorizedTx, subcategories);
     setLlmPrompt(prompt);
     setLlmResponse('');
     setParseError(null);
+    setApplyResults(null);
     setShowLLM(true);
   };
 
@@ -177,25 +184,28 @@ export function TransactionsPage() {
   };
 
   const handleApplyLLMResponse = async () => {
-    const result = parseLLMResponse(llmResponse);
+    const result = parseRulesetResponse(llmResponse);
     if ('error' in result) {
       setParseError(result.error);
       return;
     }
 
-    const { updatedTransactions, appliedCount } = applyCategorizationsToTransactions(
-      uncategorizedTx,
-      result.categorizations,
-      subcategories
-    );
+    const { updatedTransactions, appliedCount, unmatchedCount, ruleApplications } =
+      applyRulesToTransactions(uncategorizedTx, result.rules, subcategories);
+
+    // Show results before closing
+    setApplyResults({ appliedCount, unmatchedCount, ruleApplications });
 
     if (appliedCount > 0) {
       await updateTransactions(updatedTransactions);
     }
+  };
 
+  const handleCloseLLMDialog = () => {
     setShowLLM(false);
     setLlmResponse('');
     setParseError(null);
+    setApplyResults(null);
   };
 
   // Get subcategories for current category
@@ -453,62 +463,130 @@ export function TransactionsPage() {
       </Dialog>
 
       {/* LLM Categorization Dialog */}
-      <Dialog open={showLLM} onOpenChange={setShowLLM}>
+      <Dialog open={showLLM} onOpenChange={handleCloseLLMDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>AI Categorization</DialogTitle>
             <DialogDescription>
-              Copy the prompt, paste into any AI (ChatGPT, Claude, etc.), then paste
-              the response back here.
+              The AI will first ask clarifying questions about your business, then generate
+              efficient categorization rules. Have a conversation to define local/foreign income,
+              recurring vs one-time revenue, and expense categories.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
-            {/* Prompt */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label>1. Copy this prompt</Label>
-                <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
-                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                  {copied ? 'Copied!' : 'Copy'}
-                </Button>
-              </div>
-              <div className="bg-muted rounded-lg p-3 max-h-32 overflow-y-auto">
-                <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">
-                  {llmPrompt.slice(0, 500)}...
-                </pre>
-              </div>
-            </div>
+            {!applyResults ? (
+              <>
+                {/* Prompt */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>1. Copy this prompt</Label>
+                    <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
+                      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                      {copied ? 'Copied!' : 'Copy'}
+                    </Button>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3 max-h-32 overflow-y-auto">
+                    <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">
+                      {llmPrompt.slice(0, 500)}...
+                    </pre>
+                  </div>
+                </div>
 
-            {/* Response */}
-            <div>
-              <Label className="mb-2 block">2. Paste AI response</Label>
-              <Textarea
-                placeholder="Paste the JSON response from the AI here..."
-                className="min-h-32 font-mono text-xs"
-                value={llmResponse}
-                onChange={(e) => {
-                  setLlmResponse(e.target.value);
-                  setParseError(null);
-                }}
-              />
-            </div>
+                {/* Response */}
+                <div>
+                  <Label className="mb-2 block">2. Paste AI response (rules JSON)</Label>
+                  <Textarea
+                    placeholder='Paste the JSON response with "rules" array here...'
+                    className="min-h-32 font-mono text-xs"
+                    value={llmResponse}
+                    onChange={(e) => {
+                      setLlmResponse(e.target.value);
+                      setParseError(null);
+                    }}
+                  />
+                </div>
 
-            {parseError && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                <p className="text-sm text-destructive">{parseError}</p>
+                {parseError && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-sm text-destructive">{parseError}</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Results view */
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 p-3 bg-green-500/10 rounded-lg text-center">
+                    <p className="text-2xl font-semibold text-green-700 dark:text-green-400">
+                      {applyResults.appliedCount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Categorized</p>
+                  </div>
+                  {applyResults.unmatchedCount > 0 && (
+                    <div className="flex-1 p-3 bg-yellow-500/10 rounded-lg text-center">
+                      <p className="text-2xl font-semibold text-yellow-700 dark:text-yellow-400">
+                        {applyResults.unmatchedCount}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Unmatched</p>
+                    </div>
+                  )}
+                  <div className="flex-1 p-3 bg-blue-500/10 rounded-lg text-center">
+                    <p className="text-2xl font-semibold text-blue-700 dark:text-blue-400">
+                      {applyResults.ruleApplications.length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Rules Applied</p>
+                  </div>
+                </div>
+
+                {applyResults.ruleApplications.length > 0 && (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="max-h-48 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Pattern</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead className="text-right">Matched</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {applyResults.ruleApplications.map((app, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-mono text-xs">
+                                {app.rule.pattern}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={cn('gap-1', CATEGORY_COLORS[app.rule.category])}>
+                                  {CATEGORY_ICONS[app.rule.category]}
+                                  {app.rule.subcategory}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {app.matchedCount}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLLM(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleApplyLLMResponse}
-              disabled={!llmResponse.trim()}
-            >
-              Apply Categorizations
-            </Button>
+            {!applyResults ? (
+              <>
+                <Button variant="outline" onClick={handleCloseLLMDialog}>
+                  Cancel
+                </Button>
+                <Button onClick={handleApplyLLMResponse} disabled={!llmResponse.trim()}>
+                  Apply Rules
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleCloseLLMDialog}>Done</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
