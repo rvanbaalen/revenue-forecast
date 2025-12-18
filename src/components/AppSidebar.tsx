@@ -29,6 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
@@ -115,6 +116,7 @@ function BackupRestoreButton() {
 export function AppSidebar() {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
+  const { setOpenMobile } = useSidebar();
 
   return (
     <Sidebar collapsible="icon">
@@ -144,7 +146,7 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
-                      <Link to={item.path}>
+                      <Link to={item.path} onClick={() => setOpenMobile(false)}>
                         <Icon className="size-4" />
                         <span>{item.label}</span>
                       </Link>
