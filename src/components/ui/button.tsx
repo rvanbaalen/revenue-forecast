@@ -55,9 +55,10 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
-      // Default to type="button" for actual buttons to prevent form submission issues
-      type={asChild ? undefined : (type ?? "button")}
       {...props}
+      // Default to type="button" for actual buttons to prevent form submission issues
+      // Placed after {...props} spread so this default cannot be accidentally overridden
+      type={asChild ? undefined : (type ?? "button")}
     />
   )
 }
