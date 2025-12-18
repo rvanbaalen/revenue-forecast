@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.1.1...v2.2.0) (2025-12-18)
+
+
+### Features
+
+* Add balance reconciliation feature ([#57](https://github.com/rvanbaalen/revenue-forecast/issues/57)) ([e027d6d](https://github.com/rvanbaalen/revenue-forecast/commit/e027d6dc51ccce28057a80a3faede008a5cadde8))
+
+
+### Bug Fixes
+
+* Save LLM-generated rules to Settings for future use ([#58](https://github.com/rvanbaalen/revenue-forecast/issues/58)) ([c8bd852](https://github.com/rvanbaalen/revenue-forecast/commit/c8bd8522742e317961aea5da4457b46ee3634a5b))
+* Show error when no context is selected during OFX import ([#55](https://github.com/rvanbaalen/revenue-forecast/issues/55)) ([5a1926c](https://github.com/rvanbaalen/revenue-forecast/commit/5a1926cc5b67b57695c2e437d25f4a03974fff6a))
+
 ## [2.1.1](https://github.com/rvanbaalen/revenue-forecast/compare/v2.1.0...v2.1.1) (2025-12-18)
 
 
