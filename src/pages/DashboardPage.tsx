@@ -1,334 +1,323 @@
-import { useMemo } from 'react';
 import { Link } from '@tanstack/react-router';
-import { useRevenue } from '../context/RevenueContext';
-import { useTime } from '@/hooks/useTime';
-import { MONTHS, MONTH_LABELS } from '../types';
-import { formatCurrency, formatVariance } from '../utils/format';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useApp } from '../context/AppContext';
+import { formatCurrency, formatWholeNumber } from '../utils/decimal';
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ReferenceLine } from 'recharts';
-import { cn } from '@/lib/utils';
+  StatCard,
+  StatCardIcon,
+  StatCardContent,
+  StatCardLabel,
+  StatCardValue,
+} from '@/components/ui/stat-card';
 import {
   TrendingUp,
   TrendingDown,
   Wallet,
   Receipt,
-  Users,
+  AlertTriangle,
   ArrowRight,
-  Calendar,
+  Building2,
+  CreditCard,
+  FileText,
+  Settings,
+  Upload,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export function DashboardPage() {
-  const { getTotals, getMonthlyTotal, config, sources, salaries, getSalaryTotal, getSalaryTaxCg } = useRevenue();
-  const { time, getMonthStatus } = useTime();
+  const {
+    activeContext,
+    contexts,
+    setActiveContext,
+    contextAccounts: accounts,
+    contextTransactions: transactions,
+    getSummaryMetrics,
+  } = useApp();
 
-  const expectedTotals = getTotals('expected');
-  const actualTotals = getTotals('actual');
+  // Get current year date range for metrics
+  const now = new Date();
+  const yearStart = `${now.getFullYear()}-01-01`;
+  const yearEnd = `${now.getFullYear()}-12-31`;
+  const period = { start: yearStart, end: yearEnd };
 
-  const revenueVariance = formatVariance(expectedTotals.totalRevenue, actualTotals.totalRevenue);
-  const netVariance = formatVariance(expectedTotals.net, actualTotals.net);
+  const metrics = getSummaryMetrics(period);
 
-  // Monthly data for chart
-  const monthlyData = useMemo(() => {
-    return MONTHS.map(month => ({
-      month,
-      label: MONTH_LABELS[month],
-      expected: getMonthlyTotal(month, 'expected'),
-      actual: getMonthlyTotal(month, 'actual'),
-      status: getMonthStatus(month, config.year),
-    }));
-  }, [getMonthlyTotal, getMonthStatus, config.year]);
-
-  // Chart config for the monthly revenue chart
-  const chartConfig = {
-    actual: {
-      label: 'Actual',
-      color: 'var(--color-primary)',
-    },
-    expected: {
-      label: 'Expected',
-      color: 'var(--color-muted)',
-    },
-  } satisfies ChartConfig;
-
-  // Format currency for Y-axis
-  const formatYAxis = (value: number) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
-    return value.toString();
-  };
-
-  // Find current month index for reference line
-  const currentMonthIndex = monthlyData.findIndex(d => d.status === 'current');
-
-  // Current month data
-  const currentMonthData = monthlyData.find(d => d.status === 'current');
-
-  // Calculate totals for salaries
-  const totalSalaryCost = salaries.reduce((sum, s) => sum + getSalaryTotal(s) + getSalaryTaxCg(s), 0);
+  // Count accounts by type
+  const checkingAccounts = accounts.filter((a) => a.type === 'checking');
+  const creditCardAccounts = accounts.filter((a) => a.type === 'credit_card');
 
   return (
     <div className="fade-in flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              {time.currentDate.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            {now.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </p>
+        </div>
+
+        {/* Context selector */}
+        {contexts.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Context:</span>
+            <select
+              value={activeContext?.id || ''}
+              onChange={(e) => setActiveContext(e.target.value)}
+              className="text-sm border border-border rounded px-2 py-1 bg-background"
+            >
+              {contexts.map((ctx) => (
+                <option key={ctx.id} value={ctx.id}>
+                  {ctx.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Hero Metrics */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Net Profit - Primary */}
+        <StatCard className="md:col-span-2 bg-primary text-primary-foreground border-0">
+          <StatCardIcon variant="primary" className="bg-primary-foreground/10">
+            <Wallet className="size-6" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel className="text-primary-foreground/70">
+              Net Profit ({now.getFullYear()})
+            </StatCardLabel>
+            <StatCardValue className="text-3xl text-primary-foreground">
+              {formatCurrency(metrics.netProfit, '$', 0)}
+            </StatCardValue>
+            <p className="text-sm text-primary-foreground/70 mt-1">
+              After {formatCurrency(metrics.taxOwed, '$', 0)} tax on local income
             </p>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="size-4 text-muted-foreground" />
-            <span className="font-medium text-muted-foreground">{config.year}</span>
-            {config.year !== time.currentYear && (
-              <span className="text-xs text-muted-foreground">
-                ({config.year < time.currentYear ? 'past' : 'future'})
-              </span>
-            )}
+          </StatCardContent>
+        </StatCard>
+
+        {/* Total Income */}
+        <StatCard>
+          <StatCardIcon variant="success">
+            <TrendingUp className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Total Income</StatCardLabel>
+            <StatCardValue variant="positive">
+              {formatCurrency(metrics.totalIncome, '$', 0)}
+            </StatCardValue>
+          </StatCardContent>
+        </StatCard>
+
+        {/* Total Expenses */}
+        <StatCard>
+          <StatCardIcon variant="destructive">
+            <TrendingDown className="size-5" />
+          </StatCardIcon>
+          <StatCardContent>
+            <StatCardLabel>Total Expenses</StatCardLabel>
+            <StatCardValue variant="negative">
+              {formatCurrency(metrics.totalExpenses, '$', 0)}
+            </StatCardValue>
+          </StatCardContent>
+        </StatCard>
+      </div>
+
+      {/* Uncategorized Alert */}
+      {metrics.uncategorizedCount > 0 && (
+        <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="size-5 text-warning" />
+              <div>
+                <p className="font-medium text-foreground">
+                  {metrics.uncategorizedCount} uncategorized transaction
+                  {metrics.uncategorizedCount !== 1 ? 's' : ''}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Categorize them for accurate reports
+                </p>
+              </div>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/transactions">
+                Review
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
           </div>
         </div>
+      )}
 
-        {/* Hero Metrics - Net Profit focus */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {/* Net Profit - Primary */}
-          <Card className="md:col-span-2 bg-primary text-primary-foreground border-0">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-primary-foreground/70 text-sm font-medium">Net Profit (Actual)</p>
-                  <p className="text-3xl font-bold mt-1 tabular-nums">
-                    {formatCurrency(actualTotals.net)}
-                  </p>
-                  <div className={cn(
-                    "flex items-center gap-1 mt-2 text-sm",
-                    netVariance.isPositive ? "text-primary-foreground/90" : "text-primary-foreground/70"
-                  )}>
-                    {netVariance.isPositive ? (
-                      <TrendingUp className="size-4" />
-                    ) : (
-                      <TrendingDown className="size-4" />
-                    )}
-                    <span>{netVariance.display} vs expected</span>
-                  </div>
-                </div>
-                <div className="p-3 bg-primary-foreground/10 rounded-xl">
-                  <Wallet className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Revenue */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">Total Revenue</p>
-                  <p className="text-2xl font-bold mt-1 tabular-nums text-foreground">
-                    {formatCurrency(actualTotals.totalRevenue)}
-                  </p>
-                  <div className={cn(
-                    "flex items-center gap-1 mt-2 text-sm",
-                    revenueVariance.isPositive ? "variance-positive" : "variance-negative"
-                  )}>
-                    {revenueVariance.isPositive ? (
-                      <TrendingUp className="w-3 h-3" />
-                    ) : (
-                      <TrendingDown className="w-3 h-3" />
-                    )}
-                    <span>{revenueVariance.percentage >= 0 ? '+' : ''}{revenueVariance.percentage.toFixed(0)}%</span>
-                  </div>
-                </div>
-                <div className="p-2 bg-secondary rounded-lg">
-                  <TrendingUp className="size-5 text-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Current Month */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    {currentMonthData ? currentMonthData.label : 'Current Month'}
-                  </p>
-                  <p className="text-2xl font-bold mt-1 tabular-nums text-foreground">
-                    {formatCurrency(currentMonthData?.actual || 0)}
-                  </p>
-                  {currentMonthData && currentMonthData.expected > 0 && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      of {formatCurrency(currentMonthData.expected)} expected
-                    </p>
-                  )}
-                </div>
-                <div className="p-2 bg-secondary rounded-lg">
-                  <Calendar className="size-5 text-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Monthly Revenue Chart */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">Monthly Revenue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
-              <BarChart accessibilityLayer data={monthlyData}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  tickMargin={10}
-                  axisLine={false}
-                  tickFormatter={(value) => value.slice(0, 3)}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatYAxis}
-                  width={60}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value, name) => (
-                        <div className="flex items-center justify-between gap-8">
-                          <span className="text-muted-foreground">{name === 'actual' ? 'Actual' : 'Expected'}</span>
-                          <span className="font-mono font-medium">{formatCurrency(value as number)}</span>
-                        </div>
-                      )}
-                    />
-                  }
-                />
-                <ChartLegend content={<ChartLegendContent />} />
-                {currentMonthIndex >= 0 && (
-                  <ReferenceLine
-                    x={monthlyData[currentMonthIndex].label}
-                    stroke="var(--color-primary)"
-                    strokeDasharray="3 3"
-                    strokeWidth={1}
-                  />
+      {/* Quick Stats Row */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Accounts */}
+        <div className="p-4 bg-card border border-border rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-muted-foreground text-sm">Accounts</p>
+              <p className="text-xl font-semibold mt-1 tabular-nums">
+                {accounts.length}
+              </p>
+              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                {checkingAccounts.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Building2 className="size-3" />
+                    {checkingAccounts.length} checking
+                  </span>
                 )}
-                <Bar
-                  dataKey="expected"
-                  fill="var(--color-expected)"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  dataKey="actual"
-                  fill="var(--color-actual)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Quick Stats Row */}
-        <div className="grid gap-4 md:grid-cols-3">
-          {/* VAT Reserved */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">VAT Reserved</p>
-                  <p className="text-xl font-semibold mt-1 tabular-nums">
-                    {formatCurrency(actualTotals.totalVat)}
-                  </p>
-                </div>
-                <Receipt className="size-5 text-muted-foreground" />
+                {creditCardAccounts.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <CreditCard className="size-3" />
+                    {creditCardAccounts.length} credit
+                  </span>
+                )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Profit Tax Due */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">Profit Tax Due</p>
-                  <p className="text-xl font-semibold mt-1 tabular-nums">
-                    {formatCurrency(actualTotals.totalProfitTax)}
-                  </p>
-                </div>
-                <TrendingDown className="size-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Salary Costs */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">Salary + Tax</p>
-                  <p className="text-xl font-semibold mt-1 tabular-nums">
-                    {formatCurrency(totalSalaryCost)}
-                  </p>
-                </div>
-                <Users className="size-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <Building2 className="size-5 text-muted-foreground" />
+          </div>
         </div>
 
-        {/* Quick Links */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <Link to="/expected" className="block">
-            <Card className="hover:border-ring hover:bg-accent/50 transition-colors cursor-pointer">
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-secondary rounded-lg">
-                      <TrendingUp className="size-4 text-foreground" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">Expected Revenue</p>
-                      <p className="text-sm text-muted-foreground">{sources.length} sources</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="size-4 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+        {/* Transactions */}
+        <div className="p-4 bg-card border border-border rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-muted-foreground text-sm">Transactions</p>
+              <p className="text-xl font-semibold mt-1 tabular-nums">
+                {formatWholeNumber(metrics.transactionCount)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                This year
+              </p>
+            </div>
+            <Receipt className="size-5 text-muted-foreground" />
+          </div>
+        </div>
 
-          <Link to="/actual" className="block">
-            <Card className="hover:border-ring hover:bg-accent/50 transition-colors cursor-pointer">
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-secondary rounded-lg">
-                      <Receipt className="size-4 text-foreground" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">Actual Revenue</p>
-                      <p className="text-sm text-muted-foreground">Track real income</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="size-4 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+        {/* Net Worth */}
+        <div className="p-4 bg-card border border-border rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-muted-foreground text-sm">Net Worth</p>
+              <p
+                className={cn(
+                  'text-xl font-semibold mt-1 tabular-nums',
+                  parseFloat(metrics.netWorth) >= 0
+                    ? 'variance-positive'
+                    : 'variance-negative'
+                )}
+              >
+                {formatCurrency(metrics.netWorth, '$', 0)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Assets - Liabilities
+              </p>
+            </div>
+            <Wallet className="size-5 text-muted-foreground" />
+          </div>
         </div>
       </div>
+
+      {/* Quick Links */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Link to="/reports" className="block">
+          <div className="p-4 bg-card border border-border rounded-lg hover:border-ring hover:bg-accent/50 transition-colors cursor-pointer">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-secondary rounded-lg">
+                  <FileText className="size-4 text-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Reports</p>
+                  <p className="text-sm text-muted-foreground">
+                    Balance Sheet, P&L, Cash Flow
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="size-4 text-muted-foreground" />
+            </div>
+          </div>
+        </Link>
+
+        <Link to="/transactions" className="block">
+          <div className="p-4 bg-card border border-border rounded-lg hover:border-ring hover:bg-accent/50 transition-colors cursor-pointer">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-secondary rounded-lg">
+                  <Receipt className="size-4 text-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Transactions</p>
+                  <p className="text-sm text-muted-foreground">
+                    View and categorize
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="size-4 text-muted-foreground" />
+            </div>
+          </div>
+        </Link>
+
+        <Link to="/import" className="block">
+          <div className="p-4 bg-card border border-border rounded-lg hover:border-ring hover:bg-accent/50 transition-colors cursor-pointer">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-secondary rounded-lg">
+                  <Upload className="size-4 text-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Import</p>
+                  <p className="text-sm text-muted-foreground">
+                    Upload OFX bank statements
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="size-4 text-muted-foreground" />
+            </div>
+          </div>
+        </Link>
+
+        <Link to="/settings" className="block">
+          <div className="p-4 bg-card border border-border rounded-lg hover:border-ring hover:bg-accent/50 transition-colors cursor-pointer">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-secondary rounded-lg">
+                  <Settings className="size-4 text-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Settings</p>
+                  <p className="text-sm text-muted-foreground">
+                    Contexts, categories, rules
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="size-4 text-muted-foreground" />
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Empty state */}
+      {accounts.length === 0 && transactions.length === 0 && (
+        <div className="text-center py-12 border border-dashed border-border rounded-lg">
+          <Upload className="size-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium text-foreground">Get Started</h3>
+          <p className="text-muted-foreground mt-1 mb-4">
+            Import your first OFX bank statement to begin tracking
+          </p>
+          <Button asChild>
+            <Link to="/import">
+              <Upload className="size-4" />
+              Import OFX File
+            </Link>
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

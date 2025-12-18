@@ -21,7 +21,6 @@ import type {
   PLLineItem,
   CategorySpendingItem,
   AccountBalanceItem,
-  PROFIT_TAX_RATE,
 } from '../types';
 import {
   toDecimal,
@@ -73,14 +72,8 @@ export function filterByAccounts(transactions: Transaction[], accountIds: Set<st
  */
 export function calculateAccountBalance(
   account: BankAccount,
-  transactions: Transaction[]
+  _transactions: Transaction[]
 ): string {
-  const accountTransactions = transactions.filter((t) => t.accountId === account.id);
-  const transactionSum = accountTransactions.reduce(
-    (acc, t) => acc.plus(toDecimal(t.amount)),
-    new Decimal(0)
-  );
-
   // Start with the balance from OFX (or 0 if not set)
   const openingBalance = toDecimal(account.balance);
 
@@ -99,7 +92,7 @@ export function calculateAccountBalance(
  */
 export function generateBalanceSheet(
   accounts: BankAccount[],
-  transactions: Transaction[],
+  _transactions: Transaction[],
   asOf: string
 ): BalanceSheetReport {
   const assets: AccountBalanceItem[] = [];
@@ -109,11 +102,6 @@ export function generateBalanceSheet(
   let totalLiabilities = new Decimal(0);
 
   for (const account of accounts) {
-    // Filter transactions up to the asOf date
-    const relevantTx = transactions.filter(
-      (t) => t.accountId === account.id && t.date <= asOf
-    );
-
     // For balance sheet, we use the account's stored balance
     // (which comes from OFX or is calculated)
     const balance = toDecimal(account.balance);

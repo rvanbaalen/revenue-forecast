@@ -8,7 +8,6 @@
 import type {
   Transaction,
   Subcategory,
-  LLMCategorizationItem,
   LLMCategorizationResponse,
   LLMCategorizationResult,
   TransactionCategory,
@@ -34,7 +33,6 @@ export function generateCategorizationPrompt(
   // Format transactions for the prompt
   const transactionList = transactions.map((t, index) => {
     const amount = parseFloat(t.amount);
-    const sign = amount >= 0 ? '+' : '';
     const formatted = formatCurrency(Math.abs(amount), '$', 2);
     const displayAmount = amount >= 0 ? `+${formatted}` : `-${formatted}`;
 
@@ -110,7 +108,6 @@ export function parseLLMResponse(jsonString: string): LLMCategorizationResponse 
 
     // Validate each categorization
     const validCategories: TransactionCategory[] = ['income', 'expense', 'transfer', 'uncategorized'];
-    const validIncomeTypes: (IncomeType | null)[] = ['local', 'foreign', null];
     const validConfidence = ['high', 'medium', 'low'];
 
     const validatedResults: LLMCategorizationResult[] = [];

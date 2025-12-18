@@ -15,8 +15,6 @@ import type {
   Transaction,
   Subcategory,
   MappingRule,
-  DEFAULT_INCOME_SUBCATEGORIES,
-  DEFAULT_EXPENSE_SUBCATEGORIES,
 } from '../types';
 
 const DB_NAME = 'FinancialReports';

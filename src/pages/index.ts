@@ -1,5 +1,6 @@
 export { DashboardPage } from './DashboardPage';
-export { ExpectedRevenuePage } from './ExpectedRevenuePage';
-export { ActualRevenuePage } from './ActualRevenuePage';
-export { SalaryPage } from './SalaryPage';
-export { ForecastPage } from './ForecastPage';
+export { AccountsPage } from './AccountsPage';
+export { TransactionsPage } from './TransactionsPage';
+export { ImportPage } from './ImportPage';
+export { ReportsPage } from './ReportsPage';
+export { SettingsPage } from './SettingsPage';

@@ -4,19 +4,13 @@ import {
   LayoutDashboard,
   TrendingUp,
   Receipt,
-  Users,
-  LineChart,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  HardDrive,
   Building2,
-  Calculator,
-  Wand2,
-  BarChart3,
+  FileText,
+  Settings,
+  Upload,
+  HardDrive,
 } from 'lucide-react';
-import { useRevenue } from '@/context/RevenueContext';
-import { useTime } from '@/hooks/useTime';
+import { useApp } from '@/context/AppContext';
 import { BackupRestoreModal } from '@/components/BackupRestoreModal';
 import {
   Sidebar,
@@ -31,59 +25,36 @@ import {
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/intelligence', label: 'Intelligence', icon: BarChart3 },
-  { path: '/setup', label: 'Setup Wizard', icon: Wand2 },
-  { path: '/expected', label: 'Expected', icon: TrendingUp },
-  { path: '/actual', label: 'Actual', icon: Receipt },
-  { path: '/bank', label: 'Bank', icon: Building2 },
-  { path: '/accounting', label: 'Accounting', icon: Calculator },
-  { path: '/salary', label: 'Salaries', icon: Users },
-  { path: '/forecast', label: 'Forecast', icon: LineChart },
+  { path: '/accounts', label: 'Accounts', icon: Building2 },
+  { path: '/transactions', label: 'Transactions', icon: Receipt },
+  { path: '/import', label: 'Import', icon: Upload },
+  { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
-function YearSelector() {
-  const { config, updateConfig } = useRevenue();
-  const { time } = useTime();
+function ContextSelector() {
+  const { contexts, activeContext, setActiveContext } = useApp();
+
+  if (contexts.length <= 1) {
+    return null;
+  }
 
   return (
     <div className="px-2 group-data-[collapsible=icon]:hidden">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => updateConfig({ year: config.year - 1 })}
-          className="p-1.5 rounded hover:bg-sidebar-accent text-sidebar-foreground/70"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-        <span
-          className={cn(
-            'text-sm font-medium tabular-nums',
-            config.year === time.currentYear
-              ? 'text-sidebar-foreground'
-              : 'text-sidebar-foreground/70'
-          )}
-        >
-          {config.year}
-        </span>
-        <button
-          onClick={() => updateConfig({ year: config.year + 1 })}
-          className="p-1.5 rounded hover:bg-sidebar-accent text-sidebar-foreground/70"
-        >
-          <ChevronRight className="size-4" />
-        </button>
-      </div>
-      {config.year !== time.currentYear && (
-        <button
-          onClick={() => updateConfig({ year: time.currentYear })}
-          className="w-full mt-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground"
-        >
-          Go to {time.currentYear}
-        </button>
-      )}
+      <select
+        value={activeContext?.id || ''}
+        onChange={(e) => setActiveContext(e.target.value)}
+        className="w-full text-sm bg-sidebar-accent border-0 rounded px-2 py-1.5 text-sidebar-foreground"
+      >
+        {contexts.map((ctx) => (
+          <option key={ctx.id} value={ctx.id}>
+            {ctx.name}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -127,11 +98,11 @@ export function AppSidebar() {
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <TrendingUp className="size-4" />
               </div>
-              <span className="font-semibold truncate">Revenue</span>
+              <span className="font-semibold truncate">Finance</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <YearSelector />
+        <ContextSelector />
       </SidebarHeader>
 
       <SidebarContent>
@@ -141,8 +112,9 @@ export function AppSidebar() {
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const isActive =
-                  currentPath === item.path ||
-                  currentPath.startsWith(item.path + '/');
+                  item.path === '/'
+                    ? currentPath === '/'
+                    : currentPath === item.path || currentPath.startsWith(item.path + '/');
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>

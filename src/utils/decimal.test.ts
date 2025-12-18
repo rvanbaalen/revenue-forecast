@@ -23,7 +23,6 @@ import {
   max,
   min,
   toFixed,
-  toString,
   formatCurrency,
   formatWholeNumber,
   formatPercentage,
