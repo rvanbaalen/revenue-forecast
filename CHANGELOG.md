@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.9.0...v1.10.0) (2025-12-18)
+
+
+### Features
+
+* Add multi-file OFX upload with transfer detection ([#46](https://github.com/rvanbaalen/revenue-forecast/issues/46)) ([75d8a79](https://github.com/rvanbaalen/revenue-forecast/commit/75d8a79c3285ef36017f5b694ede46dbbfe9c919))
+
+
+### Bug Fixes
+
+* Make Intelligence page tabs mobile-friendly ([#44](https://github.com/rvanbaalen/revenue-forecast/issues/44)) ([eea469c](https://github.com/rvanbaalen/revenue-forecast/commit/eea469c4d396f9a4858934cac95c501b93642721))
+
 ## [1.9.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.8.0...v1.9.0) (2025-12-18)
 
 
