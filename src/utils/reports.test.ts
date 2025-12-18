@@ -20,7 +20,8 @@ import {
 function createTransaction(
   overrides: Partial<Transaction> & { amount: string; category: Transaction['category'] }
 ): Transaction {
-  return {
+  const { fiscalYear, ...rest } = overrides;
+  const tx: Transaction = {
     id: crypto.randomUUID(),
     accountId: 'acc-1',
     fitId: `fit-${Date.now()}-${Math.random()}`,
@@ -31,8 +32,13 @@ function createTransaction(
     subcategory: 'Other',
     importBatchId: 'batch-1',
     createdAt: new Date().toISOString(),
-    ...overrides,
+    ...rest,
   };
+  // Only add fiscalYear if explicitly provided
+  if (fiscalYear !== undefined) {
+    tx.fiscalYear = fiscalYear;
+  }
+  return tx;
 }
 
 // Helper to create test accounts
@@ -571,6 +577,231 @@ describe('Summary Metrics', () => {
     const metrics = calculateSummaryMetrics([], accounts, period);
 
     expect(metrics.netWorth).toBe('-4000.00');
+  });
+});
+
+describe('Fiscal Year Override in Reports', () => {
+  const period2024: DateRange = { start: '2024-01-01', end: '2024-12-31' };
+  const period2025: DateRange = { start: '2025-01-01', end: '2025-12-31' };
+
+  describe('filterByDateRange with fiscal year override', () => {
+    it('should include transactions with matching fiscal year override', () => {
+      const transactions = [
+        // Regular 2024 transaction
+        createTransaction({
+          date: '2024-06-15',
+          amount: '5000',
+          category: 'income',
+          incomeType: 'local',
+        }),
+        // 2026 transaction overridden to 2024
+        createTransaction({
+          date: '2026-01-15',
+          amount: '10000',
+          category: 'income',
+          incomeType: 'local',
+          fiscalYear: 2024,
+        }),
+      ];
+
+      const result = filterByDateRange(transactions, period2024);
+      expect(result).toHaveLength(2);
+    });
+
+    it('should exclude transactions with fiscal year override to different year', () => {
+      const transactions = [
+        // 2024 transaction overridden to 2025
+        createTransaction({
+          date: '2024-12-20',
+          amount: '6000',
+          category: 'expense',
+          fiscalYear: 2025,
+        }),
+        // Regular 2024 transaction
+        createTransaction({
+          date: '2024-06-15',
+          amount: '-500',
+          category: 'expense',
+        }),
+      ];
+
+      const result = filterByDateRange(transactions, period2024);
+      expect(result).toHaveLength(1);
+      expect(result[0].date).toBe('2024-06-15');
+    });
+  });
+
+  describe('Profit & Loss with fiscal year override', () => {
+    it('should include overridden transactions in revenue calculations', () => {
+      const transactions = [
+        // Regular 2025 income
+        createTransaction({
+          date: '2025-06-15',
+          amount: '20000',
+          category: 'income',
+          incomeType: 'local',
+          subcategory: 'Consulting',
+        }),
+        // Late payment from 2024 invoice, paid in 2026, assigned to 2025
+        createTransaction({
+          date: '2026-01-15',
+          amount: '10000',
+          category: 'income',
+          incomeType: 'foreign',
+          subcategory: 'Consulting',
+          fiscalYear: 2025,
+        }),
+      ];
+
+      const report = generateProfitLoss(transactions, period2025);
+
+      expect(report.revenue.local.total).toBe('20000.00');
+      expect(report.revenue.foreign.total).toBe('10000.00');
+      expect(report.revenue.total).toBe('30000.00');
+    });
+
+    it('should exclude transactions overridden to different fiscal year', () => {
+      const transactions = [
+        // 2025 income
+        createTransaction({
+          date: '2025-06-15',
+          amount: '15000',
+          category: 'income',
+          incomeType: 'local',
+          subcategory: 'Consulting',
+        }),
+        // December 2025 prepayment for 2026 services
+        createTransaction({
+          date: '2025-12-28',
+          amount: '25000',
+          category: 'income',
+          incomeType: 'local',
+          subcategory: 'Prepayment',
+          fiscalYear: 2026,
+        }),
+      ];
+
+      const report = generateProfitLoss(transactions, period2025);
+
+      // Should only include the regular 2025 income
+      expect(report.revenue.total).toBe('15000.00');
+    });
+
+    it('should correctly calculate tax on overridden local income', () => {
+      const transactions = [
+        // Late payment (2026 date) assigned to FY 2025
+        createTransaction({
+          date: '2026-02-15',
+          amount: '50000',
+          category: 'income',
+          incomeType: 'local',
+          subcategory: 'Consulting',
+          fiscalYear: 2025,
+        }),
+      ];
+
+      const report = generateProfitLoss(transactions, period2025);
+
+      expect(report.revenue.local.total).toBe('50000.00');
+      expect(report.tax.amount).toBe('7500.00'); // 50000 * 0.15
+    });
+  });
+
+  describe('Cash Flow with fiscal year override', () => {
+    it('should include overridden transactions in inflows/outflows', () => {
+      const transactions = [
+        // Regular 2025 income
+        createTransaction({
+          date: '2025-03-15',
+          amount: '10000',
+          category: 'income',
+          incomeType: 'local',
+          subcategory: 'Sales',
+        }),
+        // Late payment assigned to 2025
+        createTransaction({
+          date: '2026-01-10',
+          amount: '15000',
+          category: 'income',
+          incomeType: 'foreign',
+          subcategory: 'Consulting',
+          fiscalYear: 2025,
+        }),
+        // Regular 2025 expense
+        createTransaction({
+          date: '2025-06-15',
+          amount: '-3000',
+          category: 'expense',
+          subcategory: 'Software',
+        }),
+      ];
+
+      const report = generateCashFlow(transactions, [], period2025);
+
+      expect(report.inflows.total).toBe('25000.00');
+      expect(report.outflows.total).toBe('3000.00');
+      expect(report.netCashFlow).toBe('22000.00');
+    });
+  });
+
+  describe('Summary Metrics with fiscal year override', () => {
+    it('should calculate summary metrics respecting fiscal year override', () => {
+      const accounts = [
+        createAccount({ id: 'acc-1', type: 'checking', balance: '50000' }),
+      ];
+
+      const transactions = [
+        // Regular 2025 income
+        createTransaction({
+          accountId: 'acc-1',
+          date: '2025-06-15',
+          amount: '30000',
+          category: 'income',
+          incomeType: 'local',
+          subcategory: 'Consulting',
+        }),
+        // Late payment assigned to 2025
+        createTransaction({
+          accountId: 'acc-1',
+          date: '2026-01-20',
+          amount: '20000',
+          category: 'income',
+          incomeType: 'foreign',
+          subcategory: 'Sales',
+          fiscalYear: 2025,
+        }),
+        // 2025 expense
+        createTransaction({
+          accountId: 'acc-1',
+          date: '2025-09-15',
+          amount: '-5000',
+          category: 'expense',
+          subcategory: 'Expenses',
+        }),
+        // Prepaid expense moved to 2026
+        createTransaction({
+          accountId: 'acc-1',
+          date: '2025-12-28',
+          amount: '-8000',
+          category: 'expense',
+          subcategory: 'Prepaid Rent',
+          fiscalYear: 2026,
+        }),
+      ];
+
+      const metrics = calculateSummaryMetrics(transactions, accounts, period2025);
+
+      // Income: 30000 (local) + 20000 (foreign override) = 50000
+      expect(metrics.totalIncome).toBe('50000.00');
+      // Expenses: 5000 only (8000 prepaid moved to 2026)
+      expect(metrics.totalExpenses).toBe('5000.00');
+      // Tax: 30000 * 0.15 = 4500 (only on local income)
+      expect(metrics.taxOwed).toBe('4500.00');
+      // Net: 50000 - 5000 - 4500 = 40500
+      expect(metrics.netProfit).toBe('40500.00');
+      // Transaction count: 3 (excluding the one moved to 2026)
+      expect(metrics.transactionCount).toBe(3);
+    });
   });
 });
 
