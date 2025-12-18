@@ -35,15 +35,17 @@ import {
   groupAndSum,
   Decimal,
 } from './decimal';
+import { filterByFiscalDateRange } from './fiscal-year';
 
 // Re-export the tax rate
 const TAX_RATE = '0.15'; // 15% on local income
 
 /**
- * Filter transactions by date range
+ * Filter transactions by date range.
+ * Uses fiscal year override when present for year-based filtering.
  */
 export function filterByDateRange(transactions: Transaction[], range: DateRange): Transaction[] {
-  return transactions.filter((t) => t.date >= range.start && t.date <= range.end);
+  return filterByFiscalDateRange(transactions, range);
 }
 
 /**

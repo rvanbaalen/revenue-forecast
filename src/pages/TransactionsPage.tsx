@@ -47,6 +47,7 @@ import {
   Copy,
   Check,
   Scale,
+  Calendar,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -58,6 +59,11 @@ import {
   convertLLMRuleToMappingRule,
 } from '../utils/llm-prompt';
 import type { RuleApplicationResult } from '../types';
+import {
+  isFiscalYearDifferent,
+  getTransactionDateYear,
+  getFiscalYear,
+} from '../utils/fiscal-year';
 
 const CATEGORY_COLORS: Record<TransactionCategory, string> = {
   income: 'bg-green-500/10 text-green-700 dark:text-green-400',
@@ -96,6 +102,7 @@ export function TransactionsPage() {
   const [editCategory, setEditCategory] = useState<TransactionCategory>('uncategorized');
   const [editSubcategory, setEditSubcategory] = useState('');
   const [editIncomeType, setEditIncomeType] = useState<IncomeType>('local');
+  const [editFiscalYear, setEditFiscalYear] = useState<string>('');
 
   // LLM categorization state
   const [showLLM, setShowLLM] = useState(false);
@@ -159,16 +166,23 @@ export function TransactionsPage() {
     setEditCategory(tx.category);
     setEditSubcategory(tx.subcategory);
     setEditIncomeType(tx.incomeType || 'local');
+    setEditFiscalYear(tx.fiscalYear?.toString() || '');
   };
 
   // Handle saving edit
   const handleEditSave = async () => {
     if (!editingTx) return;
+
+    // Parse fiscal year: empty string = undefined (use transaction date), valid number = override
+    const fiscalYearValue = editFiscalYear.trim();
+    const fiscalYear = fiscalYearValue ? parseInt(fiscalYearValue, 10) : undefined;
+
     await updateTransaction({
       ...editingTx,
       category: editCategory,
       subcategory: editSubcategory,
       incomeType: editCategory === 'income' ? editIncomeType : undefined,
+      fiscalYear: fiscalYear && !isNaN(fiscalYear) ? fiscalYear : undefined,
     });
     setEditingTx(null);
   };
@@ -346,7 +360,18 @@ export function TransactionsPage() {
                       onClick={() => openEdit(tx)}
                     >
                       <TableCell className="text-muted-foreground tabular-nums">
-                        {new Date(tx.date).toLocaleDateString()}
+                        <div className="flex items-center gap-1.5">
+                          {new Date(tx.date).toLocaleDateString()}
+                          {isFiscalYearDifferent(tx) && (
+                            <span
+                              className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-info/10 text-info"
+                              title={`Fiscal year override: Reports as ${getFiscalYear(tx)}`}
+                            >
+                              <Calendar className="size-3" />
+                              FY{getFiscalYear(tx)}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="max-w-xs">
@@ -470,6 +495,36 @@ export function TransactionsPage() {
                 )}
               </div>
             )}
+
+            {/* Fiscal Year Override */}
+            <div className="flex flex-col gap-2">
+              <Label>Fiscal Year Override</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={editFiscalYear}
+                  onChange={(e) => setEditFiscalYear(e.target.value)}
+                  placeholder={editingTx ? getTransactionDateYear(editingTx).toString() : ''}
+                  min={1900}
+                  max={2100}
+                  className="w-32"
+                />
+                {editFiscalYear && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditFiscalYear('')}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave empty to use transaction date year ({editingTx ? getTransactionDateYear(editingTx) : ''}).
+                Set to override for reporting purposes.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingTx(null)}>

@@ -97,6 +97,11 @@ export interface Transaction {
   subcategory: string; // User-defined: "Software", "Rent", "Consulting", etc.
   incomeType?: IncomeType; // Only for income: 'local' (15% tax) or 'foreign' (0%)
 
+  // Fiscal Year Override
+  // When set, overrides the transaction date's year for reporting purposes.
+  // Use case: Invoice in Dec 2024, paid in Jan 2026, but bookkeeper assigns to 2025.
+  fiscalYear?: number;
+
   // Metadata
   importBatchId: string;
   createdAt: string;
