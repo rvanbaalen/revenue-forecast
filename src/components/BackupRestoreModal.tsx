@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useRevenue } from '@/context/RevenueContext';
+import { db } from '@/store/db';
 import {
   Download,
   Upload,
@@ -27,7 +27,6 @@ import {
   AlertCircle,
   FileJson,
   Database,
-  Calendar,
   HardDrive,
 } from 'lucide-react';
 
@@ -37,19 +36,26 @@ interface BackupRestoreModalProps {
 }
 
 const DATA_TYPE_LABELS: Record<string, string> = {
-  config: 'Settings',
-  sources: 'Revenue Sources',
-  salaries: 'Salaries',
-  salaryTaxes: 'Salary Taxes',
-  bankAccounts: 'Bank Accounts',
-  bankTransactions: 'Bank Transactions',
+  contexts: 'Contexts',
+  accounts: 'Bank Accounts',
+  transactions: 'Transactions',
+  subcategories: 'Subcategories',
   mappingRules: 'Mapping Rules',
-  chartAccounts: 'Chart of Accounts',
-  journalEntries: 'Journal Entries',
 };
 
+interface BackupData {
+  version: string;
+  exportedAt: string;
+  data: {
+    contexts: unknown[];
+    accounts: unknown[];
+    transactions: unknown[];
+    subcategories: unknown[];
+    mappingRules: unknown[];
+  };
+}
+
 export function BackupRestoreModal({ isOpen, onClose }: BackupRestoreModalProps) {
-  const { exportData, validateBackup, importData, config } = useRevenue();
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingImportData, setPendingImportData] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<{
@@ -66,12 +72,13 @@ export function BackupRestoreModal({ isOpen, onClose }: BackupRestoreModalProps)
   const handleBackup = async () => {
     setIsLoading(true);
     try {
-      const data = await exportData();
-      const blob = new Blob([data], { type: 'application/json' });
+      const jsonData = await db.exportData();
+
+      const blob = new Blob([jsonData], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `revenue-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `finance-backup-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -81,6 +88,24 @@ export function BackupRestoreModal({ isOpen, onClose }: BackupRestoreModalProps)
       setResult({ success: false, message: `Backup failed: ${error}` });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const validateBackup = (data: string): { valid: boolean; error?: string; backup?: BackupData } => {
+    try {
+      const parsed = JSON.parse(data) as BackupData;
+
+      if (!parsed.version || !parsed.data) {
+        return { valid: false, error: 'Invalid backup format: missing version or data' };
+      }
+
+      if (!parsed.data.contexts || !parsed.data.accounts || !parsed.data.transactions) {
+        return { valid: false, error: 'Invalid backup format: missing required data' };
+      }
+
+      return { valid: true, backup: parsed };
+    } catch {
+      return { valid: false, error: 'Invalid JSON file' };
     }
   };
 
@@ -96,9 +121,21 @@ export function BackupRestoreModal({ isOpen, onClose }: BackupRestoreModalProps)
     reader.onload = (event) => {
       const data = event.target?.result as string;
       const validation = validateBackup(data);
-      setValidationResult(validation);
 
-      if (validation.valid) {
+      if (validation.valid && validation.backup) {
+        const backup = validation.backup;
+        setValidationResult({
+          valid: true,
+          version: backup.version,
+          exportedAt: backup.exportedAt,
+          recordCounts: {
+            contexts: backup.data.contexts.length,
+            accounts: backup.data.accounts.length,
+            transactions: backup.data.transactions.length,
+            subcategories: backup.data.subcategories?.length || 0,
+            mappingRules: backup.data.mappingRules?.length || 0,
+          },
+        });
         setPendingImportData(data);
         setConfirmDialogOpen(true);
       } else {
@@ -118,12 +155,17 @@ export function BackupRestoreModal({ isOpen, onClose }: BackupRestoreModalProps)
     setConfirmDialogOpen(false);
 
     try {
-      await importData(pendingImportData, true);
-      setResult({ success: true, message: 'Data restored successfully! The page will reload.' });
-      // Reload after a short delay to show success message
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      const importResult = await db.importData(pendingImportData, true);
+
+      if (importResult.success) {
+        setResult({ success: true, message: 'Data restored successfully! The page will reload.' });
+        // Reload after a short delay to show success message
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        setResult({ success: false, message: `Restore failed: ${importResult.error}` });
+      }
     } catch (error) {
       setResult({ success: false, message: `Restore failed: ${error}` });
     } finally {
@@ -174,15 +216,11 @@ export function BackupRestoreModal({ isOpen, onClose }: BackupRestoreModalProps)
                   <div className="flex-1">
                     <h4 className="font-medium">Create Backup</h4>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Download a complete backup of all your data including revenue sources,
-                      salaries, bank accounts, transactions, mapping rules, and accounting data.
+                      Download a complete backup of all your data including contexts,
+                      accounts, transactions, categories, and mapping rules.
                     </p>
 
                     <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="size-4" />
-                        <span>Year: {config.year}</span>
-                      </div>
                       <div className="flex items-center gap-1">
                         <FileJson className="size-4" />
                         <span>JSON format</span>
