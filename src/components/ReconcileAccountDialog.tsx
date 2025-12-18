@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useApp } from '../context/AppContext';
+import { useFinancialData } from '../stores';
 import { formatCurrency, toDecimal, isZero, subtract } from '../utils/decimal';
 import { getCurrencySymbol } from '@/utils/currency';
 import {
@@ -28,7 +28,7 @@ export function ReconcileAccountDialog({
   open,
   onOpenChange,
 }: ReconcileAccountDialogProps) {
-  const { reconcileAccount, getExpectedBalance, contextTransactions } = useApp();
+  const { reconcileAccount, getExpectedBalance, contextTransactions } = useFinancialData();
 
   const [reconciledDate, setReconciledDate] = useState('');
   const [actualBalance, setActualBalance] = useState('');

@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { useApp } from '../context/AppContext';
+import { useFinancialData } from '../stores';
 import { formatCurrency, formatWholeNumber } from '../utils/decimal';
 import { useContextCurrency } from '@/hooks/useContextCurrency';
 import {
@@ -33,7 +33,7 @@ export function DashboardPage() {
     contextAccounts: accounts,
     contextTransactions: transactions,
     getSummaryMetrics,
-  } = useApp();
+  } = useFinancialData();
 
   const { symbol: currencySymbol } = useContextCurrency();
 
