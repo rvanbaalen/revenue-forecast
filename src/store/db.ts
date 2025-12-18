@@ -1,10 +1,28 @@
-import type { AppConfig, RevenueSource, Salary, SalaryTax, BankAccount, BankTransaction, TransactionMappingRule, ChartAccount, JournalEntry } from '../types';
-import { DEFAULT_CONFIG, DEFAULT_SOURCES, DEFAULT_SALARIES, DEFAULT_SALARY_TAXES, DEFAULT_CHART_OF_ACCOUNTS } from '../types';
+/**
+ * IndexedDB Database for Financial Reports
+ *
+ * Simple schema focused on:
+ * - Contexts (workspaces)
+ * - Bank accounts (checking, credit_card)
+ * - Transactions with categorization
+ * - Subcategories for organizing
+ * - Mapping rules for auto-categorization
+ */
 
-const DB_NAME = 'RevenueTracker2026';
-const DB_VERSION = 4;
+import type {
+  Context,
+  BankAccount,
+  Transaction,
+  Subcategory,
+  MappingRule,
+  DEFAULT_INCOME_SUBCATEGORIES,
+  DEFAULT_EXPENSE_SUBCATEGORIES,
+} from '../types';
 
-class RevenueDB {
+const DB_NAME = 'FinancialReports';
+const DB_VERSION = 1;
+
+class FinancialDB {
   private db: IDBDatabase | null = null;
 
   async init(): Promise<IDBDatabase> {
@@ -20,341 +38,231 @@ class RevenueDB {
 
       request.onupgradeneeded = (event) => {
         const database = (event.target as IDBOpenDBRequest).result;
-        const oldVersion = event.oldVersion;
 
-        if (!database.objectStoreNames.contains('config')) {
-          database.createObjectStore('config', { keyPath: 'id' });
+        // Contexts store
+        if (!database.objectStoreNames.contains('contexts')) {
+          database.createObjectStore('contexts', { keyPath: 'id' });
         }
 
-        if (!database.objectStoreNames.contains('sources')) {
-          database.createObjectStore('sources', { keyPath: 'id', autoIncrement: true });
+        // Accounts store
+        if (!database.objectStoreNames.contains('accounts')) {
+          const accountStore = database.createObjectStore('accounts', { keyPath: 'id' });
+          accountStore.createIndex('contextId', 'contextId', { unique: false });
+          accountStore.createIndex('accountIdHash', 'accountIdHash', { unique: true });
         }
 
-        if (!database.objectStoreNames.contains('salaries')) {
-          database.createObjectStore('salaries', { keyPath: 'id', autoIncrement: true });
-        }
-
-        // Version 2: Add salary taxes store
-        if (!database.objectStoreNames.contains('salaryTaxes')) {
-          const taxStore = database.createObjectStore('salaryTaxes', { keyPath: 'id', autoIncrement: true });
-          taxStore.createIndex('salaryId', 'salaryId', { unique: false });
-        }
-
-        // Version 3: Add bank-related stores
-        if (!database.objectStoreNames.contains('bankAccounts')) {
-          database.createObjectStore('bankAccounts', { keyPath: 'id', autoIncrement: true });
-        }
-
-        if (!database.objectStoreNames.contains('bankTransactions')) {
-          const txStore = database.createObjectStore('bankTransactions', { keyPath: 'id', autoIncrement: true });
+        // Transactions store
+        if (!database.objectStoreNames.contains('transactions')) {
+          const txStore = database.createObjectStore('transactions', { keyPath: 'id' });
           txStore.createIndex('accountId', 'accountId', { unique: false });
           txStore.createIndex('accountId_fitId', ['accountId', 'fitId'], { unique: true });
-          txStore.createIndex('year_month', ['year', 'month'], { unique: false });
-          txStore.createIndex('revenueSourceId', 'revenueSourceId', { unique: false });
-          txStore.createIndex('importBatchId', 'importBatchId', { unique: false });
           txStore.createIndex('category', 'category', { unique: false });
+          txStore.createIndex('date', 'date', { unique: false });
+          txStore.createIndex('importBatchId', 'importBatchId', { unique: false });
         }
 
+        // Subcategories store
+        if (!database.objectStoreNames.contains('subcategories')) {
+          const subStore = database.createObjectStore('subcategories', { keyPath: 'id' });
+          subStore.createIndex('contextId', 'contextId', { unique: false });
+          subStore.createIndex('contextId_name', ['contextId', 'name'], { unique: true });
+        }
+
+        // Mapping rules store
         if (!database.objectStoreNames.contains('mappingRules')) {
-          const ruleStore = database.createObjectStore('mappingRules', { keyPath: 'id', autoIncrement: true });
-          ruleStore.createIndex('accountId', 'accountId', { unique: false });
+          const ruleStore = database.createObjectStore('mappingRules', { keyPath: 'id' });
+          ruleStore.createIndex('contextId', 'contextId', { unique: false });
           ruleStore.createIndex('priority', 'priority', { unique: false });
         }
-
-        // Version 4: Add accounting stores
-        if (!database.objectStoreNames.contains('chartAccounts')) {
-          const chartStore = database.createObjectStore('chartAccounts', { keyPath: 'id' });
-          chartStore.createIndex('code', 'code', { unique: true });
-          chartStore.createIndex('type', 'type', { unique: false });
-          chartStore.createIndex('parentId', 'parentId', { unique: false });
-          chartStore.createIndex('bankAccountId', 'bankAccountId', { unique: false });
-        }
-
-        if (!database.objectStoreNames.contains('journalEntries')) {
-          const journalStore = database.createObjectStore('journalEntries', { keyPath: 'id' });
-          journalStore.createIndex('date', 'date', { unique: false });
-          journalStore.createIndex('bankTransactionId', 'bankTransactionId', { unique: false });
-          journalStore.createIndex('isReconciled', 'isReconciled', { unique: false });
-        }
-
-        // Migration from v1: Convert old salary.taxType/taxValue to separate salaryTaxes
-        if (oldVersion < 2 && oldVersion > 0) {
-          const transaction = (event.target as IDBOpenDBRequest).transaction!;
-          const salaryStore = transaction.objectStore('salaries');
-          const taxStore = transaction.objectStore('salaryTaxes');
-
-          salaryStore.openCursor().onsuccess = (e) => {
-            const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
-            if (cursor) {
-              const salary = cursor.value;
-              // Migrate old tax data to new salaryTaxes store
-              if (salary.taxType !== undefined && salary.taxValue !== undefined) {
-                taxStore.add({
-                  salaryId: salary.id,
-                  name: 'Payroll Tax',
-                  type: salary.taxType,
-                  value: salary.taxValue,
-                });
-                // Remove old tax fields from salary
-                delete salary.taxType;
-                delete salary.taxValue;
-                cursor.update(salary);
-              }
-              cursor.continue();
-            }
-          };
-        }
       };
     });
   }
 
-  // Config operations
-  async getConfig(): Promise<AppConfig> {
+  private ensureDb(): IDBDatabase {
+    if (!this.db) {
+      throw new Error('Database not initialized. Call init() first.');
+    }
+    return this.db;
+  }
+
+  // ============================================
+  // Context operations
+  // ============================================
+
+  async getContexts(): Promise<Context[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('config', 'readonly');
-      const request = tx.objectStore('config').get('main');
-      request.onsuccess = () => resolve(request.result || { ...DEFAULT_CONFIG });
+      const tx = db.transaction('contexts', 'readonly');
+      const request = tx.objectStore('contexts').getAll();
+      request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async saveConfig(config: AppConfig): Promise<void> {
+  async getContextById(id: string): Promise<Context | undefined> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('config', 'readwrite');
-      tx.objectStore('config').put({ ...config, id: 'main' });
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  // Revenue sources operations
-  async getSources(): Promise<RevenueSource[]> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('sources', 'readonly');
-      const request = tx.objectStore('sources').getAll();
-      request.onsuccess = () => {
-        const result = request.result;
-        if (result.length === 0) {
-          // Initialize with defaults
-          this.initDefaultSources().then(resolve);
-        } else {
-          resolve(result);
-        }
-      };
-    });
-  }
-
-  async getSourceById(id: number): Promise<RevenueSource | undefined> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('sources', 'readonly');
-      const request = tx.objectStore('sources').get(id);
+      const tx = db.transaction('contexts', 'readonly');
+      const request = tx.objectStore('contexts').get(id);
       request.onsuccess = () => resolve(request.result);
     });
   }
 
-  private async initDefaultSources(): Promise<RevenueSource[]> {
-    const sources: RevenueSource[] = DEFAULT_SOURCES.map((s, i) => ({ ...s, id: i + 1 }));
-    await this.saveSources(sources);
-    return sources;
+  async addContext(context: Context): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('contexts', 'readwrite');
+      const request = tx.objectStore('contexts').add(context);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
   }
 
-  async saveSources(sources: RevenueSource[]): Promise<void> {
+  async updateContext(context: Context): Promise<void> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('sources', 'readwrite');
-      const store = tx.objectStore('sources');
-      store.clear();
-      sources.forEach(s => store.put(s));
+      const tx = db.transaction('contexts', 'readwrite');
+      tx.objectStore('contexts').put(context);
       tx.oncomplete = () => resolve();
     });
   }
 
-  async addSource(source: Omit<RevenueSource, 'id'>): Promise<number> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('sources', 'readwrite');
-      const request = tx.objectStore('sources').add(source);
-      request.onsuccess = () => resolve(request.result as number);
-    });
-  }
+  async deleteContext(id: string): Promise<void> {
+    const db = this.ensureDb();
 
-  async updateSource(source: RevenueSource): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('sources', 'readwrite');
-      tx.objectStore('sources').put(source);
-      tx.oncomplete = () => resolve();
-    });
-  }
+    // Get all accounts for this context to delete their transactions
+    const accounts = await this.getAccountsByContext(id);
+    const accountIds = accounts.map((a) => a.id);
 
-  async deleteSource(id: number): Promise<void> {
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('sources', 'readwrite');
-      tx.objectStore('sources').delete(id);
-      tx.oncomplete = () => resolve();
-    });
-  }
+      const tx = db.transaction(
+        ['contexts', 'accounts', 'transactions', 'subcategories', 'mappingRules'],
+        'readwrite'
+      );
 
-  // Salary operations
-  async getSalaries(): Promise<Salary[]> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaries', 'readonly');
-      const request = tx.objectStore('salaries').getAll();
-      request.onsuccess = () => {
-        const result = request.result;
-        if (result.length === 0) {
-          this.initDefaultSalaries().then(resolve);
-        } else {
-          resolve(result);
-        }
-      };
-    });
-  }
+      // Delete context
+      tx.objectStore('contexts').delete(id);
 
-  private async initDefaultSalaries(): Promise<Salary[]> {
-    const salaries: Salary[] = DEFAULT_SALARIES.map((s, i) => ({ ...s, id: i + 1 }));
-    await this.saveSalaries(salaries);
-    return salaries;
-  }
-
-  async saveSalaries(salaries: Salary[]): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaries', 'readwrite');
-      const store = tx.objectStore('salaries');
-      store.clear();
-      salaries.forEach(s => store.put(s));
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  async addSalary(salary: Omit<Salary, 'id'>): Promise<number> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaries', 'readwrite');
-      const request = tx.objectStore('salaries').add(salary);
-      request.onsuccess = () => resolve(request.result as number);
-    });
-  }
-
-  async updateSalary(salary: Salary): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaries', 'readwrite');
-      tx.objectStore('salaries').put(salary);
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  async deleteSalary(id: number): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction(['salaries', 'salaryTaxes'], 'readwrite');
-      tx.objectStore('salaries').delete(id);
-      // Also delete all taxes for this salary
-      const taxStore = tx.objectStore('salaryTaxes');
-      const index = taxStore.index('salaryId');
-      index.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
+      // Delete accounts for this context
+      const accountStore = tx.objectStore('accounts');
+      const accountIndex = accountStore.index('contextId');
+      accountIndex.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
         const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
         if (cursor) {
           cursor.delete();
           cursor.continue();
         }
       };
-      tx.oncomplete = () => resolve();
-    });
-  }
 
-  // Salary tax operations
-  async getSalaryTaxes(): Promise<SalaryTax[]> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaryTaxes', 'readonly');
-      const request = tx.objectStore('salaryTaxes').getAll();
-      request.onsuccess = () => {
-        const result = request.result;
-        if (result.length === 0) {
-          this.initDefaultSalaryTaxes().then(resolve);
-        } else {
-          resolve(result);
+      // Delete transactions for all accounts in this context
+      const txStore = tx.objectStore('transactions');
+      const txIndex = txStore.index('accountId');
+      for (const accountId of accountIds) {
+        txIndex.openCursor(IDBKeyRange.only(accountId)).onsuccess = (e) => {
+          const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+          if (cursor) {
+            cursor.delete();
+            cursor.continue();
+          }
+        };
+      }
+
+      // Delete subcategories for this context
+      const subStore = tx.objectStore('subcategories');
+      const subIndex = subStore.index('contextId');
+      subIndex.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
+        const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
         }
       };
-    });
-  }
 
-  private async initDefaultSalaryTaxes(): Promise<SalaryTax[]> {
-    const taxes: SalaryTax[] = DEFAULT_SALARY_TAXES.map((t, i) => ({ ...t, id: i + 1 }));
-    await this.saveSalaryTaxes(taxes);
-    return taxes;
-  }
+      // Delete mapping rules for this context
+      const ruleStore = tx.objectStore('mappingRules');
+      const ruleIndex = ruleStore.index('contextId');
+      ruleIndex.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
+        const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
 
-  async saveSalaryTaxes(taxes: SalaryTax[]): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaryTaxes', 'readwrite');
-      const store = tx.objectStore('salaryTaxes');
-      store.clear();
-      taxes.forEach(t => store.put(t));
       tx.oncomplete = () => resolve();
-    });
-  }
-
-  async addSalaryTax(tax: Omit<SalaryTax, 'id'>): Promise<number> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaryTaxes', 'readwrite');
-      const request = tx.objectStore('salaryTaxes').add(tax);
-      request.onsuccess = () => resolve(request.result as number);
-    });
-  }
-
-  async updateSalaryTax(tax: SalaryTax): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaryTaxes', 'readwrite');
-      tx.objectStore('salaryTaxes').put(tax);
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  async deleteSalaryTax(id: number): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaryTaxes', 'readwrite');
-      tx.objectStore('salaryTaxes').delete(id);
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  async getSalaryTaxesBySalaryId(salaryId: number): Promise<SalaryTax[]> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('salaryTaxes', 'readonly');
-      const index = tx.objectStore('salaryTaxes').index('salaryId');
-      const request = index.getAll(IDBKeyRange.only(salaryId));
-      request.onsuccess = () => resolve(request.result);
     });
   }
 
   // ============================================
-  // Bank Account operations
+  // Account operations
   // ============================================
 
-  async getBankAccounts(): Promise<BankAccount[]> {
+  async getAccounts(): Promise<BankAccount[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankAccounts', 'readonly');
-      const request = tx.objectStore('bankAccounts').getAll();
+      const tx = db.transaction('accounts', 'readonly');
+      const request = tx.objectStore('accounts').getAll();
       request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async addBankAccount(account: Omit<BankAccount, 'id'>): Promise<number> {
+  async getAccountsByContext(contextId: string): Promise<BankAccount[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankAccounts', 'readwrite');
-      const request = tx.objectStore('bankAccounts').add(account);
-      request.onsuccess = () => resolve(request.result as number);
+      const tx = db.transaction('accounts', 'readonly');
+      const index = tx.objectStore('accounts').index('contextId');
+      const request = index.getAll(IDBKeyRange.only(contextId));
+      request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async updateBankAccount(account: BankAccount): Promise<void> {
+  async getAccountById(id: string): Promise<BankAccount | undefined> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankAccounts', 'readwrite');
-      tx.objectStore('bankAccounts').put(account);
+      const tx = db.transaction('accounts', 'readonly');
+      const request = tx.objectStore('accounts').get(id);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async getAccountByHash(accountIdHash: string): Promise<BankAccount | undefined> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('accounts', 'readonly');
+      const index = tx.objectStore('accounts').index('accountIdHash');
+      const request = index.get(accountIdHash);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async addAccount(account: BankAccount): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('accounts', 'readwrite');
+      const request = tx.objectStore('accounts').add(account);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async updateAccount(account: BankAccount): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('accounts', 'readwrite');
+      tx.objectStore('accounts').put(account);
       tx.oncomplete = () => resolve();
     });
   }
 
-  async deleteBankAccount(id: number): Promise<void> {
+  async deleteAccount(id: string): Promise<void> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction(['bankAccounts', 'bankTransactions'], 'readwrite');
-      tx.objectStore('bankAccounts').delete(id);
-      // Also delete all transactions for this account
-      const txStore = tx.objectStore('bankTransactions');
+      const tx = db.transaction(['accounts', 'transactions'], 'readwrite');
+
+      // Delete account
+      tx.objectStore('accounts').delete(id);
+
+      // Delete all transactions for this account
+      const txStore = tx.objectStore('transactions');
       const index = txStore.index('accountId');
       index.openCursor(IDBKeyRange.only(id)).onsuccess = (e) => {
         const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
@@ -363,123 +271,238 @@ class RevenueDB {
           cursor.continue();
         }
       };
+
       tx.oncomplete = () => resolve();
     });
   }
 
-  async getBankAccountByHash(accountIdHash: string): Promise<BankAccount | undefined> {
-    const accounts = await this.getBankAccounts();
-    return accounts.find(a => a.accountIdHash === accountIdHash);
-  }
-
   // ============================================
-  // Bank Transaction operations
+  // Transaction operations
   // ============================================
 
-  async getBankTransactions(): Promise<BankTransaction[]> {
+  async getTransactions(): Promise<Transaction[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readonly');
-      const request = tx.objectStore('bankTransactions').getAll();
+      const tx = db.transaction('transactions', 'readonly');
+      const request = tx.objectStore('transactions').getAll();
       request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async getBankTransactionsByAccount(accountId: number): Promise<BankTransaction[]> {
+  async getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readonly');
-      const index = tx.objectStore('bankTransactions').index('accountId');
+      const tx = db.transaction('transactions', 'readonly');
+      const index = tx.objectStore('transactions').index('accountId');
       const request = index.getAll(IDBKeyRange.only(accountId));
       request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async getBankTransactionsByYearMonth(year: number, month: string): Promise<BankTransaction[]> {
+  async getTransactionsByContext(contextId: string): Promise<Transaction[]> {
+    // Get all accounts for context, then get transactions
+    const accounts = await this.getAccountsByContext(contextId);
+    const accountIds = new Set(accounts.map((a) => a.id));
+
+    const allTransactions = await this.getTransactions();
+    return allTransactions.filter((t) => accountIds.has(t.accountId));
+  }
+
+  async getTransactionsByCategory(category: string): Promise<Transaction[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readonly');
-      const index = tx.objectStore('bankTransactions').index('year_month');
-      const request = index.getAll(IDBKeyRange.only([year, month]));
+      const tx = db.transaction('transactions', 'readonly');
+      const index = tx.objectStore('transactions').index('category');
+      const request = index.getAll(IDBKeyRange.only(category));
       request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async getBankTransactionsBySourceId(sourceId: number): Promise<BankTransaction[]> {
+  async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readonly');
-      const index = tx.objectStore('bankTransactions').index('revenueSourceId');
-      const request = index.getAll(IDBKeyRange.only(sourceId));
+      const tx = db.transaction('transactions', 'readonly');
+      const index = tx.objectStore('transactions').index('date');
+      const request = index.getAll(IDBKeyRange.bound(startDate, endDate));
       request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async addBankTransaction(transaction: Omit<BankTransaction, 'id'>): Promise<number> {
+  async getTransactionById(id: string): Promise<Transaction | undefined> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('transactions', 'readonly');
+      const request = tx.objectStore('transactions').get(id);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async checkTransactionExists(accountId: string, fitId: string): Promise<boolean> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('transactions', 'readonly');
+      const index = tx.objectStore('transactions').index('accountId_fitId');
+      const request = index.get([accountId, fitId]);
+      request.onsuccess = () => resolve(!!request.result);
+    });
+  }
+
+  async addTransaction(transaction: Transaction): Promise<void> {
+    const db = this.ensureDb();
     return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction('bankTransactions', 'readwrite');
-      const request = tx.objectStore('bankTransactions').add(transaction);
-      request.onsuccess = () => resolve(request.result as number);
+      const tx = db.transaction('transactions', 'readwrite');
+      const request = tx.objectStore('transactions').add(transaction);
+      request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
   }
 
-  async addBankTransactions(transactions: Omit<BankTransaction, 'id'>[]): Promise<number[]> {
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction('bankTransactions', 'readwrite');
-      const store = tx.objectStore('bankTransactions');
-      const ids: number[] = [];
+  async addTransactions(transactions: Transaction[]): Promise<{ added: number; skipped: number }> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('transactions', 'readwrite');
+      const store = tx.objectStore('transactions');
+      let added = 0;
+      let skipped = 0;
 
-      transactions.forEach(transaction => {
+      for (const transaction of transactions) {
         const request = store.add(transaction);
-        request.onsuccess = () => ids.push(request.result as number);
-        request.onerror = () => {
-          // Silently skip duplicates (constraint error on accountId_fitId)
-          if (request.error?.name !== 'ConstraintError') {
-            reject(request.error);
-          }
+        request.onsuccess = () => {
+          added++;
         };
-      });
+        request.onerror = () => {
+          // Skip duplicates (constraint error on accountId_fitId)
+          if (request.error?.name === 'ConstraintError') {
+            skipped++;
+          }
+          // Prevent transaction abort on constraint error
+          request.onerror = null;
+        };
+      }
 
-      tx.oncomplete = () => resolve(ids);
-      tx.onerror = () => {
-        // Don't reject on constraint errors
-        if (tx.error?.name !== 'ConstraintError') {
-          reject(tx.error);
-        } else {
-          resolve(ids);
-        }
-      };
+      tx.oncomplete = () => resolve({ added, skipped });
+      tx.onerror = () => resolve({ added, skipped }); // Still resolve with counts
     });
   }
 
-  async updateBankTransaction(transaction: BankTransaction): Promise<void> {
+  async updateTransaction(transaction: Transaction): Promise<void> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readwrite');
-      tx.objectStore('bankTransactions').put(transaction);
+      const tx = db.transaction('transactions', 'readwrite');
+      tx.objectStore('transactions').put(transaction);
       tx.oncomplete = () => resolve();
     });
   }
 
-  async updateBankTransactions(transactions: BankTransaction[]): Promise<void> {
+  async updateTransactions(transactions: Transaction[]): Promise<void> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readwrite');
-      const store = tx.objectStore('bankTransactions');
-      transactions.forEach(t => store.put(t));
+      const tx = db.transaction('transactions', 'readwrite');
+      const store = tx.objectStore('transactions');
+      for (const t of transactions) {
+        store.put(t);
+      }
       tx.oncomplete = () => resolve();
     });
   }
 
-  async deleteBankTransaction(id: number): Promise<void> {
+  async deleteTransaction(id: string): Promise<void> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readwrite');
-      tx.objectStore('bankTransactions').delete(id);
+      const tx = db.transaction('transactions', 'readwrite');
+      tx.objectStore('transactions').delete(id);
       tx.oncomplete = () => resolve();
     });
   }
 
-  async checkTransactionExists(accountId: number, fitId: string): Promise<boolean> {
+  // ============================================
+  // Subcategory operations
+  // ============================================
+
+  async getSubcategories(): Promise<Subcategory[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readonly');
-      const index = tx.objectStore('bankTransactions').index('accountId_fitId');
-      const request = index.get([accountId, fitId]);
-      request.onsuccess = () => resolve(!!request.result);
+      const tx = db.transaction('subcategories', 'readonly');
+      const request = tx.objectStore('subcategories').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getSubcategoriesByContext(contextId: string): Promise<Subcategory[]> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('subcategories', 'readonly');
+      const index = tx.objectStore('subcategories').index('contextId');
+      const request = index.getAll(IDBKeyRange.only(contextId));
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async addSubcategory(subcategory: Subcategory): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('subcategories', 'readwrite');
+      const request = tx.objectStore('subcategories').add(subcategory);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async updateSubcategory(subcategory: Subcategory): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('subcategories', 'readwrite');
+      tx.objectStore('subcategories').put(subcategory);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteSubcategory(id: string): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('subcategories', 'readwrite');
+      tx.objectStore('subcategories').delete(id);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async initDefaultSubcategories(
+    contextId: string,
+    incomeNames: string[],
+    expenseNames: string[]
+  ): Promise<void> {
+    const db = this.ensureDb();
+    const now = new Date().toISOString();
+
+    return new Promise((resolve) => {
+      const tx = db.transaction('subcategories', 'readwrite');
+      const store = tx.objectStore('subcategories');
+
+      // Add income subcategories
+      for (const name of incomeNames) {
+        const sub: Subcategory = {
+          id: crypto.randomUUID(),
+          contextId,
+          name,
+          type: 'income',
+          createdAt: now,
+        };
+        store.add(sub);
+      }
+
+      // Add expense subcategories
+      for (const name of expenseNames) {
+        const sub: Subcategory = {
+          id: crypto.randomUUID(),
+          contextId,
+          name,
+          type: 'expense',
+          createdAt: now,
+        };
+        store.add(sub);
+      }
+
+      tx.oncomplete = () => resolve();
     });
   }
 
@@ -487,650 +510,143 @@ class RevenueDB {
   // Mapping Rule operations
   // ============================================
 
-  async getMappingRules(): Promise<TransactionMappingRule[]> {
+  async getMappingRules(): Promise<MappingRule[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('mappingRules', 'readonly');
+      const tx = db.transaction('mappingRules', 'readonly');
       const request = tx.objectStore('mappingRules').getAll();
       request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async getMappingRulesByAccount(accountId: number): Promise<TransactionMappingRule[]> {
+  async getMappingRulesByContext(contextId: string): Promise<MappingRule[]> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('mappingRules', 'readonly');
-      const index = tx.objectStore('mappingRules').index('accountId');
-      const request = index.getAll(IDBKeyRange.only(accountId));
+      const tx = db.transaction('mappingRules', 'readonly');
+      const index = tx.objectStore('mappingRules').index('contextId');
+      const request = index.getAll(IDBKeyRange.only(contextId));
       request.onsuccess = () => resolve(request.result || []);
     });
   }
 
-  async addMappingRule(rule: Omit<TransactionMappingRule, 'id'>): Promise<number> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('mappingRules', 'readwrite');
+  async addMappingRule(rule: MappingRule): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('mappingRules', 'readwrite');
       const request = tx.objectStore('mappingRules').add(rule);
-      request.onsuccess = () => resolve(request.result as number);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 
-  async updateMappingRule(rule: TransactionMappingRule): Promise<void> {
+  async updateMappingRule(rule: MappingRule): Promise<void> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('mappingRules', 'readwrite');
+      const tx = db.transaction('mappingRules', 'readwrite');
       tx.objectStore('mappingRules').put(rule);
       tx.oncomplete = () => resolve();
     });
   }
 
-  async deleteMappingRule(id: number): Promise<void> {
+  async deleteMappingRule(id: string): Promise<void> {
+    const db = this.ensureDb();
     return new Promise((resolve) => {
-      const tx = this.db!.transaction('mappingRules', 'readwrite');
+      const tx = db.transaction('mappingRules', 'readwrite');
       tx.objectStore('mappingRules').delete(id);
       tx.oncomplete = () => resolve();
     });
   }
 
-  // Export all data as a backup
+  // ============================================
+  // Export/Import operations
+  // ============================================
+
   async exportData(): Promise<string> {
-    const config = await this.getConfig();
-    const sources = await this.getSources();
-    const salaries = await this.getSalaries();
-    const salaryTaxes = await this.getSalaryTaxes();
-    const bankAccounts = await this.getBankAccounts();
-    const bankTransactions = await this.getBankTransactions();
+    const contexts = await this.getContexts();
+    const accounts = await this.getAccounts();
+    const transactions = await this.getTransactions();
+    const subcategories = await this.getSubcategories();
     const mappingRules = await this.getMappingRules();
-    const chartAccounts = await this.getChartAccounts();
-    const journalEntries = await this.getJournalEntries();
-    return JSON.stringify({
-      version: '1.0',
-      exportedAt: new Date().toISOString(),
-      dbVersion: DB_VERSION,
-      data: {
-        config,
-        sources,
-        salaries,
-        salaryTaxes,
-        bankAccounts,
-        bankTransactions,
-        mappingRules,
-        chartAccounts,
-        journalEntries,
+
+    return JSON.stringify(
+      {
+        version: '2.0',
+        exportedAt: new Date().toISOString(),
+        data: {
+          contexts,
+          accounts,
+          transactions,
+          subcategories,
+          mappingRules,
+        },
       },
-    }, null, 2);
+      null,
+      2
+    );
   }
 
-  // Validate backup data structure
-  validateBackup(jsonData: string): { valid: boolean; version?: string; exportedAt?: string; error?: string; recordCounts?: Record<string, number> } {
+  async importData(jsonData: string, clearExisting = true): Promise<{ success: boolean; error?: string }> {
     try {
       const parsed = JSON.parse(jsonData);
+      const data = parsed.data || parsed;
 
-      // Check if it's the new format with metadata
-      const isNewFormat = parsed.version && parsed.data;
-      const data = isNewFormat ? parsed.data : parsed;
-
-      // Validate required structure
-      const recordCounts: Record<string, number> = {};
-
-      if (data.config) recordCounts.config = 1;
-      if (data.sources) recordCounts.sources = data.sources.length;
-      if (data.salaries) recordCounts.salaries = data.salaries.length;
-      if (data.salaryTaxes) recordCounts.salaryTaxes = data.salaryTaxes.length;
-      if (data.bankAccounts) recordCounts.bankAccounts = data.bankAccounts.length;
-      if (data.bankTransactions) recordCounts.bankTransactions = data.bankTransactions.length;
-      if (data.mappingRules) recordCounts.mappingRules = data.mappingRules.length;
-      if (data.chartAccounts) recordCounts.chartAccounts = data.chartAccounts.length;
-      if (data.journalEntries) recordCounts.journalEntries = data.journalEntries.length;
-
-      // Must have at least some data
-      if (Object.keys(recordCounts).length === 0) {
-        return { valid: false, error: 'No recognizable data found in backup file' };
+      if (clearExisting) {
+        await this.clearAllData();
       }
 
-      return {
-        valid: true,
-        version: isNewFormat ? parsed.version : 'legacy',
-        exportedAt: isNewFormat ? parsed.exportedAt : undefined,
-        recordCounts,
-      };
+      // Import contexts
+      if (data.contexts) {
+        for (const context of data.contexts) {
+          await this.addContext(context);
+        }
+      }
+
+      // Import accounts
+      if (data.accounts) {
+        for (const account of data.accounts) {
+          try {
+            await this.addAccount(account);
+          } catch {
+            // Skip duplicates
+          }
+        }
+      }
+
+      // Import transactions
+      if (data.transactions) {
+        await this.addTransactions(data.transactions);
+      }
+
+      // Import subcategories
+      if (data.subcategories) {
+        for (const sub of data.subcategories) {
+          try {
+            await this.addSubcategory(sub);
+          } catch {
+            // Skip duplicates
+          }
+        }
+      }
+
+      // Import mapping rules
+      if (data.mappingRules) {
+        for (const rule of data.mappingRules) {
+          await this.addMappingRule(rule);
+        }
+      }
+
+      return { success: true };
     } catch (err) {
-      return { valid: false, error: `Invalid JSON: ${err}` };
+      return { success: false, error: String(err) };
     }
   }
 
-  // Import data from backup
-  async importData(jsonData: string, clearExisting = true): Promise<void> {
-    const parsed = JSON.parse(jsonData);
-
-    // Support both new format (with metadata) and old format (direct data)
-    const isNewFormat = parsed.version && parsed.data;
-    const data = isNewFormat ? parsed.data : parsed;
-
-    if (data.config) {
-      await this.saveConfig(data.config);
-    }
-
-    if (data.sources) {
-      if (clearExisting) {
-        await this.saveSources(data.sources);
-      } else {
-        for (const source of data.sources) {
-          await this.addSource(source);
-        }
-      }
-    }
-
-    if (data.salaries) {
-      if (clearExisting) {
-        await this.saveSalaries(data.salaries);
-      } else {
-        for (const salary of data.salaries) {
-          await this.addSalary(salary);
-        }
-      }
-    }
-
-    if (data.salaryTaxes) {
-      if (clearExisting) {
-        await this.saveSalaryTaxes(data.salaryTaxes);
-      } else {
-        for (const tax of data.salaryTaxes) {
-          await this.addSalaryTax(tax);
-        }
-      }
-    }
-
-    // Import bank data if present
-    if (data.bankAccounts) {
-      if (clearExisting) {
-        await this.clearBankAccounts();
-      }
-      for (const account of data.bankAccounts) {
-        await this.addBankAccount(account);
-      }
-    }
-
-    if (data.bankTransactions) {
-      if (clearExisting) {
-        await this.clearBankTransactions();
-      }
-      for (const tx of data.bankTransactions) {
-        try {
-          await this.addBankTransaction(tx);
-        } catch {
-          // Skip duplicates silently
-        }
-      }
-    }
-
-    if (data.mappingRules) {
-      if (clearExisting) {
-        await this.clearMappingRules();
-      }
-      for (const rule of data.mappingRules) {
-        await this.addMappingRule(rule);
-      }
-    }
-
-    // Import accounting data if present
-    if (data.chartAccounts) {
-      if (clearExisting) {
-        await this.clearChartAccounts();
-      }
-      for (const account of data.chartAccounts) {
-        try {
-          await this.addChartAccount(account);
-        } catch {
-          // Skip duplicates
-        }
-      }
-    }
-
-    if (data.journalEntries) {
-      if (clearExisting) {
-        await this.clearJournalEntries();
-      }
-      for (const entry of data.journalEntries) {
-        try {
-          await this.addJournalEntry(entry);
-        } catch {
-          // Skip duplicates
-        }
-      }
-    }
-  }
-
-  // Clear operations for import
-  private async clearBankAccounts(): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankAccounts', 'readwrite');
-      tx.objectStore('bankAccounts').clear();
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  private async clearBankTransactions(): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readwrite');
-      tx.objectStore('bankTransactions').clear();
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  private async clearMappingRules(): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('mappingRules', 'readwrite');
-      tx.objectStore('mappingRules').clear();
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  // ============================================
-  // Chart of Accounts operations
-  // ============================================
-
-  async getChartAccounts(): Promise<ChartAccount[]> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('chartAccounts', 'readonly');
-      const request = tx.objectStore('chartAccounts').getAll();
-      request.onsuccess = () => {
-        const result = request.result;
-        if (result.length === 0) {
-          this.initDefaultChartAccounts().then(resolve);
-        } else {
-          resolve(result);
-        }
-      };
-    });
-  }
-
-  private async initDefaultChartAccounts(): Promise<ChartAccount[]> {
-    const now = new Date().toISOString();
-    const accounts: ChartAccount[] = DEFAULT_CHART_OF_ACCOUNTS.map(a => ({
-      ...a,
-      createdAt: now,
-      updatedAt: now,
-    }));
-    await this.saveChartAccounts(accounts);
-    return accounts;
-  }
-
-  async saveChartAccounts(accounts: ChartAccount[]): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('chartAccounts', 'readwrite');
-      const store = tx.objectStore('chartAccounts');
-      store.clear();
-      accounts.forEach(a => store.put(a));
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  async addChartAccount(account: ChartAccount): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction('chartAccounts', 'readwrite');
-      const request = tx.objectStore('chartAccounts').add(account);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async updateChartAccount(account: ChartAccount): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('chartAccounts', 'readwrite');
-      tx.objectStore('chartAccounts').put(account);
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  async deleteChartAccount(id: string): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('chartAccounts', 'readwrite');
-      tx.objectStore('chartAccounts').delete(id);
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  // Update all bank transactions from one chart account to another (for category merges)
-  async updateTransactionsCategory(fromAccountId: string, toAccountId: string): Promise<number> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('bankTransactions', 'readwrite');
-      const store = tx.objectStore('bankTransactions');
-      const request = store.getAll();
-      let updated = 0;
-
-      request.onsuccess = () => {
-        const transactions = request.result;
-        for (const txn of transactions) {
-          if (txn.chartAccountId === fromAccountId) {
-            txn.chartAccountId = toAccountId;
-            store.put(txn);
-            updated++;
-          }
-        }
-      };
-
-      tx.oncomplete = () => resolve(updated);
-    });
-  }
-
-  // Update all journal entry lines from one chart account to another (for category merges)
-  async updateJournalEntriesAccount(fromAccountId: string, toAccountId: string): Promise<number> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('journalEntries', 'readwrite');
-      const store = tx.objectStore('journalEntries');
-      const request = store.getAll();
-      let updated = 0;
-
-      request.onsuccess = () => {
-        const entries = request.result;
-        for (const entry of entries) {
-          let entryModified = false;
-          for (const line of entry.lines) {
-            if (line.accountId === fromAccountId) {
-              line.accountId = toAccountId;
-              entryModified = true;
-              updated++;
-            }
-          }
-          if (entryModified) {
-            store.put(entry);
-          }
-        }
-      };
-
-      tx.oncomplete = () => resolve(updated);
-    });
-  }
-
-  // Update all mapping rules from one chart account to another (for category merges)
-  async updateMappingRulesCategory(fromAccountId: string, toAccountId: string): Promise<number> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('mappingRules', 'readwrite');
-      const store = tx.objectStore('mappingRules');
-      const request = store.getAll();
-      let updated = 0;
-
-      request.onsuccess = () => {
-        const rules = request.result;
-        for (const rule of rules) {
-          if (rule.chartAccountId === fromAccountId) {
-            rule.chartAccountId = toAccountId;
-            store.put(rule);
-            updated++;
-          }
-        }
-      };
-
-      tx.oncomplete = () => resolve(updated);
-    });
-  }
-
-  async getChartAccountById(id: string): Promise<ChartAccount | undefined> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('chartAccounts', 'readonly');
-      const request = tx.objectStore('chartAccounts').get(id);
-      request.onsuccess = () => resolve(request.result);
-    });
-  }
-
-  async getChartAccountByBankAccountId(bankAccountId: number): Promise<ChartAccount | undefined> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('chartAccounts', 'readonly');
-      const index = tx.objectStore('chartAccounts').index('bankAccountId');
-      const request = index.get(bankAccountId);
-      request.onsuccess = () => resolve(request.result);
-    });
-  }
-
-  async getChartAccountsByType(type: string): Promise<ChartAccount[]> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('chartAccounts', 'readonly');
-      const index = tx.objectStore('chartAccounts').index('type');
-      const request = index.getAll(IDBKeyRange.only(type));
-      request.onsuccess = () => resolve(request.result || []);
-    });
-  }
-
-  // ============================================
-  // Journal Entry operations
-  // ============================================
-
-  async getJournalEntries(): Promise<JournalEntry[]> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('journalEntries', 'readonly');
-      const request = tx.objectStore('journalEntries').getAll();
-      request.onsuccess = () => resolve(request.result || []);
-    });
-  }
-
-  async getJournalEntriesByDateRange(startDate: string, endDate: string): Promise<JournalEntry[]> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('journalEntries', 'readonly');
-      const index = tx.objectStore('journalEntries').index('date');
-      const request = index.getAll(IDBKeyRange.bound(startDate, endDate));
-      request.onsuccess = () => resolve(request.result || []);
-    });
-  }
-
-  async getJournalEntryByBankTransaction(bankTransactionId: number): Promise<JournalEntry | undefined> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('journalEntries', 'readonly');
-      const index = tx.objectStore('journalEntries').index('bankTransactionId');
-      const request = index.get(bankTransactionId);
-      request.onsuccess = () => resolve(request.result);
-    });
-  }
-
-  async addJournalEntry(entry: JournalEntry): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction('journalEntries', 'readwrite');
-      const request = tx.objectStore('journalEntries').add(entry);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async updateJournalEntry(entry: JournalEntry): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('journalEntries', 'readwrite');
-      tx.objectStore('journalEntries').put(entry);
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  async deleteJournalEntry(id: string): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('journalEntries', 'readwrite');
-      tx.objectStore('journalEntries').delete(id);
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  async getJournalEntryById(id: string): Promise<JournalEntry | undefined> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('journalEntries', 'readonly');
-      const request = tx.objectStore('journalEntries').get(id);
-      request.onsuccess = () => resolve(request.result);
-    });
-  }
-
-  private async clearChartAccounts(): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('chartAccounts', 'readwrite');
-      tx.objectStore('chartAccounts').clear();
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  private async clearJournalEntries(): Promise<void> {
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction('journalEntries', 'readwrite');
-      tx.objectStore('journalEntries').clear();
-      tx.oncomplete = () => resolve();
-    });
-  }
-
-  // ============================================
-  // Category-Only Export/Import operations
-  // ============================================
-
-  // Export only chart accounts as JSON
-  async exportChartAccounts(): Promise<string> {
-    const chartAccounts = await this.getChartAccounts();
-    return JSON.stringify({
-      version: '1.0',
-      exportedAt: new Date().toISOString(),
-      accounts: chartAccounts.map(({ createdAt, updatedAt, ...rest }) => rest),
-    }, null, 2);
-  }
-
-  // Import chart accounts from JSON (replaces all existing)
-  async importChartAccounts(jsonData: string): Promise<{ imported: number; errors: string[] }> {
-    const errors: string[] = [];
-    let imported = 0;
-
-    try {
-      const data = JSON.parse(jsonData);
-      const accounts = data.accounts || data;
-
-      if (!Array.isArray(accounts)) {
-        throw new Error('Invalid data format: expected an array of accounts');
-      }
-
-      // Clear existing accounts
-      await this.clearChartAccounts();
-
-      const now = new Date().toISOString();
-
-      // Import each account
-      for (const account of accounts) {
-        try {
-          if (!account.id || !account.code || !account.name || !account.type) {
-            errors.push(`Skipping invalid account: missing required fields`);
-            continue;
-          }
-
-          const fullAccount: ChartAccount = {
-            ...account,
-            isActive: account.isActive !== false,
-            isSystem: account.isSystem || false,
-            createdAt: now,
-            updatedAt: now,
-          };
-
-          await this.addChartAccount(fullAccount);
-          imported++;
-        } catch (err) {
-          errors.push(`Failed to import account ${account.code}: ${err}`);
-        }
-      }
-    } catch (err) {
-      errors.push(`Failed to parse JSON: ${err}`);
-    }
-
-    return { imported, errors };
-  }
-
-  // Replace chart accounts with a preset
-  async replaceChartAccountsWithPreset(accounts: Omit<ChartAccount, 'createdAt' | 'updatedAt'>[]): Promise<void> {
-    await this.clearChartAccounts();
-
-    const now = new Date().toISOString();
-    for (const account of accounts) {
-      const fullAccount: ChartAccount = {
-        ...account,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await this.addChartAccount(fullAccount);
-    }
-  }
-
-  // ============================================
-  // Mapping Rules Export/Import operations
-  // ============================================
-
-  // Export mapping rules as JSON
-  async exportMappingRules(): Promise<string> {
-    const mappingRules = await this.getMappingRules();
-    return JSON.stringify({
-      version: '1.0',
-      exportedAt: new Date().toISOString(),
-      rules: mappingRules.map(({ id, createdAt, ...rest }) => rest),
-    }, null, 2);
-  }
-
-  // Import mapping rules from JSON (replaces all existing)
-  async importMappingRules(jsonData: string): Promise<{ imported: number; errors: string[] }> {
-    const errors: string[] = [];
-    let imported = 0;
-
-    try {
-      const data = JSON.parse(jsonData);
-      const rules = data.rules || data;
-
-      if (!Array.isArray(rules)) {
-        throw new Error('Invalid data format: expected an array of rules');
-      }
-
-      // Clear existing rules
-      await this.clearMappingRules();
-
-      const now = new Date().toISOString();
-
-      // Import each rule
-      for (const rule of rules) {
-        try {
-          if (!rule.pattern || !rule.matchField || !rule.category) {
-            errors.push(`Skipping invalid rule: missing required fields (pattern, matchField, or category)`);
-            continue;
-          }
-
-          const fullRule: Omit<TransactionMappingRule, 'id'> = {
-            pattern: rule.pattern,
-            matchField: rule.matchField,
-            category: rule.category,
-            accountId: rule.accountId,
-            revenueSourceId: rule.revenueSourceId,
-            transferAccountId: rule.transferAccountId,
-            chartAccountId: rule.chartAccountId,
-            isActive: rule.isActive !== false,
-            priority: rule.priority ?? 0,
-            createdAt: now,
-          };
-
-          await this.addMappingRule(fullRule);
-          imported++;
-        } catch (err) {
-          errors.push(`Failed to import rule "${rule.pattern}": ${err}`);
-        }
-      }
-    } catch (err) {
-      errors.push(`Failed to parse JSON: ${err}`);
-    }
-
-    return { imported, errors };
-  }
-
-  // Clear all data and reinitialize with defaults
   async clearAllData(): Promise<void> {
-    if (!this.db) {
-      await this.init();
-    }
+    const db = this.ensureDb();
+    const storeNames = ['contexts', 'accounts', 'transactions', 'subcategories', 'mappingRules'];
 
-    const storeNames = [
-      'config',
-      'sources',
-      'salaries',
-      'salaryTaxes',
-      'bankAccounts',
-      'bankTransactions',
-      'mappingRules',
-      'chartAccounts',
-      'journalEntries',
-    ];
-
-    // Clear all stores in a single transaction
     return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction(storeNames, 'readwrite');
-
+      const tx = db.transaction(storeNames, 'readwrite');
       tx.onerror = () => reject(tx.error);
       tx.oncomplete = () => resolve();
 
@@ -1141,5 +657,5 @@ class RevenueDB {
   }
 }
 
-export const db = new RevenueDB();
+export const db = new FinancialDB();
 export default db;

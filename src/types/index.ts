@@ -1,183 +1,178 @@
-// Months array for iteration
-export const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const;
-export type Month = typeof MONTHS[number];
+/**
+ * Financial Reports from OFX - Type Definitions
+ *
+ * Core principles:
+ * - Simple transaction-based accounting (no double-entry)
+ * - All amounts stored as strings for Decimal.js precision
+ * - OFX data is the source of truth
+ * - Local income subject to 15% profit tax, foreign income exempt
+ */
 
-export const MONTH_LABELS: Record<Month, string> = {
-  jan: 'Jan', feb: 'Feb', mar: 'Mar', apr: 'Apr',
-  may: 'May', jun: 'Jun', jul: 'Jul', aug: 'Aug',
-  sep: 'Sep', oct: 'Oct', nov: 'Nov', dec: 'Dec'
-};
+// ============================================
+// Context Types
+// ============================================
 
-// Currency definition
-export interface Currency {
-  code: string;      // e.g., 'Cg', 'USD'
-  symbol: string;    // e.g., 'ƒ', '$'
-  rate: number;      // Exchange rate to base currency (Cg = 1)
-}
-
-// Revenue source types
-export type RevenueType = 'local' | 'foreign';
-
-// Monthly values for expected and actual revenue
-export type MonthlyValues = Partial<Record<Month, number>>;
-
-// Revenue source definition
-export interface RevenueSource {
-  id: number;
-  name: string;
-  type: RevenueType;
-  currency: string;        // Currency code
-  isRecurring: boolean;    // Monthly recurring revenue
-  recurringAmount: number; // MRR amount (used if isRecurring is true)
-  expected: MonthlyValues; // Expected/budgeted revenue per month
-  actual: MonthlyValues;   // Actual revenue per month
-}
-
-// Salary definition
-export interface Salary {
-  id: number;
-  name: string;
-  amounts: MonthlyValues;   // Monthly salary amounts in Cg
-}
-
-// Salary tax definition - allows multiple taxes per salary
-export interface SalaryTax {
-  id: number;
-  salaryId: number;         // Reference to salary
-  name: string;             // Tax name (e.g., "Income Tax", "Social Security")
-  type: 'percentage' | 'fixed';
-  value: number;            // Tax percentage or fixed amount per month worked
-}
-
-// Application configuration
-export interface AppConfig {
+/**
+ * Context represents a workspace for financial data
+ * Examples: "Personal", "Business A", "Freelance"
+ */
+export interface Context {
   id: string;
-  profitTaxRate: number;    // Local profit tax rate (percentage)
-  vatRate: number;          // Local VAT rate (percentage)
-  currencies: Currency[];   // Available currencies
-  year: number;             // Tracking year
+  name: string;
+  createdAt: string; // ISO date
 }
 
-// Default configuration
-export const DEFAULT_CONFIG: AppConfig = {
-  id: 'main',
-  profitTaxRate: 16,
-  vatRate: 6,
-  year: new Date().getFullYear(), // Use current year as default
-  currencies: [
-    { code: 'Cg', symbol: 'ƒ', rate: 1 },
-    { code: 'USD', symbol: '$', rate: 1.79 },
-  ]
-};
-
-// Default revenue sources (empty - users create via wizard or manually)
-export const DEFAULT_SOURCES: Omit<RevenueSource, 'id'>[] = [];
-
-// Default salaries
-export const DEFAULT_SALARIES: Omit<Salary, 'id'>[] = [
-  { name: 'Employee 1', amounts: {} }
-];
-
-// Default salary taxes
-export const DEFAULT_SALARY_TAXES: Omit<SalaryTax, 'id'>[] = [
-  { salaryId: 1, name: 'Payroll Tax', type: 'percentage', value: 15 }
-];
-
 // ============================================
-// Bank Import Types
+// Bank Account Types
 // ============================================
 
-// Bank account types from OFX
-export type BankAccountType = 'CHECKING' | 'SAVINGS' | 'CREDITLINE' | 'MONEYMRKT' | 'CREDITCARD';
+export type BankAccountType = 'checking' | 'credit_card';
 
-// Transaction types from OFX (raw, granular)
-export type BankTransactionType = 'CREDIT' | 'DEBIT' | 'INT' | 'DIV' | 'FEE' | 'SRVCHG' | 'DEP' | 'ATM' | 'POS' | 'XFER' | 'CHECK' | 'PAYMENT' | 'CASH' | 'DIRECTDEP' | 'DIRECTDEBIT' | 'REPEATPMT' | 'OTHER';
-
-// Simplified transaction flow type based on account type
-// Checking/Savings: credit (money in) / debit (money out)
-// Credit Card: charge (purchase) / payment (paying off)
-export type TransactionFlowType = 'credit' | 'debit' | 'charge' | 'payment';
-
-// Transaction classification - derived from chartAccountId and transferAccountId
-// DEPRECATED: Use chartAccountId for actual category, this is for filtering/display
-export type TransactionCategory = 'revenue' | 'expense' | 'transfer' | 'ignore';
-
-// Bank Account - represents a linked bank account
+/**
+ * BankAccount represents a bank account imported from OFX
+ */
 export interface BankAccount {
-  id: number;
-  name: string;                    // User-friendly name ("Business Checking")
-  bankId: string;                  // Bank routing number (from OFX)
-  accountId: string;               // Masked account number for display
-  accountIdHash: string;           // Hash of full account ID for matching
-  accountType: BankAccountType;
-  currency: string;                // Currency code from OFX
-  createdAt: string;               // ISO date
-  lastImportDate?: string;         // Last successful import
-
-  // Accounting integration
-  chartAccountId?: string;         // Link to ChartAccount
-  openingBalance?: number;         // Opening balance amount
-  openingBalanceDate?: string;     // Date of opening balance
-
-  // Credit card specific
-  creditLimit?: number;            // Credit limit for credit card accounts
+  id: string;
+  contextId: string;
+  name: string; // User-friendly name
+  type: BankAccountType;
+  currency: string; // From OFX (USD, EUR, etc.)
+  bankId: string; // From OFX <BANKID> or <ORG>
+  accountNumber: string; // Masked (****1234)
+  accountIdHash: string; // SHA-256 hash for deduplication
+  balance: string; // Current balance as string (Decimal.js)
+  balanceDate: string; // ISO date of balance from OFX
+  createdAt: string;
 }
 
-// Bank Transaction - raw imported transaction
-export interface BankTransaction {
-  id: number;
-  accountId: number;               // FK to BankAccount
-  fitId: string;                   // Bank's unique transaction ID (for dedup)
-  type: BankTransactionType;       // Raw OFX type (CREDIT, DEBIT, POS, etc.)
-  flowType: TransactionFlowType;   // Simplified: credit/debit (checking) or charge/payment (credit card)
-  amount: number;                  // Positive = credit/payment, Negative = debit/charge
-  datePosted: string;              // ISO date (converted from OFX YYYYMMDD)
-  name: string;                    // Payee/payer name
-  memo?: string;                   // Transaction memo
-  checkNum?: string;               // Check number if applicable
-  refNum?: string;                 // Reference number
+// ============================================
+// Transaction Types
+// ============================================
 
-  // Time fields
-  month: Month;                    // Derived from datePosted
-  year: number;                    // Year of transaction
+export type TransactionCategory = 'income' | 'expense' | 'transfer' | 'uncategorized';
+export type IncomeType = 'local' | 'foreign';
 
-  // Category - links to Chart of Accounts (the actual category)
-  chartAccountId?: string;         // Links to ChartAccount (Revenue or Expense category)
+/**
+ * OFX transaction types
+ * CREDIT = Money in, DEBIT = Money out, etc.
+ */
+export type OFXTransactionType =
+  | 'CREDIT'
+  | 'DEBIT'
+  | 'INT'
+  | 'DIV'
+  | 'FEE'
+  | 'SRVCHG'
+  | 'DEP'
+  | 'ATM'
+  | 'POS'
+  | 'XFER'
+  | 'CHECK'
+  | 'PAYMENT'
+  | 'CASH'
+  | 'DIRECTDEP'
+  | 'DIRECTDEBIT'
+  | 'REPEATPMT'
+  | 'OTHER';
 
-  // For revenue tracking integration
-  revenueSourceId?: number;        // Optional link to revenue source for forecasting
+/**
+ * Transaction represents a single bank transaction
+ * Amount convention:
+ * - Positive = Money IN (income, refunds)
+ * - Negative = Money OUT (expenses, payments)
+ */
+export interface Transaction {
+  id: string;
+  accountId: string; // FK to BankAccount
+  fitId: string; // OFX transaction ID (for deduplication)
+  date: string; // ISO date
+  amount: string; // String for Decimal.js precision
+  name: string; // OFX <NAME> - payee/merchant
+  memo: string; // OFX <MEMO> - additional info
+  type: OFXTransactionType; // OFX type: CREDIT, DEBIT, POS, etc.
+  checkNumber?: string; // OFX <CHECKNUM>
 
-  // For transfers between accounts
-  transferAccountId?: number;      // Linked transfer account (for transfers between accounts)
-
-  // Status flags
-  isIgnored: boolean;              // Exclude from all reports and calculations
-  isReconciled: boolean;           // User confirmed this categorization
-
-  // Accounting integration
-  journalEntryId?: string;         // Generated journal entry ID
-
-  // Import metadata
-  importedAt: string;              // When imported to system
-  importBatchId: string;           // Group imports together
-
-  // DEPRECATED: Use chartAccountId type to determine classification
-  // Kept for backwards compatibility during migration
+  // Categorization
   category: TransactionCategory;
+  subcategory: string; // User-defined: "Software", "Rent", "Consulting", etc.
+  incomeType?: IncomeType; // Only for income: 'local' (15% tax) or 'foreign' (0%)
+
+  // Metadata
+  importBatchId: string;
+  createdAt: string;
 }
 
-// Parsed OFX result (intermediate, not stored)
+// ============================================
+// Subcategory Types
+// ============================================
+
+export type SubcategoryType = 'income' | 'expense';
+
+/**
+ * Subcategory for organizing transactions
+ */
+export interface Subcategory {
+  id: string;
+  contextId: string;
+  name: string; // "Software Subscriptions", "Office Supplies", etc.
+  type: SubcategoryType;
+  createdAt: string;
+}
+
+// ============================================
+// Mapping Rule Types
+// ============================================
+
+export type PatternType = 'contains' | 'exact' | 'regex';
+
+/**
+ * MappingRule for auto-categorization of transactions
+ */
+export interface MappingRule {
+  id: string;
+  contextId: string;
+  pattern: string; // Pattern to match
+  patternType: PatternType;
+  matchField: 'name' | 'memo' | 'both';
+  category: TransactionCategory;
+  subcategory: string;
+  incomeType?: IncomeType;
+  priority: number; // Higher = applied first
+  isActive: boolean;
+  createdAt: string;
+}
+
+// ============================================
+// OFX Parsing Types
+// ============================================
+
+/**
+ * Parsed OFX transaction (intermediate, before import)
+ */
+export interface ParsedOFXTransaction {
+  fitId: string;
+  type: OFXTransactionType;
+  amount: string; // String for precision
+  datePosted: string; // ISO date
+  name: string;
+  memo?: string;
+  checkNumber?: string;
+}
+
+/**
+ * Parsed OFX file result
+ */
 export interface ParsedOFXFile {
   account: {
     bankId: string;
-    accountId: string;
-    accountType: BankAccountType;
+    accountId: string; // Full account ID (will be hashed)
+    accountType: 'CHECKING' | 'SAVINGS' | 'CREDITLINE' | 'MONEYMRKT' | 'CREDITCARD';
   };
   currency: string;
   transactions: ParsedOFXTransaction[];
   balance?: {
-    amount: number;
-    asOf: string;
+    amount: string; // String for precision
+    asOf: string; // ISO date
   };
   dateRange: {
     start: string;
@@ -185,22 +180,14 @@ export interface ParsedOFXFile {
   };
 }
 
-export interface ParsedOFXTransaction {
-  fitId: string;
-  type: BankTransactionType;
-  amount: number;
-  datePosted: string;
-  name: string;
-  memo?: string;
-  checkNum?: string;
-  refNum?: string;
-}
-
-// Import summary for UI feedback
+/**
+ * OFX import result for UI feedback
+ */
 export interface OFXImportResult {
   success: boolean;
-  accountId: number;
+  accountId: string;
   accountName: string;
+  isNewAccount: boolean;
   totalTransactions: number;
   newTransactions: number;
   duplicatesSkipped: number;
@@ -208,300 +195,183 @@ export interface OFXImportResult {
   errors: string[];
 }
 
-// Mapping rule for auto-categorization
-export interface TransactionMappingRule {
-  id: number;
-  accountId?: number;              // Optional: apply only to specific account
-  pattern: string;                 // Text pattern to match
-  matchField: 'name' | 'memo' | 'both';
-  matchType?: 'exact' | 'contains' | 'startsWith' | 'endsWith'; // How to match (default: 'contains')
-  revenueSourceId?: number;        // Map to this source (if category is 'revenue')
-  transferAccountId?: number;      // Map to this account (if category is 'transfer')
-  category: TransactionCategory;
-  isActive: boolean;
-  priority: number;                // Higher priority rules applied first
-  createdAt: string;
-
-  // Accounting integration
-  chartAccountId?: string;         // Map to this ChartAccount for expenses/revenue
-}
-
-// Monthly bank summary for reconciliation
-export interface MonthlyBankSummary {
-  month: Month;
-  year: number;
-  totalCredits: number;
-  totalDebits: number;
-  netAmount: number;
-  transactionCount: number;
-  mappedCount: number;
-  unmappedCount: number;
-  revenueBySource: Record<number, number>;  // sourceId -> total
-}
-
 // ============================================
-// Accounting Types (Double-Entry)
+// LLM Categorization Types
 // ============================================
 
-// Account types in double-entry accounting
-export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
-
-// Normal balance for each account type
-export const NORMAL_BALANCE: Record<AccountType, 'DEBIT' | 'CREDIT'> = {
-  ASSET: 'DEBIT',      // Assets increase with debits
-  LIABILITY: 'CREDIT', // Liabilities increase with credits
-  EQUITY: 'CREDIT',    // Equity increases with credits
-  REVENUE: 'CREDIT',   // Revenue increases with credits
-  EXPENSE: 'DEBIT',    // Expenses increase with debits
-};
-
-// Chart of Accounts - represents a category/account in the accounting system
-export interface ChartAccount {
-  id: string;                    // UUID for new accounts, code for system accounts
-  code: string;                  // Account code (e.g., "1000", "5110")
-  name: string;                  // Display name
-  type: AccountType;
-  subtype?: string;              // Sub-classification (e.g., "Cash", "Operating")
-  parentId?: string;             // Parent account ID for hierarchy
-  isSystem: boolean;             // Built-in account (cannot be deleted)
-  isActive: boolean;             // Soft delete flag
-  description?: string;
-
-  // For bank account linking
-  bankAccountId?: number;        // Link to BankAccount if this is a cash/card account
-
-  // For expense budgeting
-  budget?: {
-    expectedMonthly: MonthlyValues;
-  };
-
-  // Metadata
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Journal Entry - the core of double-entry accounting
-export interface JournalEntry {
-  id: string;                    // UUID
-  date: string;                  // ISO date YYYY-MM-DD
-  description: string;
-  lines: JournalLine[];
-
-  // Source references
-  bankTransactionId?: number;    // Link to imported bank transaction
-  revenueSourceId?: number;      // Link to revenue source
-  salaryId?: number;             // Link to salary record
-
-  // For opening balances
-  isOpeningBalance?: boolean;
-
-  // Metadata
-  isReconciled: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Journal Line - individual debit or credit in a journal entry
-export interface JournalLine {
-  accountId: string;             // ChartAccount.id
-  amount: number;                // Always positive
-  type: 'DEBIT' | 'CREDIT';
+/**
+ * LLM categorization request item
+ */
+export interface LLMCategorizationItem {
+  index: number;
+  date: string;
+  amount: string;
+  name: string;
   memo?: string;
 }
 
-// Account balance at a point in time
-export interface AccountBalance {
-  accountId: string;
-  balance: number;               // Positive or negative based on account type
-  asOf: string;                  // ISO date
+/**
+ * LLM categorization response item
+ */
+export interface LLMCategorizationResult {
+  index: number;
+  category: TransactionCategory;
+  subcategory: string;
+  incomeType: IncomeType | null;
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
 }
 
-// Opening balance record
-export interface OpeningBalance {
-  accountId: string;
-  balance: number;
-  date: string;                  // ISO date when balance was set
+/**
+ * Full LLM categorization response
+ */
+export interface LLMCategorizationResponse {
+  categorizations: LLMCategorizationResult[];
 }
 
 // ============================================
-// Default Chart of Accounts for Freelancers
+// Report Types
 // ============================================
 
-export const DEFAULT_CHART_OF_ACCOUNTS: Omit<ChartAccount, 'createdAt' | 'updatedAt'>[] = [
-  // ASSETS (1000s)
-  { id: '1000', code: '1000', name: 'Assets', type: 'ASSET', isSystem: true, isActive: true },
-  { id: '1100', code: '1100', name: 'Cash & Bank', type: 'ASSET', parentId: '1000', subtype: 'Cash', isSystem: true, isActive: true },
-  { id: '1110', code: '1110', name: 'Checking Account', type: 'ASSET', parentId: '1100', subtype: 'Cash', isSystem: false, isActive: true },
-  { id: '1120', code: '1120', name: 'Savings Account', type: 'ASSET', parentId: '1100', subtype: 'Cash', isSystem: false, isActive: true },
+/**
+ * Date range for filtering
+ */
+export interface DateRange {
+  start: string; // ISO date
+  end: string; // ISO date
+}
 
-  // LIABILITIES (2000s)
-  { id: '2000', code: '2000', name: 'Liabilities', type: 'LIABILITY', isSystem: true, isActive: true },
-  { id: '2100', code: '2100', name: 'Credit Cards', type: 'LIABILITY', parentId: '2000', subtype: 'Credit Card', isSystem: true, isActive: true },
-  { id: '2110', code: '2110', name: 'Credit Card', type: 'LIABILITY', parentId: '2100', subtype: 'Credit Card', isSystem: false, isActive: true },
-  { id: '2200', code: '2200', name: 'Tax Liabilities', type: 'LIABILITY', parentId: '2000', isSystem: true, isActive: true },
-  { id: '2210', code: '2210', name: 'VAT Payable', type: 'LIABILITY', parentId: '2200', isSystem: false, isActive: true },
+/**
+ * Account balance for Balance Sheet
+ */
+export interface AccountBalanceItem {
+  accountId: string;
+  accountName: string;
+  accountType: BankAccountType;
+  currency: string;
+  balance: string; // Decimal string
+}
 
-  // EQUITY (3000s)
-  { id: '3000', code: '3000', name: 'Equity', type: 'EQUITY', isSystem: true, isActive: true },
-  { id: '3100', code: '3100', name: "Owner's Equity", type: 'EQUITY', parentId: '3000', isSystem: true, isActive: true },
-  { id: '3200', code: '3200', name: 'Retained Earnings', type: 'EQUITY', parentId: '3000', isSystem: true, isActive: true },
+/**
+ * Balance Sheet report data
+ */
+export interface BalanceSheetReport {
+  asOf: string; // ISO date
+  assets: {
+    accounts: AccountBalanceItem[];
+    total: string;
+  };
+  liabilities: {
+    accounts: AccountBalanceItem[];
+    total: string;
+  };
+  netWorth: string;
+}
 
-  // REVENUE (4000s)
-  { id: '4000', code: '4000', name: 'Revenue', type: 'REVENUE', isSystem: true, isActive: true },
-  { id: '4100', code: '4100', name: 'Service Revenue', type: 'REVENUE', parentId: '4000', isSystem: true, isActive: true },
-  { id: '4200', code: '4200', name: 'Product Revenue', type: 'REVENUE', parentId: '4000', isSystem: false, isActive: true },
-  { id: '4900', code: '4900', name: 'Other Income', type: 'REVENUE', parentId: '4000', isSystem: false, isActive: true },
+/**
+ * P&L line item by subcategory
+ */
+export interface PLLineItem {
+  subcategory: string;
+  amount: string;
+}
 
-  // EXPENSES (5000s)
-  { id: '5000', code: '5000', name: 'Expenses', type: 'EXPENSE', isSystem: true, isActive: true },
+/**
+ * Profit & Loss report data
+ */
+export interface ProfitLossReport {
+  period: DateRange;
+  revenue: {
+    local: {
+      items: PLLineItem[];
+      total: string;
+    };
+    foreign: {
+      items: PLLineItem[];
+      total: string;
+    };
+    total: string;
+  };
+  expenses: {
+    items: PLLineItem[];
+    total: string;
+  };
+  grossProfit: string;
+  tax: {
+    rate: string; // "0.15" for 15%
+    amount: string; // Tax on local income
+  };
+  netProfit: string;
+}
 
-  // Operating Expenses (5100s)
-  { id: '5100', code: '5100', name: 'Operating Expenses', type: 'EXPENSE', parentId: '5000', subtype: 'Operating', isSystem: true, isActive: true },
-  { id: '5110', code: '5110', name: 'Rent', type: 'EXPENSE', parentId: '5100', subtype: 'Operating', isSystem: false, isActive: true },
-  { id: '5120', code: '5120', name: 'Utilities', type: 'EXPENSE', parentId: '5100', subtype: 'Operating', isSystem: false, isActive: true },
-  { id: '5130', code: '5130', name: 'Software & Subscriptions', type: 'EXPENSE', parentId: '5100', subtype: 'Operating', isSystem: false, isActive: true },
-  { id: '5140', code: '5140', name: 'Office Supplies', type: 'EXPENSE', parentId: '5100', subtype: 'Operating', isSystem: false, isActive: true },
-  { id: '5150', code: '5150', name: 'Internet & Phone', type: 'EXPENSE', parentId: '5100', subtype: 'Operating', isSystem: false, isActive: true },
-  { id: '5160', code: '5160', name: 'Insurance', type: 'EXPENSE', parentId: '5100', subtype: 'Operating', isSystem: false, isActive: true },
+/**
+ * Cash Flow report data
+ */
+export interface CashFlowReport {
+  period: DateRange;
+  inflows: {
+    total: string;
+    bySubcategory: PLLineItem[];
+  };
+  outflows: {
+    total: string;
+    bySubcategory: PLLineItem[];
+  };
+  transfers: {
+    total: string;
+  };
+  netCashFlow: string;
+  openingBalance: string;
+  closingBalance: string;
+}
 
-  // Professional Services (5200s)
-  { id: '5200', code: '5200', name: 'Professional Services', type: 'EXPENSE', parentId: '5000', subtype: 'Professional', isSystem: true, isActive: true },
-  { id: '5210', code: '5210', name: 'Legal', type: 'EXPENSE', parentId: '5200', subtype: 'Professional', isSystem: false, isActive: true },
-  { id: '5220', code: '5220', name: 'Accounting', type: 'EXPENSE', parentId: '5200', subtype: 'Professional', isSystem: false, isActive: true },
-  { id: '5230', code: '5230', name: 'Consulting', type: 'EXPENSE', parentId: '5200', subtype: 'Professional', isSystem: false, isActive: true },
+/**
+ * Category spending item
+ */
+export interface CategorySpendingItem {
+  subcategory: string;
+  amount: string;
+  percentage: string; // "21.50" for 21.50%
+  transactionCount: number;
+}
 
-  // Marketing & Advertising (5300s)
-  { id: '5300', code: '5300', name: 'Marketing & Advertising', type: 'EXPENSE', parentId: '5000', subtype: 'Marketing', isSystem: true, isActive: true },
-  { id: '5310', code: '5310', name: 'Online Advertising', type: 'EXPENSE', parentId: '5300', subtype: 'Marketing', isSystem: false, isActive: true },
-  { id: '5320', code: '5320', name: 'Content & Design', type: 'EXPENSE', parentId: '5300', subtype: 'Marketing', isSystem: false, isActive: true },
+/**
+ * Category Spending report data
+ */
+export interface CategorySpendingReport {
+  period: DateRange;
+  expenses: CategorySpendingItem[];
+  totalExpenses: string;
+  income: CategorySpendingItem[];
+  totalIncome: string;
+}
 
-  // Travel & Entertainment (5400s)
-  { id: '5400', code: '5400', name: 'Travel & Entertainment', type: 'EXPENSE', parentId: '5000', subtype: 'Travel', isSystem: true, isActive: true },
-  { id: '5410', code: '5410', name: 'Travel', type: 'EXPENSE', parentId: '5400', subtype: 'Travel', isSystem: false, isActive: true },
-  { id: '5420', code: '5420', name: 'Meals & Entertainment', type: 'EXPENSE', parentId: '5400', subtype: 'Travel', isSystem: false, isActive: true },
+// ============================================
+// App Configuration
+// ============================================
 
-  // Bank Fees & Interest (5500s)
-  { id: '5500', code: '5500', name: 'Bank Fees & Interest', type: 'EXPENSE', parentId: '5000', subtype: 'Banking', isSystem: true, isActive: true },
-  { id: '5510', code: '5510', name: 'Bank Fees', type: 'EXPENSE', parentId: '5500', subtype: 'Banking', isSystem: false, isActive: true },
-  { id: '5520', code: '5520', name: 'Interest Expense', type: 'EXPENSE', parentId: '5500', subtype: 'Banking', isSystem: false, isActive: true },
-  { id: '5530', code: '5530', name: 'Payment Processing Fees', type: 'EXPENSE', parentId: '5500', subtype: 'Banking', isSystem: false, isActive: true },
+export const PROFIT_TAX_RATE = '0.15'; // 15% on local income
 
-  // Payroll (5600s)
-  { id: '5600', code: '5600', name: 'Payroll', type: 'EXPENSE', parentId: '5000', subtype: 'Payroll', isSystem: true, isActive: true },
-  { id: '5610', code: '5610', name: 'Salaries & Wages', type: 'EXPENSE', parentId: '5600', subtype: 'Payroll', isSystem: true, isActive: true },
-  { id: '5620', code: '5620', name: 'Payroll Taxes', type: 'EXPENSE', parentId: '5600', subtype: 'Payroll', isSystem: true, isActive: true },
-
-  // Cost of Goods Sold (5700s)
-  { id: '5700', code: '5700', name: 'Cost of Goods Sold', type: 'EXPENSE', parentId: '5000', subtype: 'COGS', isSystem: true, isActive: true },
-
-  // Taxes (5800s)
-  { id: '5800', code: '5800', name: 'Taxes', type: 'EXPENSE', parentId: '5000', subtype: 'Tax', isSystem: true, isActive: true },
-  { id: '5810', code: '5810', name: 'VAT Expense', type: 'EXPENSE', parentId: '5800', subtype: 'Tax', isSystem: false, isActive: true },
-  { id: '5820', code: '5820', name: 'Corporate Tax', type: 'EXPENSE', parentId: '5800', subtype: 'Tax', isSystem: false, isActive: true },
-
-  // Other Expenses (5900s)
-  { id: '5900', code: '5900', name: 'Other Expenses', type: 'EXPENSE', parentId: '5000', isSystem: true, isActive: true },
+/**
+ * Default subcategories to seed new contexts
+ */
+export const DEFAULT_INCOME_SUBCATEGORIES = [
+  'Consulting',
+  'Product Sales',
+  'Service Revenue',
+  'Interest',
+  'Other Income',
 ];
 
-// ============================================
-// Revenue Analytics Types
-// ============================================
-
-// Variance information for comparing expected vs actual
-export interface VarianceInfo {
-  expected: number;
-  actual: number;
-  difference: number;
-  percentage: number;
-  isPositive: boolean;
-  status: 'exceeding' | 'on-target' | 'behind' | 'critical';
-}
-
-// Performance metrics for a single source
-export interface SourcePerformance {
-  sourceId: number;
-  sourceName: string;
-  sourceType: RevenueType;
-  currency: string;
-  ytdExpected: number;
-  ytdActual: number;
-  variance: VarianceInfo;
-  monthlyTrend: 'growing' | 'stable' | 'declining';
-  growthRate: number;
-  reliability: number; // 0-100 score based on hitting targets
-  bestMonth: { month: Month; amount: number } | null;
-  worstMonth: { month: Month; amount: number } | null;
-}
-
-// Monthly analysis data
-export interface MonthAnalysis {
-  month: Month;
-  year: number;
-  totalExpected: number;
-  totalActual: number;
-  variance: VarianceInfo;
-  byType: {
-    local: { expected: number; actual: number };
-    foreign: { expected: number; actual: number };
-  };
-  sources: Array<{
-    sourceId: number;
-    sourceName: string;
-    expected: number;
-    actual: number;
-    variance: VarianceInfo;
-  }>;
-}
-
-// Insight types for auto-generated recommendations
-export type InsightType = 'warning' | 'success' | 'info' | 'action';
-
-export interface Insight {
-  id: string;
-  type: InsightType;
-  title: string;
-  description: string;
-  metric?: string;
-  sourceId?: number;
-  month?: Month;
-}
-
-// Forecast scenario types
-export type ForecastScenario = 'conservative' | 'baseline' | 'optimistic' | 'custom';
-
-export interface ScenarioConfig {
-  scenario: ForecastScenario;
-  adjustmentFactor: number; // multiplier (0.9 for -10%, 1.15 for +15%)
-}
-
-// Extended forecast result with confidence
-export interface ForecastWithConfidence {
-  month: string;
-  predicted: number;
-  confidence: number; // 0-100
-  lowerBound: number;
-  upperBound: number;
-  method: string;
-}
-
-// Source-level forecast
-export interface SourceForecast {
-  sourceId: number;
-  sourceName: string;
-  forecasts: ForecastWithConfidence[];
-  overallConfidence: number;
-}
-
-// YTD Summary
-export interface YTDSummary {
-  revenue: VarianceInfo;
-  net: VarianceInfo;
-  currentMonth: {
-    month: Month;
-    actual: number;
-    expected: number;
-    percentComplete: number;
-  };
-  projectedEOY: number;
-  projectedEOYVariance: VarianceInfo;
-}
+export const DEFAULT_EXPENSE_SUBCATEGORIES = [
+  'Software Subscriptions',
+  'Office Supplies',
+  'Professional Services',
+  'Travel',
+  'Meals & Entertainment',
+  'Bank Fees',
+  'Insurance',
+  'Utilities',
+  'Rent',
+  'Other Expenses',
+];

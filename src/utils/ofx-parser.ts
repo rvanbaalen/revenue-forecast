@@ -3,39 +3,14 @@
  *
  * Supports both SGML-based OFX 1.x and XML-based OFX 2.x formats.
  * Most banks export in OFX 1.x SGML format which doesn't use closing tags.
+ *
+ * All amounts are returned as strings for Decimal.js precision.
  */
 
-import type { ParsedOFXFile, ParsedOFXTransaction, BankAccountType, BankTransactionType, Month, Currency } from '../types';
+import type { ParsedOFXFile, ParsedOFXTransaction, OFXTransactionType } from '../types';
 
-/**
- * Match or create a Currency object from an OFX currency code
- * Checks if currency already exists in config, or creates a new one with the code as symbol
- */
-export function matchOrCreateCurrency(
-  ofxCode: string,
-  existingCurrencies: Currency[]
-): { currency: Currency; isNew: boolean } {
-  // Check if currency already exists (case-insensitive match)
-  const existing = existingCurrencies.find(
-    c => c.code.toLowerCase() === ofxCode.toLowerCase()
-  );
-
-  if (existing) {
-    return { currency: existing, isNew: false };
-  }
-
-  // Create new currency - use code as symbol, rate defaults to 1
-  const newCurrency: Currency = {
-    code: ofxCode,
-    symbol: ofxCode,
-    rate: 1,
-  };
-
-  return { currency: newCurrency, isNew: true };
-}
-
-// Month mapping for converting date to Month type
-const MONTH_MAP: Month[] = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+// Account types from OFX
+type OFXAccountType = 'CHECKING' | 'SAVINGS' | 'CREDITLINE' | 'MONEYMRKT' | 'CREDITCARD';
 
 /**
  * Parse OFX date format (YYYYMMDDHHMMSS or YYYYMMDD) to ISO date string
@@ -55,21 +30,10 @@ export function parseOFXDate(ofxDate: string): string {
 }
 
 /**
- * Extract month and year from ISO date string
- */
-export function extractMonthYear(isoDate: string): { month: Month; year: number } {
-  const date = new Date(isoDate);
-  return {
-    month: MONTH_MAP[date.getMonth()],
-    year: date.getFullYear()
-  };
-}
-
-/**
  * Normalize transaction type from OFX to our type
  */
-function normalizeTransactionType(type: string): BankTransactionType {
-  const typeMap: Record<string, BankTransactionType> = {
+function normalizeTransactionType(type: string): OFXTransactionType {
+  const typeMap: Record<string, OFXTransactionType> = {
     'CREDIT': 'CREDIT',
     'DEBIT': 'DEBIT',
     'INT': 'INT',
@@ -93,8 +57,8 @@ function normalizeTransactionType(type: string): BankTransactionType {
 /**
  * Normalize account type from OFX to our type
  */
-function normalizeAccountType(type: string): BankAccountType {
-  const typeMap: Record<string, BankAccountType> = {
+function normalizeAccountType(type: string): OFXAccountType {
+  const typeMap: Record<string, OFXAccountType> = {
     'CHECKING': 'CHECKING',
     'SAVINGS': 'SAVINGS',
     'CREDITLINE': 'CREDITLINE',
@@ -171,6 +135,7 @@ function extractTransactionBlocks(tranList: string): string[] {
 
 /**
  * Parse a single transaction block
+ * Returns amounts as strings for Decimal.js precision
  */
 function parseTransaction(block: string, isXML: boolean): ParsedOFXTransaction | null {
   const fitId = extractValue(block, 'FITID', isXML);
@@ -180,22 +145,26 @@ function parseTransaction(block: string, isXML: boolean): ParsedOFXTransaction |
   const name = extractValue(block, 'NAME', isXML);
   const memo = extractValue(block, 'MEMO', isXML);
   const checkNum = extractValue(block, 'CHECKNUM', isXML);
-  const refNum = extractValue(block, 'REFNUM', isXML);
 
   // Must have at least fitId, amount, and date
   if (!fitId || !amount || !datePosted) {
     return null;
   }
 
+  // Validate amount is a valid number
+  const parsedAmount = parseFloat(amount);
+  if (isNaN(parsedAmount)) {
+    return null;
+  }
+
   return {
     fitId,
     type: normalizeTransactionType(type),
-    amount: parseFloat(amount),
+    amount, // Keep as string for precision
     datePosted: parseOFXDate(datePosted),
     name: name || 'Unknown',
     memo: memo || undefined,
-    checkNum: checkNum || undefined,
-    refNum: refNum || undefined,
+    checkNumber: checkNum || undefined,
   };
 }
 
@@ -205,20 +174,6 @@ function parseTransaction(block: string, isXML: boolean): ParsedOFXTransaction |
 function isXMLFormat(content: string): boolean {
   // XML OFX starts with <?xml or <?OFX
   return content.trimStart().startsWith('<?xml') || content.trimStart().startsWith('<?OFX');
-}
-
-/**
- * Create a simple hash for account identification
- * Uses a basic string hash - not cryptographically secure but sufficient for matching
- */
-export function hashAccountId(accountId: string): string {
-  let hash = 0;
-  for (let i = 0; i < accountId.length; i++) {
-    const char = accountId.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return Math.abs(hash).toString(16);
 }
 
 /**
@@ -290,7 +245,7 @@ export function parseOFX(content: string): ParsedOFXFile {
     currency,
     transactions,
     balance: balanceAmount ? {
-      amount: parseFloat(balanceAmount),
+      amount: balanceAmount, // Keep as string for precision
       asOf: parseOFXDate(balanceDate),
     } : undefined,
     dateRange: {
@@ -316,7 +271,7 @@ export function validateOFXFile(parsed: ParsedOFXFile): { valid: boolean; errors
 
   // Check for transactions with missing required fields
   const invalidTxCount = parsed.transactions.filter(
-    tx => !tx.fitId || !tx.datePosted || isNaN(tx.amount)
+    tx => !tx.fitId || !tx.datePosted || !tx.amount
   ).length;
 
   if (invalidTxCount > 0) {
