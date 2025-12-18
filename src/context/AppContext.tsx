@@ -142,6 +142,77 @@ interface AppContextValue extends AppState {
 }
 
 // ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Synchronize transaction subcategories with the Subcategory table.
+ * This ensures that all subcategory values used in transactions exist in the
+ * Subcategory table, so Settings > Categories and Reports show the same list.
+ */
+async function syncTransactionSubcategories(
+  transactions: Transaction[],
+  accounts: BankAccount[],
+  existingSubcategories: Subcategory[]
+): Promise<Subcategory[]> {
+  // Build account to context mapping
+  const accountContextMap = new Map(accounts.map((a) => [a.id, a.contextId]));
+
+  // Build existing subcategory lookup: "contextId:type:lowercaseName" -> Subcategory
+  const existingLookup = new Map<string, Subcategory>();
+  for (const sub of existingSubcategories) {
+    const key = `${sub.contextId}:${sub.type}:${sub.name.toLowerCase()}`;
+    existingLookup.set(key, sub);
+  }
+
+  // Find missing subcategories from transactions
+  const newSubcategories: Subcategory[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const tx of transactions) {
+    // Only process income/expense transactions with a subcategory value
+    if (
+      (tx.category !== 'income' && tx.category !== 'expense') ||
+      !tx.subcategory ||
+      tx.subcategory.trim() === ''
+    ) {
+      continue;
+    }
+
+    const contextId = accountContextMap.get(tx.accountId);
+    if (!contextId) continue;
+
+    const type = tx.category as 'income' | 'expense';
+    const key = `${contextId}:${type}:${tx.subcategory.toLowerCase()}`;
+
+    // Skip if already exists or already processed
+    if (existingLookup.has(key) || seenKeys.has(key)) {
+      continue;
+    }
+
+    seenKeys.add(key);
+
+    // Create new subcategory
+    const newSub: Subcategory = {
+      id: crypto.randomUUID(),
+      contextId,
+      name: tx.subcategory,
+      type,
+      createdAt: new Date().toISOString(),
+    };
+
+    newSubcategories.push(newSub);
+  }
+
+  // Save new subcategories to database
+  for (const sub of newSubcategories) {
+    await db.addSubcategory(sub);
+  }
+
+  return [...existingSubcategories, ...newSubcategories];
+}
+
+// ============================================
 // Context
 // ============================================
 
@@ -192,6 +263,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         db.getCurrencies(),
       ]);
 
+      // Sync transaction subcategories with Subcategory table
+      // This ensures categories shown in Settings match those in Reports
+      const syncedSubcategories = await syncTransactionSubcategories(
+        transactions,
+        accounts,
+        subcategories
+      );
+
       // Set active context to first one if not set
       const activeContextId = contexts.length > 0 ? contexts[0].id : null;
 
@@ -200,7 +279,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         contexts,
         accounts,
         transactions,
-        subcategories,
+        subcategories: syncedSubcategories,
         mappingRules,
         reconciliations,
         currencies,
@@ -397,12 +476,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateTransactionFn = useCallback(async (transaction: Transaction) => {
     await db.updateTransaction(transaction);
-    setState((s) => ({
-      ...s,
-      transactions: s.transactions.map((t) =>
-        t.id === transaction.id ? transaction : t
-      ),
-    }));
+
+    // Sync subcategory if needed (ensure it exists in Subcategory table)
+    setState((s) => {
+      let newSubcategories = s.subcategories;
+
+      if (
+        (transaction.category === 'income' || transaction.category === 'expense') &&
+        transaction.subcategory &&
+        transaction.subcategory.trim() !== ''
+      ) {
+        const account = s.accounts.find((a) => a.id === transaction.accountId);
+        if (account) {
+          const type = transaction.category as 'income' | 'expense';
+          const existingSubcategory = s.subcategories.find(
+            (sub) =>
+              sub.contextId === account.contextId &&
+              sub.type === type &&
+              sub.name.toLowerCase() === transaction.subcategory.toLowerCase()
+          );
+
+          if (!existingSubcategory) {
+            // Create and save new subcategory
+            const newSub: Subcategory = {
+              id: crypto.randomUUID(),
+              contextId: account.contextId,
+              name: transaction.subcategory,
+              type,
+              createdAt: new Date().toISOString(),
+            };
+            db.addSubcategory(newSub);
+            newSubcategories = [...s.subcategories, newSub];
+          }
+        }
+      }
+
+      return {
+        ...s,
+        subcategories: newSubcategories,
+        transactions: s.transactions.map((t) =>
+          t.id === transaction.id ? transaction : t
+        ),
+      };
+    });
   }, []);
 
   const updateTransactionsFn = useCallback(async (transactions: Transaction[]) => {
@@ -410,12 +526,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const updatedIds = new Set(transactions.map((t) => t.id));
     const updatedMap = new Map(transactions.map((t) => [t.id, t]));
 
-    setState((s) => ({
-      ...s,
-      transactions: s.transactions.map((t) =>
-        updatedIds.has(t.id) ? updatedMap.get(t.id)! : t
-      ),
-    }));
+    // Sync subcategories for all updated transactions
+    setState((s) => {
+      const newSubcategories: Subcategory[] = [];
+      const existingLookup = new Map<string, Subcategory>();
+      for (const sub of s.subcategories) {
+        const key = `${sub.contextId}:${sub.type}:${sub.name.toLowerCase()}`;
+        existingLookup.set(key, sub);
+      }
+      const seenKeys = new Set<string>();
+
+      for (const tx of transactions) {
+        if (
+          (tx.category !== 'income' && tx.category !== 'expense') ||
+          !tx.subcategory ||
+          tx.subcategory.trim() === ''
+        ) {
+          continue;
+        }
+
+        const account = s.accounts.find((a) => a.id === tx.accountId);
+        if (!account) continue;
+
+        const type = tx.category as 'income' | 'expense';
+        const key = `${account.contextId}:${type}:${tx.subcategory.toLowerCase()}`;
+
+        if (existingLookup.has(key) || seenKeys.has(key)) {
+          continue;
+        }
+
+        seenKeys.add(key);
+
+        const newSub: Subcategory = {
+          id: crypto.randomUUID(),
+          contextId: account.contextId,
+          name: tx.subcategory,
+          type,
+          createdAt: new Date().toISOString(),
+        };
+
+        newSubcategories.push(newSub);
+        db.addSubcategory(newSub);
+      }
+
+      return {
+        ...s,
+        subcategories: [...s.subcategories, ...newSubcategories],
+        transactions: s.transactions.map((t) =>
+          updatedIds.has(t.id) ? updatedMap.get(t.id)! : t
+        ),
+      };
+    });
   }, []);
 
   const deleteTransactionFn = useCallback(async (id: string) => {
