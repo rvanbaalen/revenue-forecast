@@ -89,6 +89,7 @@ export function TransactionsPage() {
     updateTransaction,
     updateTransactions,
     addMappingRule,
+    addSubcategory,
     activeContextId,
   } = useApp();
 
@@ -210,7 +211,7 @@ export function TransactionsPage() {
       return;
     }
 
-    const { updatedTransactions, appliedCount, unmatchedCount, ruleApplications } =
+    const { updatedTransactions, newSubcategories, appliedCount, unmatchedCount, ruleApplications } =
       applyRulesToTransactions(uncategorizedTx, result.rules, subcategories);
 
     // Show results before closing
@@ -218,6 +219,11 @@ export function TransactionsPage() {
 
     if (appliedCount > 0) {
       await updateTransactions(updatedTransactions);
+
+      // Add any new subcategories suggested by LLM to the database
+      for (const newSub of newSubcategories) {
+        await addSubcategory(newSub.name, newSub.type);
+      }
 
       // Save LLM-generated rules as MappingRules for future use
       if (activeContextId) {

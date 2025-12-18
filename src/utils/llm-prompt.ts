@@ -5,16 +5,17 @@
  * The LLM responds with JSON that the app parses to apply categorizations.
  */
 
-import type {
-  Transaction,
-  Subcategory,
-  LLMCategorizationResponse,
-  LLMCategorizationResult,
-  LLMCategorizationRule,
-  LLMRulesetResponse,
-  RuleApplicationResult,
-  TransactionCategory,
-  IncomeType,
+import {
+  LLM_ASSIGNABLE_CATEGORIES,
+  type Transaction,
+  type Subcategory,
+  type LLMCategorizationResponse,
+  type LLMCategorizationResult,
+  type LLMCategorizationRule,
+  type LLMRulesetResponse,
+  type RuleApplicationResult,
+  type TransactionCategory,
+  type IncomeType,
 } from '../types';
 import { formatCurrency } from './decimal';
 
@@ -56,7 +57,7 @@ TRANSACTIONS TO CATEGORIZE:
 ${transactionList.join('\n')}
 
 For each transaction, determine:
-- category: "income" | "expense" | "transfer" | "uncategorized"
+- category: ${LLM_ASSIGNABLE_CATEGORIES.map((c) => `"${c}"`).join(' | ')}
   - "income" = money received (positive amounts like deposits, payments received)
   - "expense" = money spent (negative amounts like purchases, payments made)
   - "transfer" = movement between own accounts (matching deposits/withdrawals)
@@ -109,8 +110,8 @@ export function parseLLMResponse(jsonString: string): LLMCategorizationResponse 
       return { error: 'Response missing "categorizations" array' };
     }
 
-    // Validate each categorization
-    const validCategories: TransactionCategory[] = ['income', 'expense', 'transfer', 'uncategorized'];
+    // Validate each categorization using single source of truth
+    const validCategories = LLM_ASSIGNABLE_CATEGORIES;
     const validConfidence = ['high', 'medium', 'low'];
 
     const validatedResults: LLMCategorizationResult[] = [];
@@ -403,7 +404,7 @@ RULE FIELDS:
 - pattern: Text to match (e.g., "GITHUB", "AMAZON", "PAYROLL")
 - matchType: "contains" (anywhere), "startsWith" (beginning), or "exact" (full match)
 - matchField: "name" (transaction name), "memo", or "both"
-- category: "income" | "expense" | "transfer" | "uncategorized"
+- category: ${LLM_ASSIGNABLE_CATEGORIES.map((c) => `"${c}"`).join(' | ')}
 - subcategory: Use existing or suggest new (2-3 words max)
 - incomeType: "local" (15% tax) or "foreign" (0% tax) for income, null otherwise
 - confidence: "high" | "medium" | "low"
@@ -431,8 +432,8 @@ export function parseRulesetResponse(jsonString: string): LLMRulesetResponse | {
       return { error: 'Response missing "rules" array' };
     }
 
-    // Validate each rule
-    const validCategories: TransactionCategory[] = ['income', 'expense', 'transfer', 'uncategorized'];
+    // Validate each rule using single source of truth
+    const validCategories = LLM_ASSIGNABLE_CATEGORIES;
     const validMatchTypes = ['contains', 'startsWith', 'exact'];
     const validMatchFields = ['name', 'memo', 'both'];
     const validConfidence = ['high', 'medium', 'low'];
