@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.10.0...v2.0.0) (2025-12-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* Removes old revenue forecasting, salary management, and double-entry accounting features. No backwards compatibility.
+
+### Features
+
+* Redesign financial architecture with OFX focus ([#47](https://github.com/rvanbaalen/revenue-forecast/issues/47)) ([0120350](https://github.com/rvanbaalen/revenue-forecast/commit/0120350b7de1b64e955c02ef6b63e7dac5ef1570))
+
 ## [1.10.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.9.0...v1.10.0) (2025-12-18)
 
 
