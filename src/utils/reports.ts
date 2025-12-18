@@ -21,6 +21,7 @@ import type {
   PLLineItem,
   CategorySpendingItem,
   AccountBalanceItem,
+  Subcategory,
 } from '../types';
 import {
   toDecimal,
@@ -39,6 +40,35 @@ import { filterByFiscalDateRange } from './fiscal-year';
 
 // Re-export the tax rate
 const TAX_RATE = '0.15'; // 15% on local income
+
+/**
+ * Create a lookup map to normalize transaction subcategory strings to Subcategory names.
+ * Uses case-insensitive matching.
+ */
+function createSubcategoryLookup(
+  subcategories: Subcategory[],
+  type: 'income' | 'expense'
+): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const sub of subcategories) {
+    if (sub.type === type) {
+      lookup.set(sub.name.toLowerCase(), sub.name);
+    }
+  }
+  return lookup;
+}
+
+/**
+ * Normalize a transaction subcategory string to its canonical Subcategory name.
+ * Returns the original string if no match found.
+ */
+function normalizeSubcategory(
+  subcategory: string,
+  lookup: Map<string, string>
+): string {
+  if (!subcategory) return '';
+  return lookup.get(subcategory.toLowerCase()) || subcategory;
+}
 
 /**
  * Filter transactions by date range.
@@ -154,10 +184,15 @@ export function generateBalanceSheet(
  */
 export function generateProfitLoss(
   transactions: Transaction[],
-  period: DateRange
+  period: DateRange,
+  subcategories: Subcategory[] = []
 ): ProfitLossReport {
   // Filter by date range
   const periodTx = filterByDateRange(transactions, period);
+
+  // Create lookup maps for normalizing subcategory names
+  const incomeLookup = createSubcategoryLookup(subcategories, 'income');
+  const expenseLookup = createSubcategoryLookup(subcategories, 'expense');
 
   // Income transactions (positive amounts, category = 'income')
   const incomeTransactions = periodTx.filter(
@@ -168,9 +203,20 @@ export function generateProfitLoss(
   const localIncome = incomeTransactions.filter((t) => t.incomeType === 'local');
   const foreignIncome = incomeTransactions.filter((t) => t.incomeType === 'foreign');
 
-  // Group by subcategory
-  const localBySubcategory = groupAndSum(localIncome, 'subcategory', 'amount');
-  const foreignBySubcategory = groupAndSum(foreignIncome, 'subcategory', 'amount');
+  // Group by normalized subcategory
+  const localBySubcategory = new Map<string, Decimal>();
+  for (const tx of localIncome) {
+    const normalizedName = normalizeSubcategory(tx.subcategory, incomeLookup);
+    const current = localBySubcategory.get(normalizedName) || new Decimal(0);
+    localBySubcategory.set(normalizedName, current.plus(toDecimal(tx.amount)));
+  }
+
+  const foreignBySubcategory = new Map<string, Decimal>();
+  for (const tx of foreignIncome) {
+    const normalizedName = normalizeSubcategory(tx.subcategory, incomeLookup);
+    const current = foreignBySubcategory.get(normalizedName) || new Decimal(0);
+    foreignBySubcategory.set(normalizedName, current.plus(toDecimal(tx.amount)));
+  }
 
   // Calculate local income items
   const localItems: PLLineItem[] = [];
@@ -196,8 +242,13 @@ export function generateProfitLoss(
     (t) => t.category === 'expense' && isNegative(t.amount)
   );
 
-  // Group expenses by subcategory
-  const expensesBySubcategory = groupAndSum(expenseTransactions, 'subcategory', 'amount');
+  // Group expenses by normalized subcategory
+  const expensesBySubcategory = new Map<string, Decimal>();
+  for (const tx of expenseTransactions) {
+    const normalizedName = normalizeSubcategory(tx.subcategory, expenseLookup);
+    const current = expensesBySubcategory.get(normalizedName) || new Decimal(0);
+    expensesBySubcategory.set(normalizedName, current.plus(toDecimal(tx.amount)));
+  }
 
   // Calculate expense items (convert to absolute values for display)
   const expenseItems: PLLineItem[] = [];
@@ -332,20 +383,28 @@ export function generateCashFlow(
  */
 export function generateCategorySpending(
   transactions: Transaction[],
-  period: DateRange
+  period: DateRange,
+  subcategories: Subcategory[] = []
 ): CategorySpendingReport {
   // Filter by date range
   const periodTx = filterByDateRange(transactions, period);
 
+  // Create lookup maps for normalizing subcategory names
+  const incomeLookup = createSubcategoryLookup(subcategories, 'income');
+  const expenseLookup = createSubcategoryLookup(subcategories, 'expense');
+
   // Expenses
   const expenseTx = periodTx.filter((t) => t.category === 'expense' && isNegative(t.amount));
-  const expenseBySubcategory = groupAndSum(expenseTx, 'subcategory', 'amount');
 
-  // Count transactions per subcategory
+  // Group by normalized subcategory with amounts and counts
+  const expenseBySubcategory = new Map<string, Decimal>();
   const expenseCountBySubcategory = new Map<string, number>();
   for (const t of expenseTx) {
-    const count = expenseCountBySubcategory.get(t.subcategory) || 0;
-    expenseCountBySubcategory.set(t.subcategory, count + 1);
+    const normalizedName = normalizeSubcategory(t.subcategory, expenseLookup);
+    const currentAmount = expenseBySubcategory.get(normalizedName) || new Decimal(0);
+    expenseBySubcategory.set(normalizedName, currentAmount.plus(toDecimal(t.amount)));
+    const count = expenseCountBySubcategory.get(normalizedName) || 0;
+    expenseCountBySubcategory.set(normalizedName, count + 1);
   }
 
   // Calculate total expenses
@@ -375,13 +434,16 @@ export function generateCategorySpending(
 
   // Income
   const incomeTx = periodTx.filter((t) => t.category === 'income' && isPositive(t.amount));
-  const incomeBySubcategory = groupAndSum(incomeTx, 'subcategory', 'amount');
 
-  // Count transactions per subcategory
+  // Group by normalized subcategory with amounts and counts
+  const incomeBySubcategory = new Map<string, Decimal>();
   const incomeCountBySubcategory = new Map<string, number>();
   for (const t of incomeTx) {
-    const count = incomeCountBySubcategory.get(t.subcategory) || 0;
-    incomeCountBySubcategory.set(t.subcategory, count + 1);
+    const normalizedName = normalizeSubcategory(t.subcategory, incomeLookup);
+    const currentAmount = incomeBySubcategory.get(normalizedName) || new Decimal(0);
+    incomeBySubcategory.set(normalizedName, currentAmount.plus(toDecimal(t.amount)));
+    const count = incomeCountBySubcategory.get(normalizedName) || 0;
+    incomeCountBySubcategory.set(normalizedName, count + 1);
   }
 
   // Calculate total income
