@@ -11,7 +11,7 @@ import type { ParsedOFXTransaction, AccountType, ChartAccount } from '../types';
 // Types
 // ============================================
 
-export type WizardStep = 'upload' | 'analyze' | 'review' | 'complete';
+export type WizardStep = 'upload' | 'transfers' | 'analyze' | 'review' | 'complete';
 
 export interface WizardState {
   step: WizardStep;

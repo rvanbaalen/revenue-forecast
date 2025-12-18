@@ -3,6 +3,16 @@ import { useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import {
   Upload,
@@ -21,6 +31,9 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Trash2,
+  ArrowLeftRight,
+  Plus,
 } from 'lucide-react';
 import { useBank } from '@/context/BankContext';
 import { useAccountingContext } from '@/context/AccountingContext';
@@ -42,21 +55,29 @@ import {
   categoriesToChartAccounts,
   findMatchingChartAccount,
 } from '@/utils/ofx-wizard';
+import {
+  detectTransfers,
+  getTransferSummary,
+  generateTransferAnalysisPrompt,
+  type DetectedTransfer,
+} from '@/utils/transfer-detection';
 import type { ParsedOFXFile, TransactionCategory, TransactionFlowType, Month } from '@/types';
 import { MONTHS } from '@/types';
 import { db } from '@/store/db';
 
-// Step configuration - simplified to 3 steps
+// Step configuration - now includes transfers step for multi-file import
 const STEPS: { id: WizardStep; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'upload', label: 'Upload', icon: Upload },
+  { id: 'transfers', label: 'Transfers', icon: ArrowLeftRight },
   { id: 'analyze', label: 'AI Analysis', icon: Sparkles },
   { id: 'review', label: 'Import', icon: ClipboardList },
 ];
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+// Parsed file with metadata
+interface ParsedFileWithMeta {
+  file: File;
+  parsed: ParsedOFXFile;
+  accountHash: string;
 }
 
 export function OFXWizardPage() {
@@ -71,16 +92,24 @@ export function OFXWizardPage() {
   } = useAccountingContext();
   const { config, updateConfig, updateSourceRevenue } = useRevenue();
 
-  // File state
+  // Data reset dialog state
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Multi-file state
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [parsedData, setParsedData] = useState<ParsedOFXFile | null>(null);
+  const [parsedFiles, setParsedFiles] = useState<ParsedFileWithMeta[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
   // Wizard state
   const [currentStep, setCurrentStep] = useState<WizardStep>('upload');
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Transfer detection state
+  const [detectedTransfers, setDetectedTransfers] = useState<DetectedTransfer[]>([]);
+  const [confirmedTransfers, setConfirmedTransfers] = useState<Set<string>>(new Set());
+  const [rejectedTransfers, setRejectedTransfers] = useState<Set<string>>(new Set());
 
   // Upload step - business type
   const [businessType, setBusinessType] = useState<BusinessType | undefined>(undefined);
@@ -120,6 +149,41 @@ export function OFXWizardPage() {
     rulesCreated: number;
     revenueSourcesSynced: number;
   } | null>(null);
+
+  // ============================================
+  // Check for existing data on mount
+  // ============================================
+
+  useEffect(() => {
+    async function checkExistingData() {
+      const [transactions, accounts, sources] = await Promise.all([
+        db.getBankTransactions(),
+        db.getBankAccounts(),
+        db.getSources(),
+      ]);
+
+      const hasData = transactions.length > 0 || accounts.length > 0 || sources.length > 0;
+
+      if (hasData) {
+        setShowResetDialog(true);
+      }
+    }
+
+    checkExistingData();
+  }, []);
+
+  // Handle data reset
+  const handleResetData = useCallback(async () => {
+    setIsResetting(true);
+    try {
+      await db.clearAllData();
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to reset data:', err);
+      setError('Failed to reset data. Please try again.');
+      setIsResetting(false);
+    }
+  }, []);
 
   // ============================================
   // Live JSON Parsing
@@ -162,10 +226,23 @@ export function OFXWizardPage() {
 
   const currentStepIndex = STEPS.findIndex(s => s.id === currentStep);
 
+  // Helper to get combined transactions from all files
+  const getAllTransactions = useCallback(() => {
+    return parsedFiles.flatMap(pf => pf.parsed.transactions);
+  }, [parsedFiles]);
+
+  // Get confirmed transfers for prompting
+  const getConfirmedTransferList = useCallback(() => {
+    return detectedTransfers.filter(t => confirmedTransfers.has(t.id));
+  }, [detectedTransfers, confirmedTransfers]);
+
   const canGoNext = useCallback(() => {
     switch (currentStep) {
       case 'upload':
-        return parsedData !== null;
+        return parsedFiles.length > 0;
+      case 'transfers':
+        // Can always proceed from transfers, even with no transfers detected
+        return true;
       case 'analyze':
         return mappingRules.length > 0 && transactionMappings.length > 0;
       case 'review':
@@ -173,7 +250,7 @@ export function OFXWizardPage() {
       default:
         return false;
     }
-  }, [currentStep, parsedData, mappingRules, transactionMappings]);
+  }, [currentStep, parsedFiles, mappingRules, transactionMappings]);
 
   const goNext = useCallback(() => {
     if (!canGoNext()) return;
@@ -183,8 +260,22 @@ export function OFXWizardPage() {
       const nextStep = STEPS[nextIndex].id;
       setCurrentStep(nextStep);
 
+      // Detect transfers when entering transfers step
+      if (nextStep === 'transfers' && parsedFiles.length > 1) {
+        const transfers = detectTransfers(
+          parsedFiles.map(pf => pf.parsed),
+          config.currencies
+        );
+        setDetectedTransfers(transfers);
+        // Auto-confirm high confidence transfers
+        const highConfidence = new Set(
+          transfers.filter(t => t.confidence === 'high').map(t => t.id)
+        );
+        setConfirmedTransfers(highConfidence);
+      }
+
       // Generate unified prompt when entering analyze step
-      if (nextStep === 'analyze' && parsedData) {
+      if (nextStep === 'analyze' && parsedFiles.length > 0) {
         const existingCategories = chartAccounts
           .filter(a => (a.type === 'REVENUE' || a.type === 'EXPENSE') && a.isActive)
           .map(a => ({
@@ -193,11 +284,20 @@ export function OFXWizardPage() {
             type: a.type as 'REVENUE' | 'EXPENSE',
             description: a.description,
           }));
-        const prompt = generateUnifiedAnalysisPrompt(parsedData.transactions, businessType, existingCategories);
+
+        const allTransactions = getAllTransactions();
+        let prompt = generateUnifiedAnalysisPrompt(allTransactions, businessType, existingCategories);
+
+        // Add transfer detection info to prompt
+        const confirmedTransferList = getConfirmedTransferList();
+        if (confirmedTransferList.length > 0) {
+          prompt += generateTransferAnalysisPrompt(confirmedTransferList);
+        }
+
         setAnalysisPrompt(prompt);
       }
     }
-  }, [canGoNext, currentStepIndex, parsedData, chartAccounts, businessType]);
+  }, [canGoNext, currentStepIndex, parsedFiles, chartAccounts, businessType, config.currencies, getAllTransactions, getConfirmedTransferList]);
 
   const goBack = useCallback(() => {
     const prevIndex = currentStepIndex - 1;
@@ -207,39 +307,82 @@ export function OFXWizardPage() {
   }, [currentStepIndex]);
 
   // ============================================
-  // Step 1: File Upload
+  // Step 1: File Upload (Multi-file support)
   // ============================================
 
-  const handleFileSelect = useCallback(async (selectedFile: File) => {
-    setFile(selectedFile);
+  const handleFilesSelect = useCallback(async (selectedFiles: File[]) => {
     setError(null);
 
-    try {
-      const parsed = await parseOFXFile(selectedFile);
-      const validation = validateOFXFile(parsed);
+    const validFiles: ParsedFileWithMeta[] = [];
+    const errors: string[] = [];
 
-      if (!validation.valid) {
-        setError(validation.errors.join(', '));
-        return;
+    for (const file of selectedFiles) {
+      // Skip duplicates
+      const existingFile = parsedFiles.find(pf => pf.file.name === file.name);
+      if (existingFile) {
+        errors.push(`${file.name}: Already added`);
+        continue;
       }
 
-      setParsedData(parsed);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to parse file');
+      try {
+        const parsed = await parseOFXFile(file);
+        const validation = validateOFXFile(parsed);
+
+        if (!validation.valid) {
+          errors.push(`${file.name}: ${validation.errors.join(', ')}`);
+          continue;
+        }
+
+        // Check for duplicate account
+        const accountHash = hashAccountId(parsed.account.accountId);
+        const existingAccount = parsedFiles.find(pf => pf.accountHash === accountHash);
+        if (existingAccount) {
+          errors.push(`${file.name}: Same account as ${existingAccount.file.name}`);
+          continue;
+        }
+
+        validFiles.push({
+          file,
+          parsed,
+          accountHash,
+        });
+      } catch (err) {
+        errors.push(`${file.name}: ${err instanceof Error ? err.message : 'Failed to parse'}`);
+      }
     }
+
+    if (validFiles.length > 0) {
+      setParsedFiles(prev => [...prev, ...validFiles]);
+    }
+
+    if (errors.length > 0) {
+      setError(errors.join('\n'));
+    }
+  }, [parsedFiles]);
+
+  const removeFile = useCallback((index: number) => {
+    setParsedFiles(prev => prev.filter((_, i) => i !== index));
+    // Reset transfer detection when files change
+    setDetectedTransfers([]);
+    setConfirmedTransfers(new Set());
+    setRejectedTransfers(new Set());
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
 
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && (droppedFile.name.endsWith('.ofx') || droppedFile.name.endsWith('.qfx'))) {
-      handleFileSelect(droppedFile);
-    } else {
-      setError('Please drop a valid OFX or QFX file');
+    const files = Array.from(e.dataTransfer.files).filter(
+      f => f.name.endsWith('.ofx') || f.name.endsWith('.qfx')
+    );
+
+    if (files.length === 0) {
+      setError('Please drop valid OFX or QFX files');
+      return;
     }
-  }, [handleFileSelect]);
+
+    handleFilesSelect(files);
+  }, [handleFilesSelect]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -252,11 +395,50 @@ export function OFXWizardPage() {
   }, []);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      handleFileSelect(selectedFile);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFilesSelect(Array.from(files));
     }
-  }, [handleFileSelect]);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  }, [handleFilesSelect]);
+
+  // Transfer confirmation handlers
+  const confirmTransfer = useCallback((transferId: string) => {
+    setConfirmedTransfers(prev => {
+      const next = new Set(prev);
+      next.add(transferId);
+      return next;
+    });
+    setRejectedTransfers(prev => {
+      const next = new Set(prev);
+      next.delete(transferId);
+      return next;
+    });
+  }, []);
+
+  const rejectTransfer = useCallback((transferId: string) => {
+    setRejectedTransfers(prev => {
+      const next = new Set(prev);
+      next.add(transferId);
+      return next;
+    });
+    setConfirmedTransfers(prev => {
+      const next = new Set(prev);
+      next.delete(transferId);
+      return next;
+    });
+  }, []);
+
+  const confirmAllTransfers = useCallback(() => {
+    setConfirmedTransfers(new Set(detectedTransfers.map(t => t.id)));
+    setRejectedTransfers(new Set());
+  }, [detectedTransfers]);
+
+  const rejectAllTransfers = useCallback(() => {
+    setRejectedTransfers(new Set(detectedTransfers.map(t => t.id)));
+    setConfirmedTransfers(new Set());
+  }, [detectedTransfers]);
 
   // ============================================
   // Step 2: Analysis Handling
@@ -289,7 +471,7 @@ export function OFXWizardPage() {
   }, []);
 
   const applyAnalysis = useCallback(() => {
-    if (!parsedData || previewRules.length === 0) return;
+    if (parsedFiles.length === 0 || previewRules.length === 0) return;
 
     // Commit preview to final state
     setSuggestedChartAccounts(previewChartAccounts);
@@ -297,21 +479,22 @@ export function OFXWizardPage() {
     setSuggestedRevenueSources(previewRevenueSources);
     setMappingRules(previewRules);
 
-    // Apply rules to transactions
-    const applied = applyMappingRules(parsedData.transactions, previewRules);
+    // Apply rules to all transactions from all files
+    const allTransactions = getAllTransactions();
+    const applied = applyMappingRules(allTransactions, previewRules);
     setTransactionMappings(applied.mappings);
     setRuleStats(applied.ruleStats);
     setMatchStats({ matched: applied.matchedCount, unmatched: applied.unmatchedCount });
 
     setError(null);
-  }, [parsedData, previewChartAccounts, previewAccountChanges, previewRevenueSources, previewRules]);
+  }, [parsedFiles, previewChartAccounts, previewAccountChanges, previewRevenueSources, previewRules, getAllTransactions]);
 
   // ============================================
   // Step 3: Import
   // ============================================
 
   const handleImport = useCallback(async () => {
-    if (!parsedData) return;
+    if (parsedFiles.length === 0) return;
 
     setIsProcessing(true);
     setError(null);
@@ -386,19 +569,23 @@ export function OFXWizardPage() {
 
       const updatedChartAccounts = await db.getChartAccounts();
 
-      // 2. Ensure OFX currency exists in config with proper symbol
-      const { currency: ofxCurrencyObj, isNew: isNewCurrency } = matchOrCreateCurrency(
-        parsedData.currency,
-        config.currencies
-      );
-
-      if (isNewCurrency) {
-        await updateConfig({
-          currencies: [...config.currencies, ofxCurrencyObj]
-        });
+      // 2. Collect all unique currencies and ensure they exist
+      const currenciesToAdd = new Set<string>();
+      for (const pf of parsedFiles) {
+        currenciesToAdd.add(pf.parsed.currency);
       }
 
-      const ofxCurrency = ofxCurrencyObj.code;
+      let currentCurrencies = [...config.currencies];
+      for (const currencyCode of currenciesToAdd) {
+        const { currency: currencyObj, isNew } = matchOrCreateCurrency(currencyCode, currentCurrencies);
+        if (isNew) {
+          currentCurrencies = [...currentCurrencies, currencyObj];
+        }
+      }
+
+      if (currentCurrencies.length !== config.currencies.length) {
+        await updateConfig({ currencies: currentCurrencies });
+      }
 
       // 3. Create revenue sources
       const existingSources = await db.getSources();
@@ -410,12 +597,15 @@ export function OFXWizardPage() {
         revenueSourceNameToId.set(source.name.toLowerCase(), source.id);
       }
 
+      // Use first file's currency as default for revenue sources
+      const defaultCurrency = parsedFiles[0].parsed.currency;
+
       for (const source of suggestedRevenueSources) {
         if (!existingSourceNames.has(source.name.toLowerCase())) {
           const id = await db.addSource({
             name: source.name,
             type: source.type,
-            currency: ofxCurrency,
+            currency: defaultCurrency,
             isRecurring: false,
             recurringAmount: 0,
             expected: {},
@@ -426,116 +616,160 @@ export function OFXWizardPage() {
         }
       }
 
-      // 4. Create or find bank account
-      const accountHash = hashAccountId(parsedData.account.accountId);
-      let bankAccount = await db.getBankAccountByHash(accountHash);
-
-      if (!bankAccount) {
-        const accountId = await db.addBankAccount({
-          name: `${parsedData.account.accountType} ${maskAccountId(parsedData.account.accountId)}`,
-          bankId: parsedData.account.bankId,
-          accountId: maskAccountId(parsedData.account.accountId),
-          accountIdHash: accountHash,
-          accountType: parsedData.account.accountType,
-          currency: ofxCurrency,
-          createdAt: new Date().toISOString(),
-        });
-        bankAccount = {
-          id: accountId,
-          name: `${parsedData.account.accountType} ${maskAccountId(parsedData.account.accountId)}`,
-          bankId: parsedData.account.bankId,
-          accountId: maskAccountId(parsedData.account.accountId),
-          accountIdHash: accountHash,
-          accountType: parsedData.account.accountType,
-          currency: ofxCurrency,
-          createdAt: new Date().toISOString(),
-        };
+      // Build confirmed transfer mapping (fitId -> target account hash)
+      const confirmedTransferMap = new Map<string, string>();
+      for (const transfer of getConfirmedTransferList()) {
+        confirmedTransferMap.set(
+          `${transfer.sourceAccount.accountHash}:${transfer.sourceAccount.transaction.fitId}`,
+          transfer.targetAccount.accountHash
+        );
+        confirmedTransferMap.set(
+          `${transfer.targetAccount.accountHash}:${transfer.targetAccount.transaction.fitId}`,
+          transfer.sourceAccount.accountHash
+        );
       }
 
-      // 5. Create chart account for bank account
-      let bankChartAccount = getChartAccountForBankAccount(bankAccount.id);
-      if (!bankChartAccount) {
-        bankChartAccount = await createChartAccountForBankAccount(bankAccount);
-      }
-
-      // 6. Import transactions
+      // 4. Process each file and create bank accounts + transactions
       const mappingByFitId = new Map(transactionMappings.map(m => [m.fitId, m]));
       const importBatchId = `wizard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const importedAt = new Date().toISOString();
-      const isCreditCard = bankAccount.accountType === 'CREDITCARD' || bankAccount.accountType === 'CREDITLINE';
 
-      const transactionsToAdd: Parameters<typeof db.addBankTransactions>[0] = [];
+      let totalTransactionsImported = 0;
+      let totalJournalEntriesCreated = 0;
+      const allTransactionsToAdd: Array<{
+        tx: Parameters<typeof db.addBankTransactions>[0][0];
+        bankAccountId: number;
+        bankChartAccountId: string;
+        isCreditCard: boolean;
+      }> = [];
 
-      for (const tx of parsedData.transactions) {
-        const exists = await db.checkTransactionExists(bankAccount.id, tx.fitId);
-        if (exists) continue;
+      // Store bank account ID by hash for transfer linking
+      const bankAccountIdByHash = new Map<string, number>();
 
-        const mapping = mappingByFitId.get(tx.fitId);
-        const { month, year } = extractMonthYear(tx.datePosted);
+      for (const parsedFile of parsedFiles) {
+        const { parsed, accountHash } = parsedFile;
 
-        let flowType: TransactionFlowType;
-        if (isCreditCard) {
-          flowType = tx.amount > 0 ? 'charge' : 'payment';
-        } else {
-          flowType = tx.amount >= 0 ? 'credit' : 'debit';
+        // Create or find bank account
+        let bankAccount = await db.getBankAccountByHash(accountHash);
+
+        if (!bankAccount) {
+          const accountId = await db.addBankAccount({
+            name: `${parsed.account.accountType} ${maskAccountId(parsed.account.accountId)}`,
+            bankId: parsed.account.bankId,
+            accountId: maskAccountId(parsed.account.accountId),
+            accountIdHash: accountHash,
+            accountType: parsed.account.accountType,
+            currency: parsed.currency,
+            createdAt: new Date().toISOString(),
+          });
+          bankAccount = {
+            id: accountId,
+            name: `${parsed.account.accountType} ${maskAccountId(parsed.account.accountId)}`,
+            bankId: parsed.account.bankId,
+            accountId: maskAccountId(parsed.account.accountId),
+            accountIdHash: accountHash,
+            accountType: parsed.account.accountType,
+            currency: parsed.currency,
+            createdAt: new Date().toISOString(),
+          };
         }
 
-        let category: TransactionCategory = tx.amount >= 0 ? 'revenue' : 'expense';
-        let chartAccountId: string | undefined;
-        let isIgnored = false;
-        let revenueSourceId: number | undefined;
+        bankAccountIdByHash.set(accountHash, bankAccount.id);
 
-        if (mapping) {
-          if (mapping.categoryType === 'TRANSFER') {
-            category = 'transfer';
-          } else if (mapping.categoryType === 'IGNORE') {
-            category = 'ignore';
-            isIgnored = true;
+        // Create chart account for bank account
+        let bankChartAccount = getChartAccountForBankAccount(bankAccount.id);
+        if (!bankChartAccount) {
+          bankChartAccount = await createChartAccountForBankAccount(bankAccount);
+        }
+
+        const isCreditCard = bankAccount.accountType === 'CREDITCARD' || bankAccount.accountType === 'CREDITLINE';
+
+        for (const tx of parsed.transactions) {
+          const exists = await db.checkTransactionExists(bankAccount.id, tx.fitId);
+          if (exists) continue;
+
+          const mapping = mappingByFitId.get(tx.fitId);
+          const { month, year } = extractMonthYear(tx.datePosted);
+
+          let flowType: TransactionFlowType;
+          if (isCreditCard) {
+            flowType = tx.amount > 0 ? 'charge' : 'payment';
           } else {
-            category = mapping.categoryType.toLowerCase() as TransactionCategory;
-            const matchedAccount = findMatchingChartAccount(mapping, updatedChartAccounts);
-            if (matchedAccount) {
-              chartAccountId = matchedAccount.id;
+            flowType = tx.amount >= 0 ? 'credit' : 'debit';
+          }
+
+          // Check if this is a confirmed transfer
+          const transferKey = `${accountHash}:${tx.fitId}`;
+          const isConfirmedTransfer = confirmedTransferMap.has(transferKey);
+
+          let category: TransactionCategory = tx.amount >= 0 ? 'revenue' : 'expense';
+          let chartAccountId: string | undefined;
+          let isIgnored = false;
+          let revenueSourceId: number | undefined;
+          let transferAccountId: number | undefined;
+
+          if (isConfirmedTransfer) {
+            category = 'transfer';
+            const targetHash = confirmedTransferMap.get(transferKey);
+            if (targetHash) {
+              transferAccountId = bankAccountIdByHash.get(targetHash);
             }
-            if (mapping.categoryType === 'REVENUE' && mapping.revenueSource) {
-              revenueSourceId = revenueSourceNameToId.get(mapping.revenueSource.toLowerCase());
+          } else if (mapping) {
+            if (mapping.categoryType === 'TRANSFER') {
+              category = 'transfer';
+            } else if (mapping.categoryType === 'IGNORE') {
+              category = 'ignore';
+              isIgnored = true;
+            } else {
+              category = mapping.categoryType.toLowerCase() as TransactionCategory;
+              const matchedAccount = findMatchingChartAccount(mapping, updatedChartAccounts);
+              if (matchedAccount) {
+                chartAccountId = matchedAccount.id;
+              }
+              if (mapping.categoryType === 'REVENUE' && mapping.revenueSource) {
+                revenueSourceId = revenueSourceNameToId.get(mapping.revenueSource.toLowerCase());
+              }
             }
           }
-        }
 
-        transactionsToAdd.push({
-          accountId: bankAccount.id,
-          fitId: tx.fitId,
-          type: tx.type,
-          flowType,
-          amount: tx.amount,
-          datePosted: tx.datePosted,
-          name: tx.name,
-          memo: tx.memo,
-          checkNum: tx.checkNum,
-          refNum: tx.refNum,
-          month,
-          year,
-          category,
-          chartAccountId,
-          revenueSourceId,
-          isIgnored,
-          isReconciled: true,
-          importedAt,
-          importBatchId,
-        });
+          allTransactionsToAdd.push({
+            tx: {
+              accountId: bankAccount.id,
+              fitId: tx.fitId,
+              type: tx.type,
+              flowType,
+              amount: tx.amount,
+              datePosted: tx.datePosted,
+              name: tx.name,
+              memo: tx.memo,
+              checkNum: tx.checkNum,
+              refNum: tx.refNum,
+              month,
+              year,
+              category,
+              chartAccountId,
+              revenueSourceId,
+              transferAccountId,
+              isIgnored,
+              isReconciled: true,
+              importedAt,
+              importBatchId,
+            },
+            bankAccountId: bankAccount.id,
+            bankChartAccountId: bankChartAccount.id,
+            isCreditCard,
+          });
+        }
       }
 
-      // Bulk insert and create journal entries
-      let transactionsImported = 0;
-      let journalEntriesCreated = 0;
+      // 5. Bulk insert all transactions and create journal entries
+      if (allTransactionsToAdd.length > 0) {
+        const txsToInsert = allTransactionsToAdd.map(item => item.tx);
+        const ids = await db.addBankTransactions(txsToInsert);
+        totalTransactionsImported = ids.length;
 
-      if (transactionsToAdd.length > 0) {
-        const ids = await db.addBankTransactions(transactionsToAdd);
-        transactionsImported = ids.length;
-
-        for (let i = 0; i < transactionsToAdd.length; i++) {
-          const tx = transactionsToAdd[i];
+        for (let i = 0; i < allTransactionsToAdd.length; i++) {
+          const { tx, bankChartAccountId, isCreditCard } = allTransactionsToAdd[i];
           const txId = ids[i];
 
           if (!tx.chartAccountId || tx.category === 'transfer' || tx.category === 'ignore') {
@@ -549,18 +783,18 @@ export function OFXWizardPage() {
           if (isCreditCard) {
             if (isCredit) {
               lines.push({ accountId: tx.chartAccountId, amount, type: 'DEBIT' });
-              lines.push({ accountId: bankChartAccount.id, amount, type: 'CREDIT' });
+              lines.push({ accountId: bankChartAccountId, amount, type: 'CREDIT' });
             } else {
-              lines.push({ accountId: bankChartAccount.id, amount, type: 'DEBIT' });
+              lines.push({ accountId: bankChartAccountId, amount, type: 'DEBIT' });
               lines.push({ accountId: tx.chartAccountId, amount, type: 'CREDIT' });
             }
           } else {
             if (isCredit) {
-              lines.push({ accountId: bankChartAccount.id, amount, type: 'DEBIT' });
+              lines.push({ accountId: bankChartAccountId, amount, type: 'DEBIT' });
               lines.push({ accountId: tx.chartAccountId, amount, type: 'CREDIT' });
             } else {
               lines.push({ accountId: tx.chartAccountId, amount, type: 'DEBIT' });
-              lines.push({ accountId: bankChartAccount.id, amount, type: 'CREDIT' });
+              lines.push({ accountId: bankChartAccountId, amount, type: 'CREDIT' });
             }
           }
 
@@ -572,14 +806,14 @@ export function OFXWizardPage() {
               bankTransactionId: txId,
               isReconciled: true,
             });
-            journalEntriesCreated++;
+            totalJournalEntriesCreated++;
           } catch (err) {
             console.error('Failed to create journal entry:', err);
           }
         }
       }
 
-      // 7. Save mapping rules
+      // 6. Save mapping rules
       let rulesCreated = 0;
       const existingRules = await db.getMappingRules();
       const existingPatterns = new Set(existingRules.map(r => r.pattern.toLowerCase()));
@@ -594,9 +828,9 @@ export function OFXWizardPage() {
         );
         if (!matchedAccount) continue;
 
-        let revenueSourceId: number | undefined;
+        let ruleRevenueSourceId: number | undefined;
         if (rule.categoryType === 'REVENUE' && rule.revenueSource) {
-          revenueSourceId = revenueSourceNameToId.get(rule.revenueSource.toLowerCase());
+          ruleRevenueSourceId = revenueSourceNameToId.get(rule.revenueSource.toLowerCase());
         }
 
         await db.addMappingRule({
@@ -605,7 +839,7 @@ export function OFXWizardPage() {
           matchType: rule.matchType,
           category: rule.categoryType.toLowerCase() as TransactionCategory,
           chartAccountId: matchedAccount.id,
-          revenueSourceId,
+          revenueSourceId: ruleRevenueSourceId,
           isActive: true,
           priority: 100 - i,
           createdAt: new Date().toISOString(),
@@ -613,12 +847,12 @@ export function OFXWizardPage() {
         rulesCreated++;
       }
 
-      // 8. Sync bank transactions to revenue source actuals
+      // 7. Sync bank transactions to revenue source actuals
       // Group imported transactions by source and month, update actual values
       let revenueSourcesSynced = 0;
       const transactionsBySourceMonth: Record<number, Record<Month, number>> = {};
 
-      for (const tx of transactionsToAdd) {
+      for (const { tx } of allTransactionsToAdd) {
         if (tx.category === 'revenue' && tx.revenueSourceId) {
           if (!transactionsBySourceMonth[tx.revenueSourceId]) {
             transactionsBySourceMonth[tx.revenueSourceId] = {} as Record<Month, number>;
@@ -643,8 +877,8 @@ export function OFXWizardPage() {
         categoriesCreated,
         categoriesModified,
         revenueSourcesCreated,
-        transactionsImported,
-        journalEntriesCreated,
+        transactionsImported: totalTransactionsImported,
+        journalEntriesCreated: totalJournalEntriesCreated,
         rulesCreated,
         revenueSourcesSynced,
       });
@@ -655,127 +889,349 @@ export function OFXWizardPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [parsedData, suggestedChartAccounts, accountChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, config, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount, updateConfig, updateSourceRevenue]);
+  }, [parsedFiles, suggestedChartAccounts, accountChanges, suggestedRevenueSources, transactionMappings, mappingRules, chartAccounts, config, addChartAccount, addJournalEntry, createChartAccountForBankAccount, getChartAccountForBankAccount, updateConfig, updateSourceRevenue, getConfirmedTransferList]);
 
   // ============================================
   // Render
   // ============================================
 
-  const renderUploadStep = () => (
-    <div className="flex flex-col gap-6">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold text-foreground">Upload Your Bank Statement</h2>
-        <p className="text-muted-foreground mt-1">
-          Upload an OFX file and optionally select your business type
-        </p>
-      </div>
+  const renderUploadStep = () => {
+    // Calculate totals across all files
+    const totalTransactions = parsedFiles.reduce((sum, pf) => sum + pf.parsed.transactions.length, 0);
+    const allTransactions = getAllTransactions();
+    const totalPatterns = allTransactions.length > 0 ? analyzeTransactionPatterns(allTransactions) : null;
 
-      {/* File drop zone */}
-      <div
-        className={cn(
-          "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
-          isDragging ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"
-        )}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".ofx,.qfx"
-          onChange={handleInputChange}
-          className="hidden"
-        />
-        <FileText className="size-12 mx-auto text-muted-foreground mb-4" />
-        <p className="text-foreground font-medium mb-2">Drop your OFX file here</p>
-        <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
-        <Button onClick={() => fileInputRef.current?.click()}>Select File</Button>
-      </div>
-
-      {error && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="size-5 text-destructive mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-destructive">{error}</p>
-          </div>
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-foreground">Upload Your Bank Statements</h2>
+          <p className="text-muted-foreground mt-1">
+            Upload one or more OFX files to import. Multiple files enable transfer detection between accounts.
+          </p>
         </div>
-      )}
 
-      {parsedData && (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-            <FileText className="size-6 text-primary flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground truncate text-sm">{file?.name}</p>
-              <p className="text-xs text-muted-foreground">{formatFileSize(file?.size ?? 0)}</p>
+        {/* File drop zone */}
+        <div
+          className={cn(
+            "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
+            isDragging ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"
+          )}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".ofx,.qfx"
+            multiple
+            onChange={handleInputChange}
+            className="hidden"
+          />
+          <FileText className="size-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-foreground font-medium mb-2">
+            {parsedFiles.length > 0 ? 'Drop more OFX files here' : 'Drop your OFX files here'}
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">or click to browse (select multiple)</p>
+          <Button onClick={() => fileInputRef.current?.click()}>
+            <Plus className="size-4" />
+            {parsedFiles.length > 0 ? 'Add More Files' : 'Select Files'}
+          </Button>
+        </div>
+
+        {error && (
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="size-5 text-destructive mt-0.5 flex-shrink-0" />
+              <pre className="text-sm text-destructive whitespace-pre-wrap">{error}</pre>
             </div>
-            <CheckCircle2 className="size-5 variance-positive" />
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
-              <Building2 className="size-5 text-muted-foreground" />
-              <div>
-                <p className="font-medium text-foreground">{parsedData.account.accountType}</p>
-                <p className="text-xs text-muted-foreground">****{parsedData.account.accountId.slice(-4)}</p>
+        {/* Uploaded files list */}
+        {parsedFiles.length > 0 && (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              {parsedFiles.map((pf, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                  <FileText className="size-5 text-primary flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate text-sm">{pf.file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {pf.parsed.account.accountType} ****{pf.parsed.account.accountId.slice(-4)} • {pf.parsed.currency} • {pf.parsed.transactions.length} transactions
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="p-1 hover:bg-destructive/10 rounded"
+                  >
+                    <X className="size-4 text-muted-foreground hover:text-destructive" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary across all files */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+                <Building2 className="size-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-foreground">{parsedFiles.length} account{parsedFiles.length !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[...new Set(parsedFiles.map(pf => pf.parsed.currency))].join(', ')}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+                <Calendar className="size-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-foreground">{totalTransactions} transactions</p>
+                  <p className="text-xs text-muted-foreground">Across all files</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
-              <Calendar className="size-5 text-muted-foreground" />
-              <div>
-                <p className="font-medium text-foreground">{parsedData.transactions.length} transactions</p>
-                <p className="text-xs text-muted-foreground">{parsedData.dateRange.start} - {parsedData.dateRange.end}</p>
-              </div>
-            </div>
-          </div>
 
-          {/* Transaction summary */}
-          <div className="p-4 bg-muted/50 rounded-lg">
-            <h4 className="text-sm font-medium text-foreground mb-2">Summary</h4>
-            {(() => {
-              const patterns = analyzeTransactionPatterns(parsedData.transactions);
-              const formatAmount = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              return (
+            {/* Transaction summary */}
+            {totalPatterns && (
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <h4 className="text-sm font-medium text-foreground mb-2">Summary</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Income:</span>{' '}
-                    <span className="variance-positive font-medium">{patterns.creditCount} ({parsedData.currency} {formatAmount(patterns.totalCredits)})</span>
+                    <span className="variance-positive font-medium">
+                      {totalPatterns.creditCount} ({totalPatterns.totalCredits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Expenses:</span>{' '}
-                    <span className="variance-negative font-medium">{patterns.debitCount} ({parsedData.currency} {formatAmount(patterns.totalDebits)})</span>
+                    <span className="variance-negative font-medium">
+                      {totalPatterns.debitCount} ({totalPatterns.totalDebits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </span>
                   </div>
                 </div>
-              );
-            })()}
-          </div>
+              </div>
+            )}
 
-          {/* Business type selector */}
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-2">
-              Business Type <span className="text-muted-foreground font-normal">(optional, helps AI)</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {BUSINESS_TYPES.map((type) => (
-                <button
-                  key={type.id}
-                  onClick={() => setBusinessType(businessType === type.id ? undefined : type.id)}
-                  className={cn(
-                    "p-3 rounded-lg border text-left transition-colors",
-                    businessType === type.id ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"
-                  )}
-                >
-                  <p className="text-sm font-medium text-foreground">{type.label}</p>
-                  <p className="text-xs text-muted-foreground">{type.description}</p>
-                </button>
-              ))}
+            {/* Business type selector */}
+            <div>
+              <label className="text-sm font-medium text-foreground block mb-2">
+                Business Type <span className="text-muted-foreground font-normal">(optional, helps AI)</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {BUSINESS_TYPES.map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setBusinessType(businessType === type.id ? undefined : type.id)}
+                    className={cn(
+                      "p-3 rounded-lg border text-left transition-colors",
+                      businessType === type.id ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"
+                    )}
+                  >
+                    <p className="text-sm font-medium text-foreground">{type.label}</p>
+                    <p className="text-xs text-muted-foreground">{type.description}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTransfersStep = () => {
+    const summary = getTransferSummary(detectedTransfers);
+    const pendingCount = detectedTransfers.length - confirmedTransfers.size - rejectedTransfers.size;
+
+    // Skip to next step if only one file (no transfers possible)
+    if (parsedFiles.length <= 1) {
+      return (
+        <div className="flex flex-col gap-6">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground">Transfer Detection</h2>
+            <p className="text-muted-foreground mt-1">
+              Transfer detection requires multiple account files.
+            </p>
+          </div>
+
+          <div className="p-6 bg-muted/50 rounded-lg text-center">
+            <ArrowLeftRight className="size-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-foreground font-medium">Single account imported</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              To detect transfers between accounts, upload OFX files from multiple bank accounts.
+            </p>
+          </div>
         </div>
-      )}
-    </div>
-  );
+      );
+    }
+
+    if (detectedTransfers.length === 0) {
+      return (
+        <div className="flex flex-col gap-6">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground">Transfer Detection</h2>
+            <p className="text-muted-foreground mt-1">
+              No transfers detected between your accounts.
+            </p>
+          </div>
+
+          <div className="p-6 bg-muted/50 rounded-lg text-center">
+            <CheckCircle2 className="size-12 mx-auto variance-positive mb-4" />
+            <p className="text-foreground font-medium">No transfers found</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              We couldn't detect any matching transactions between your {parsedFiles.length} accounts.
+              This could mean there were no transfers during this period.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-foreground">Review Detected Transfers</h2>
+          <p className="text-muted-foreground mt-1">
+            We found {detectedTransfers.length} potential transfer{detectedTransfers.length !== 1 ? 's' : ''} between your accounts.
+          </p>
+        </div>
+
+        {/* Summary */}
+        <div className="grid grid-cols-4 gap-2 text-sm">
+          <div className="text-center p-2 bg-muted rounded">
+            <div className="font-medium text-foreground">{summary.highConfidence}</div>
+            <div className="text-xs text-muted-foreground">High</div>
+          </div>
+          <div className="text-center p-2 bg-muted rounded">
+            <div className="font-medium text-foreground">{summary.mediumConfidence}</div>
+            <div className="text-xs text-muted-foreground">Medium</div>
+          </div>
+          <div className="text-center p-2 bg-muted rounded">
+            <div className="font-medium text-foreground">{summary.lowConfidence}</div>
+            <div className="text-xs text-muted-foreground">Low</div>
+          </div>
+          <div className="text-center p-2 bg-muted rounded">
+            <div className="font-medium text-foreground">{summary.crossCurrency}</div>
+            <div className="text-xs text-muted-foreground">Cross-currency</div>
+          </div>
+        </div>
+
+        {/* Bulk actions */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            {confirmedTransfers.size} confirmed, {rejectedTransfers.size} rejected, {pendingCount} pending
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={rejectAllTransfers}>
+              Reject All
+            </Button>
+            <Button variant="outline" size="sm" onClick={confirmAllTransfers}>
+              Confirm All
+            </Button>
+          </div>
+        </div>
+
+        {/* Transfer list */}
+        <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+          {detectedTransfers.map((transfer) => {
+            const isConfirmed = confirmedTransfers.has(transfer.id);
+            const isRejected = rejectedTransfers.has(transfer.id);
+
+            return (
+              <div
+                key={transfer.id}
+                className={cn(
+                  "p-3 rounded-lg border transition-colors",
+                  isConfirmed ? "border-primary/50 bg-primary/5" :
+                  isRejected ? "border-destructive/50 bg-destructive/5 opacity-60" :
+                  "border-border bg-card"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge
+                        variant={transfer.confidence === 'high' ? 'default' : transfer.confidence === 'medium' ? 'secondary' : 'outline'}
+                        className="text-xs"
+                      >
+                        {transfer.confidence}
+                      </Badge>
+                      {transfer.isCrossCurrency && (
+                        <Badge variant="outline" className="text-xs">Cross-currency</Badge>
+                      )}
+                      {transfer.daysDifference > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {transfer.daysDifference} day{transfer.daysDifference !== 1 ? 's' : ''} apart
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">From ({transfer.sourceAccount.currency})</p>
+                        <p className="font-medium text-foreground truncate">
+                          {transfer.sourceAccount.transaction.name}
+                        </p>
+                        <p className="text-destructive font-medium">
+                          {transfer.sourceAccount.transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {transfer.sourceAccount.accountId} • {new Date(transfer.sourceAccount.transaction.datePosted).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">To ({transfer.targetAccount.currency})</p>
+                        <p className="font-medium text-foreground truncate">
+                          {transfer.targetAccount.transaction.name}
+                        </p>
+                        <p className="variance-positive font-medium">
+                          +{transfer.targetAccount.transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {transfer.targetAccount.accountId} • {new Date(transfer.targetAccount.transaction.datePosted).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => confirmTransfer(transfer.id)}
+                      className={cn(
+                        "p-1.5 rounded transition-colors",
+                        isConfirmed ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                      )}
+                      title="Confirm transfer"
+                    >
+                      <Check className="size-4" />
+                    </button>
+                    <button
+                      onClick={() => rejectTransfer(transfer.id)}
+                      className={cn(
+                        "p-1.5 rounded transition-colors",
+                        isRejected ? "bg-destructive text-destructive-foreground" : "hover:bg-muted"
+                      )}
+                      title="Reject transfer"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {confirmedTransfers.size > 0 && (
+          <div className="p-3 bg-primary/10 rounded-lg text-sm">
+            <p className="text-foreground">
+              {confirmedTransfers.size} transfer{confirmedTransfers.size !== 1 ? 's' : ''} will be marked automatically during import.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderAnalyzeStep = () => {
     const hasPreviewData = previewRules.length > 0;
@@ -1000,7 +1456,7 @@ export function OFXWizardPage() {
                 <div className="text-xs text-muted-foreground">rules</div>
               </div>
               <div className="text-center">
-                <div className="font-medium text-foreground">{matchStats.matched}/{parsedData?.transactions.length}</div>
+                <div className="font-medium text-foreground">{matchStats.matched}/{getAllTransactions().length}</div>
                 <div className="text-xs text-muted-foreground">matched</div>
               </div>
             </div>
@@ -1155,6 +1611,7 @@ export function OFXWizardPage() {
   const renderStepContent = () => {
     switch (currentStep) {
       case 'upload': return renderUploadStep();
+      case 'transfers': return renderTransfersStep();
       case 'analyze': return renderAnalyzeStep();
       case 'review': return renderReviewStep();
       case 'complete': return renderCompleteStep();
@@ -1226,6 +1683,48 @@ export function OFXWizardPage() {
           )}
         </div>
       )}
+
+      {/* Data Reset Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="size-5 text-warning" />
+              Existing Data Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left">
+              You have existing data in the system. Would you like to:
+              <ul className="list-disc list-inside mt-2 flex flex-col gap-1">
+                <li><strong>Reset</strong> - Clear all data and start fresh</li>
+                <li><strong>Continue</strong> - Keep existing data and add new imports</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting}>Continue</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleResetData();
+              }}
+              disabled={isResetting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isResetting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-4" />
+                  Reset All Data
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
