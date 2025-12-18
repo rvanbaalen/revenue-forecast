@@ -468,8 +468,9 @@ export function TransactionsPage() {
           <DialogHeader>
             <DialogTitle>AI Categorization</DialogTitle>
             <DialogDescription>
-              The AI will generate categorization rules (patterns) that match multiple
-              transactions, making the response more efficient.
+              The AI will first ask clarifying questions about your business, then generate
+              efficient categorization rules. Have a conversation to define local/foreign income,
+              recurring vs one-time revenue, and expense categories.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">

@@ -339,9 +339,14 @@ export function generateRulesetPrompt(
     return line;
   });
 
-  const prompt = `Analyze these bank transactions and create CATEGORIZATION RULES that can be applied to match them.
+  const prompt = `Analyze these bank transactions and help me categorize them efficiently.
 
-Instead of categorizing each transaction individually, identify PATTERNS and create rules that will match multiple similar transactions. This is more efficient than responding for each row.
+FIRST, ask me clarifying questions about my business to create accurate categorization rules. For example:
+- What type of business is this? (freelance, SaaS, agency, e-commerce, etc.)
+- Which income sources are LOCAL (domestic, subject to 15% profit tax) vs FOREIGN (international, tax-exempt)?
+- Which income is RECURRING (MRR/subscriptions) vs ONE-TIME (project-based, service fees)?
+- Are there specific vendors I should know about? (e.g., "STRIPE" = payment processor, not expense)
+- Any transactions that look like expenses but are actually refunds or vice versa?
 
 EXISTING SUBCATEGORIES (use these when applicable, or suggest new ones):
 Income: ${incomeSubcategories.length > 0 ? incomeSubcategories.join(', ') : 'None yet'}
@@ -350,17 +355,24 @@ Expense: ${expenseSubcategories.length > 0 ? expenseSubcategories.join(', ') : '
 TRANSACTIONS TO ANALYZE:
 ${transactionList.join('\n')}
 
-Create rules that match these transactions by pattern. Each rule should:
-- pattern: The text pattern to match (e.g., "GITHUB", "AMAZON", "PAYROLL")
-- matchType: "contains" (anywhere in text), "startsWith" (beginning), or "exact" (full match)
-- matchField: "name" (transaction name), "memo", or "both"
-- category: "income" | "expense" | "transfer" | "uncategorized"
-- subcategory: Use existing names or suggest new short ones (2-3 words max)
-- incomeType: "local" or "foreign" for income (15% tax for local, 0% for foreign), null otherwise
-- confidence: "high" (clear match) | "medium" (probable) | "low" (uncertain)
-- reasoning: Brief explanation
+After I answer your questions, create CATEGORIZATION RULES (not per-transaction responses). Each rule matches a pattern and applies to multiple transactions.
 
-RESPOND IN THIS EXACT JSON FORMAT:
+SUGGESTED INCOME SUBCATEGORY TYPES:
+- "MRR" or "Subscriptions" = recurring revenue
+- "Service Revenue" = one-time project/consulting fees
+- "Product Sales" = physical or digital product sales
+- "Affiliate Income" = referral/affiliate commissions
+- "Interest" = bank interest, dividends
+
+SUGGESTED EXPENSE SUBCATEGORY TYPES:
+- "Software Subscriptions" = SaaS tools, apps
+- "Payment Processing" = Stripe fees, PayPal fees
+- "Contractors" = freelancer payments
+- "Advertising" = ads, marketing spend
+- "Professional Services" = legal, accounting
+- "Infrastructure" = hosting, servers, domains
+
+FINAL RESPONSE FORMAT (after clarifying questions are answered):
 {
   "rules": [
     {
@@ -374,25 +386,29 @@ RESPOND IN THIS EXACT JSON FORMAT:
       "reasoning": "GitHub is a software development platform subscription"
     },
     {
-      "pattern": "PAYROLL",
+      "pattern": "STRIPE",
       "matchType": "contains",
       "matchField": "name",
       "category": "income",
-      "subcategory": "Salary",
-      "incomeType": "local",
+      "subcategory": "MRR",
+      "incomeType": "foreign",
       "confidence": "high",
-      "reasoning": "Payroll deposits are local employment income"
+      "reasoning": "Stripe payouts from international SaaS customers"
     }
   ]
 }
 
-IMPORTANT:
-1. Create rules that will MATCH the transactions above - check your patterns work
-2. Use "contains" matchType for most cases (most flexible)
-3. Prefer matching on "name" field as it's more consistent
-4. Be specific enough to avoid false matches, but general enough to catch variations
-5. One rule can match many transactions - that's the goal for efficiency
-6. For any transaction that doesn't fit a pattern, you may create a specific rule or skip it`;
+RULE FIELDS:
+- pattern: Text to match (e.g., "GITHUB", "AMAZON", "PAYROLL")
+- matchType: "contains" (anywhere), "startsWith" (beginning), or "exact" (full match)
+- matchField: "name" (transaction name), "memo", or "both"
+- category: "income" | "expense" | "transfer" | "uncategorized"
+- subcategory: Use existing or suggest new (2-3 words max)
+- incomeType: "local" (15% tax) or "foreign" (0% tax) for income, null otherwise
+- confidence: "high" | "medium" | "low"
+- reasoning: Brief explanation
+
+START by asking me 3-5 clarifying questions about the transactions above, then I'll provide context for accurate categorization.`;
 
   return prompt;
 }
