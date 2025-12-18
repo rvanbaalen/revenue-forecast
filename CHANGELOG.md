@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.0.1...v2.1.0) (2025-12-18)
+
+
+### Features
+
+* Optimize LLM categorization with ruleset-based approach ([#51](https://github.com/rvanbaalen/revenue-forecast/issues/51)) ([8acaf2e](https://github.com/rvanbaalen/revenue-forecast/commit/8acaf2e955e33cf38dfa71baa35cbece331a9c15))
+
 ## [2.0.1](https://github.com/rvanbaalen/revenue-forecast/compare/v2.0.0...v2.0.1) (2025-12-18)
 
 
