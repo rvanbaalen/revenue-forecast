@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.4.0...v2.5.0) (2025-12-18)
+
+
+### Features
+
+* Add default currency setting for contexts ([#66](https://github.com/rvanbaalen/revenue-forecast/issues/66)) ([1d1211a](https://github.com/rvanbaalen/revenue-forecast/commit/1d1211a871e7c40c97818722bc31dc2f1a3055e3))
+
 ## [2.4.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.3.0...v2.4.0) (2025-12-18)
 
 
