@@ -34,6 +34,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import {
   Receipt,
@@ -48,6 +55,10 @@ import {
   Check,
   Scale,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -96,6 +107,13 @@ export function TransactionsPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Mobile filter drawer
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   // Edit state
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -154,6 +172,46 @@ export function TransactionsPage() {
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
   }, [filteredTransactions]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(sortedTransactions.length / pageSize);
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return sortedTransactions.slice(startIndex, startIndex + pageSize);
+  }, [sortedTransactions, currentPage, pageSize]);
+
+  // Reset to page 1 when filters change
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleCategoryFilter = (value: string) => {
+    setCategoryFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleAccountFilter = (value: string) => {
+    setAccountFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (value: string) => {
+    setPageSize(Number(value));
+    setCurrentPage(1);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = search !== '' || categoryFilter !== 'all' || accountFilter !== 'all';
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearch('');
+    setCategoryFilter('all');
+    setAccountFilter('all');
+    setCurrentPage(1);
+    setFilterDrawerOpen(false);
+  };
 
   // Get uncategorized transactions for LLM
   const uncategorizedTx = useMemo(() => {
@@ -272,19 +330,19 @@ export function TransactionsPage() {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-4">
+      {/* Filters - Desktop */}
+      <div className="hidden md:flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Search transactions..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-9"
           />
         </div>
 
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <Select value={categoryFilter} onValueChange={handleCategoryFilter}>
           <SelectTrigger className="w-40">
             <Filter className="size-4 text-muted-foreground" />
             <SelectValue placeholder="Category" />
@@ -299,7 +357,7 @@ export function TransactionsPage() {
         </Select>
 
         {accounts.length > 1 && (
-          <Select value={accountFilter} onValueChange={setAccountFilter}>
+          <Select value={accountFilter} onValueChange={handleAccountFilter}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Account" />
             </SelectTrigger>
@@ -313,6 +371,98 @@ export function TransactionsPage() {
             </SelectContent>
           </Select>
         )}
+      </div>
+
+      {/* Filters - Mobile */}
+      <div className="flex md:hidden items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        <Sheet open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="relative shrink-0">
+              <SlidersHorizontal className="size-4" />
+              {hasActiveFilters && (
+                <span className="absolute -top-1 -right-1 size-2 bg-primary rounded-full" />
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-auto max-h-[80vh]">
+            <SheetHeader>
+              <SheetTitle>Filters</SheetTitle>
+            </SheetHeader>
+            <div className="flex flex-col gap-4 py-4">
+              <div className="flex flex-col gap-2">
+                <Label>Category</Label>
+                <Select value={categoryFilter} onValueChange={handleCategoryFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="transfer">Transfer</SelectItem>
+                    <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {accounts.length > 1 && (
+                <div className="flex flex-col gap-2">
+                  <Label>Account</Label>
+                  <Select value={accountFilter} onValueChange={handleAccountFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Accounts" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Accounts</SelectItem>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <Label>Results per page</Label>
+                <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                {hasActiveFilters && (
+                  <Button variant="outline" onClick={clearFilters} className="flex-1">
+                    <X className="size-4" />
+                    Clear Filters
+                  </Button>
+                )}
+                <Button onClick={() => setFilterDrawerOpen(false)} className="flex-1">
+                  Apply
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Transactions table */}
@@ -335,21 +485,22 @@ export function TransactionsPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Account</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Subcategory</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedTransactions.map((tx) => {
+        <div className="flex flex-col gap-4">
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="hidden sm:table-cell">Account</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="hidden md:table-cell">Subcategory</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedTransactions.map((tx) => {
                   const account = accountMap.get(tx.accountId);
                   const isPositive = parseFloat(tx.amount) >= 0;
 
@@ -383,7 +534,7 @@ export function TransactionsPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
                         {account?.name || 'Unknown'}
                       </TableCell>
                       <TableCell>
@@ -400,7 +551,7 @@ export function TransactionsPage() {
                           )}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
                         {tx.subcategory || '-'}
                       </TableCell>
                       <TableCell
@@ -417,6 +568,83 @@ export function TransactionsPage() {
                 })}
               </TableBody>
             </Table>
+          </div>
+        </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground order-2 sm:order-1">
+              Showing {((currentPage - 1) * pageSize) + 1} to{' '}
+              {Math.min(currentPage * pageSize, sortedTransactions.length)} of{' '}
+              {sortedTransactions.length} transactions
+            </p>
+
+            <div className="flex items-center gap-2 order-1 sm:order-2">
+              {/* Page size selector - Desktop only */}
+              <div className="hidden md:flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Show</span>
+                <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Page navigation */}
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  aria-label="First page"
+                >
+                  <ChevronLeft className="size-4" />
+                  <ChevronLeft className="size-4 -ml-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+
+                <div className="flex items-center gap-1 px-2">
+                  <span className="text-sm font-medium">{currentPage}</span>
+                  <span className="text-sm text-muted-foreground">of</span>
+                  <span className="text-sm font-medium">{totalPages}</span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  aria-label="Last page"
+                >
+                  <ChevronRight className="size-4" />
+                  <ChevronRight className="size-4 -ml-3" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
