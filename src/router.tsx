@@ -2,6 +2,7 @@ import {
   createRouter,
   createRootRoute,
   createRoute,
+  createHashHistory,
   Outlet,
 } from '@tanstack/react-router';
 import { TrendingUp, Menu } from 'lucide-react';
@@ -112,11 +113,14 @@ const routeTree = rootRoute.addChildren([
   settingsRoute,
 ]);
 
+// Create hash history for GitHub Pages compatibility
+const hashHistory = createHashHistory();
+
 // Create router
 export const router = createRouter({
   routeTree,
+  history: hashHistory,
   defaultPreload: 'intent',
-  basepath: import.meta.env.BASE_URL,
 });
 
 // Register router for type safety
