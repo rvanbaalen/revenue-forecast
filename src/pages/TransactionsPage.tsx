@@ -43,6 +43,15 @@ import {
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationButton,
+  PaginationPreviousButton,
+  PaginationNextButton,
+  PaginationEllipsis,
+} from '@/components/ui/pagination';
+import {
   Receipt,
   Search,
   Filter,
@@ -55,8 +64,6 @@ import {
   Check,
   Scale,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
   SlidersHorizontal,
   X,
 } from 'lucide-react';
@@ -596,54 +603,81 @@ export function TransactionsPage() {
                 </Select>
               </div>
 
-              {/* Page navigation */}
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  aria-label="First page"
-                >
-                  <ChevronLeft className="size-4" />
-                  <ChevronLeft className="size-4 -ml-3" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft className="size-4" />
-                </Button>
+              {/* Page navigation using shadcn pagination */}
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPreviousButton
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
 
-                <div className="flex items-center gap-1 px-2">
-                  <span className="text-sm font-medium">{currentPage}</span>
-                  <span className="text-sm text-muted-foreground">of</span>
-                  <span className="text-sm font-medium">{totalPages}</span>
-                </div>
+                  {/* First page */}
+                  {currentPage > 2 && (
+                    <PaginationItem className="hidden sm:block">
+                      <PaginationButton onClick={() => setCurrentPage(1)}>
+                        1
+                      </PaginationButton>
+                    </PaginationItem>
+                  )}
 
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  aria-label="Next page"
-                >
-                  <ChevronRight className="size-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  aria-label="Last page"
-                >
-                  <ChevronRight className="size-4" />
-                  <ChevronRight className="size-4 -ml-3" />
-                </Button>
-              </div>
+                  {/* Ellipsis before current */}
+                  {currentPage > 3 && (
+                    <PaginationItem className="hidden sm:block">
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+
+                  {/* Previous page (if not first) */}
+                  {currentPage > 1 && (
+                    <PaginationItem className="hidden sm:block">
+                      <PaginationButton onClick={() => setCurrentPage(currentPage - 1)}>
+                        {currentPage - 1}
+                      </PaginationButton>
+                    </PaginationItem>
+                  )}
+
+                  {/* Current page */}
+                  <PaginationItem>
+                    <PaginationButton isActive>
+                      {currentPage}
+                    </PaginationButton>
+                  </PaginationItem>
+
+                  {/* Next page (if not last) */}
+                  {currentPage < totalPages && (
+                    <PaginationItem className="hidden sm:block">
+                      <PaginationButton onClick={() => setCurrentPage(currentPage + 1)}>
+                        {currentPage + 1}
+                      </PaginationButton>
+                    </PaginationItem>
+                  )}
+
+                  {/* Ellipsis after current */}
+                  {currentPage < totalPages - 2 && (
+                    <PaginationItem className="hidden sm:block">
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+
+                  {/* Last page */}
+                  {currentPage < totalPages - 1 && (
+                    <PaginationItem className="hidden sm:block">
+                      <PaginationButton onClick={() => setCurrentPage(totalPages)}>
+                        {totalPages}
+                      </PaginationButton>
+                    </PaginationItem>
+                  )}
+
+                  <PaginationItem>
+                    <PaginationNextButton
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           </div>
         </div>

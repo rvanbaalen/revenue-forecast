@@ -93,21 +93,26 @@ describe('TransactionsPage', () => {
       expect(screen.getByText(/Showing 1 to 25 of 50 transactions/i)).toBeInTheDocument();
     });
 
-    it('should show page 1 of 2 with 50 transactions', () => {
+    it('should show page numbers with 50 transactions', () => {
       render(<TransactionsPage />);
 
-      // Should show page indicator
-      expect(screen.getByText('1')).toBeInTheDocument();
-      expect(screen.getByText('of')).toBeInTheDocument();
-      expect(screen.getByText('2')).toBeInTheDocument();
+      // Should show page number buttons (current page 1, and page 2)
+      // Current page is active
+      const page1Button = screen.getByRole('button', { name: '1' });
+      expect(page1Button).toBeInTheDocument();
+      expect(page1Button).toHaveAttribute('aria-current', 'page');
+
+      // Page 2 should be clickable
+      const page2Button = screen.getByRole('button', { name: '2' });
+      expect(page2Button).toBeInTheDocument();
     });
 
     it('should navigate to next page when clicking next button', async () => {
       const user = userEvent.setup();
       render(<TransactionsPage />);
 
-      // Click next page button
-      const nextButton = screen.getByRole('button', { name: /next page/i });
+      // Click next page button (shadcn pagination uses "Go to next page" aria-label)
+      const nextButton = screen.getByRole('button', { name: /go to next page/i });
       await user.click(nextButton);
 
       // Should now show second page
@@ -119,66 +124,63 @@ describe('TransactionsPage', () => {
       render(<TransactionsPage />);
 
       // Go to page 2 first
-      const nextButton = screen.getByRole('button', { name: /next page/i });
+      const nextButton = screen.getByRole('button', { name: /go to next page/i });
       await user.click(nextButton);
 
       // Click previous page button
-      const prevButton = screen.getByRole('button', { name: /previous page/i });
+      const prevButton = screen.getByRole('button', { name: /go to previous page/i });
       await user.click(prevButton);
 
       // Should be back on first page
       expect(screen.getByText(/Showing 1 to 25 of 50 transactions/i)).toBeInTheDocument();
     });
 
-    it('should navigate to first page when clicking first page button', async () => {
+    it('should navigate to first page by clicking page 1 button', async () => {
       const user = userEvent.setup();
       render(<TransactionsPage />);
 
       // Go to page 2 first
-      const nextButton = screen.getByRole('button', { name: /next page/i });
+      const nextButton = screen.getByRole('button', { name: /go to next page/i });
       await user.click(nextButton);
 
-      // Click first page button
-      const firstButton = screen.getByRole('button', { name: /first page/i });
-      await user.click(firstButton);
+      // Click page 1 button (the first page number shown in pagination)
+      const page1Button = screen.getByRole('button', { name: '1' });
+      await user.click(page1Button);
 
       // Should be on first page
       expect(screen.getByText(/Showing 1 to 25 of 50 transactions/i)).toBeInTheDocument();
     });
 
-    it('should navigate to last page when clicking last page button', async () => {
+    it('should navigate to last page by clicking last page number', async () => {
       const user = userEvent.setup();
       render(<TransactionsPage />);
 
-      // Click last page button
-      const lastButton = screen.getByRole('button', { name: /last page/i });
-      await user.click(lastButton);
+      // Click page 2 button (the last page with 50 items and 25 per page)
+      const page2Button = screen.getByRole('button', { name: '2' });
+      await user.click(page2Button);
 
       // Should be on last page
       expect(screen.getByText(/Showing 26 to 50 of 50 transactions/i)).toBeInTheDocument();
     });
 
-    it('should disable previous/first buttons on first page', () => {
+    it('should disable previous button on first page', () => {
       render(<TransactionsPage />);
 
-      const firstButton = screen.getByRole('button', { name: /first page/i });
-      const prevButton = screen.getByRole('button', { name: /previous page/i });
+      const prevButton = screen.getByRole('button', { name: /go to previous page/i });
 
-      expect(firstButton).toBeDisabled();
       expect(prevButton).toBeDisabled();
     });
 
-    it('should disable next/last buttons on last page', async () => {
+    it('should disable next button on last page', async () => {
       const user = userEvent.setup();
       render(<TransactionsPage />);
 
-      // Go to last page
-      const lastButton = screen.getByRole('button', { name: /last page/i });
-      await user.click(lastButton);
+      // Go to last page by clicking page 2
+      const page2Button = screen.getByRole('button', { name: '2' });
+      await user.click(page2Button);
 
-      const nextButton = screen.getByRole('button', { name: /next page/i });
+      const nextButton = screen.getByRole('button', { name: /go to next page/i });
 
-      expect(lastButton).toBeDisabled();
       expect(nextButton).toBeDisabled();
     });
 
@@ -187,7 +189,7 @@ describe('TransactionsPage', () => {
       render(<TransactionsPage />);
 
       // Go to page 2
-      const nextButton = screen.getByRole('button', { name: /next page/i });
+      const nextButton = screen.getByRole('button', { name: /go to next page/i });
       await user.click(nextButton);
       expect(screen.getByText(/Showing 26 to/i)).toBeInTheDocument();
 
