@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/decimal';
+import { getCurrencySymbol } from '@/utils/currency';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -166,7 +167,7 @@ export function AccountsPage() {
                           : ''
                       }
                     >
-                      {formatCurrency(account.balance, '$')}
+                      {formatCurrency(account.balance, getCurrencySymbol(account.currency))}
                     </span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">

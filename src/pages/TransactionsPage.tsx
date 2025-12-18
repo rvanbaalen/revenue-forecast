@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/decimal';
+import { getCurrencySymbol } from '@/utils/currency';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -574,7 +575,7 @@ export function TransactionsPage() {
                         )}
                       >
                         {isPositive ? '+' : ''}
-                        {formatCurrency(tx.amount, '$')}
+                        {formatCurrency(tx.amount, getCurrencySymbol(account?.currency || 'USD'))}
                       </TableCell>
                     </TableRow>
                   );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, toDecimal, isZero, subtract } from '../utils/decimal';
+import { getCurrencySymbol } from '@/utils/currency';
 import {
   Dialog,
   DialogContent,
@@ -117,7 +118,7 @@ export function ReconcileAccountDialog({
               <Label>Expected Balance</Label>
               <div className="flex items-center gap-2 p-3 bg-secondary rounded-lg">
                 <span className="font-mono text-lg">
-                  {formatCurrency(expectedBalance, '$')}
+                  {formatCurrency(expectedBalance, getCurrencySymbol(account.currency))}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   ({transactionCount} transactions)
@@ -154,7 +155,7 @@ export function ReconcileAccountDialog({
               <AlertCircle className="size-5 mt-0.5 flex-shrink-0" />
               <div className="flex flex-col gap-1">
                 <p className="font-medium">
-                  Discrepancy: {formatCurrency(discrepancy, '$')}
+                  Discrepancy: {formatCurrency(discrepancy, getCurrencySymbol(account.currency))}
                 </p>
                 <p className="text-sm opacity-80">
                   {isPositiveDiscrepancy

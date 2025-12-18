@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -10,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FolderPlus, Plus, X, Check, Loader2 } from 'lucide-react';
+import { FolderPlus, Plus, Check, Loader2 } from 'lucide-react';
+import { DEFAULT_CURRENCY } from '@/types';
+import { SUPPORTED_CURRENCIES } from '@/utils/currency';
 
 const CREATE_NEW_VALUE = '__create_new__';
 
@@ -26,6 +29,7 @@ export function ImportContextSelector({
   const { contexts, createContext } = useApp();
   const [isCreating, setIsCreating] = useState(false);
   const [newContextName, setNewContextName] = useState('');
+  const [newContextCurrency, setNewContextCurrency] = useState(DEFAULT_CURRENCY);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +37,7 @@ export function ImportContextSelector({
     if (value === CREATE_NEW_VALUE) {
       setIsCreating(true);
       setNewContextName('');
+      setNewContextCurrency(DEFAULT_CURRENCY);
       setError(null);
     } else {
       onContextChange(value);
@@ -56,20 +61,22 @@ export function ImportContextSelector({
     setError(null);
 
     try {
-      const newContext = await createContext(trimmedName);
+      const newContext = await createContext(trimmedName, newContextCurrency);
       onContextChange(newContext.id);
       setIsCreating(false);
       setNewContextName('');
+      setNewContextCurrency(DEFAULT_CURRENCY);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create context');
     } finally {
       setIsSubmitting(false);
     }
-  }, [newContextName, contexts, createContext, onContextChange]);
+  }, [newContextName, newContextCurrency, contexts, createContext, onContextChange]);
 
   const handleCancelCreate = useCallback(() => {
     setIsCreating(false);
     setNewContextName('');
+    setNewContextCurrency(DEFAULT_CURRENCY);
     setError(null);
   }, []);
 
@@ -116,20 +123,49 @@ export function ImportContextSelector({
             <FolderPlus className="size-4 text-muted-foreground" />
             <span className="text-sm font-medium">Create new context</span>
           </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Context name (e.g., Personal, Business)"
-              value={newContextName}
-              onChange={(e) => {
-                setNewContextName(e.target.value);
-                setError(null);
-              }}
-              onKeyDown={handleKeyDown}
-              disabled={isSubmitting}
-              autoFocus
-            />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="newContextName" className="text-xs text-muted-foreground">Name</Label>
+              <Input
+                id="newContextName"
+                placeholder="e.g., Personal, Business"
+                value={newContextName}
+                onChange={(e) => {
+                  setNewContextName(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={handleKeyDown}
+                disabled={isSubmitting}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="newContextCurrency" className="text-xs text-muted-foreground">Currency</Label>
+              <Select value={newContextCurrency} onValueChange={setNewContextCurrency} disabled={isSubmitting}>
+                <SelectTrigger id="newContextCurrency" className="bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_CURRENCIES.map((currency) => (
+                    <SelectItem key={currency.code} value={currency.code}>
+                      {currency.symbol} - {currency.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
             <Button
-              size="icon"
+              variant="outline"
+              size="sm"
+              onClick={handleCancelCreate}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
               onClick={handleCreateContext}
               disabled={isSubmitting || !newContextName.trim()}
             >
@@ -138,14 +174,7 @@ export function ImportContextSelector({
               ) : (
                 <Check className="size-4" />
               )}
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={handleCancelCreate}
-              disabled={isSubmitting}
-            >
-              <X className="size-4" />
+              Create
             </Button>
           </div>
           {error && (

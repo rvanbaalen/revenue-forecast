@@ -16,10 +16,11 @@ import type {
   Subcategory,
   MappingRule,
   Reconciliation,
+  Currency,
 } from '../types';
 
 const DB_NAME = 'FinancialReports';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 class FinancialDB {
   private db: IDBDatabase | null = null;
@@ -79,6 +80,12 @@ class FinancialDB {
           const reconStore = database.createObjectStore('reconciliations', { keyPath: 'id' });
           reconStore.createIndex('accountId', 'accountId', { unique: false });
           reconStore.createIndex('reconciledDate', 'reconciledDate', { unique: false });
+        }
+
+        // Currencies store (added in v3)
+        if (!database.objectStoreNames.contains('currencies')) {
+          const currencyStore = database.createObjectStore('currencies', { keyPath: 'id' });
+          currencyStore.createIndex('code', 'code', { unique: true });
         }
       };
     });
@@ -643,6 +650,74 @@ class FinancialDB {
   }
 
   // ============================================
+  // Currency operations
+  // ============================================
+
+  async getCurrencies(): Promise<Currency[]> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('currencies', 'readonly');
+      const request = tx.objectStore('currencies').getAll();
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async getCurrencyByCode(code: string): Promise<Currency | undefined> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('currencies', 'readonly');
+      const index = tx.objectStore('currencies').index('code');
+      const request = index.get(code.toUpperCase());
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async addCurrency(currency: Currency): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('currencies', 'readwrite');
+      const request = tx.objectStore('currencies').add(currency);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async updateCurrency(currency: Currency): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('currencies', 'readwrite');
+      tx.objectStore('currencies').put(currency);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async deleteCurrency(id: string): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('currencies', 'readwrite');
+      tx.objectStore('currencies').delete(id);
+      tx.oncomplete = () => resolve();
+    });
+  }
+
+  async getOrCreateCurrency(code: string, symbol: string, name: string, exchangeRate = '1'): Promise<Currency> {
+    const existing = await this.getCurrencyByCode(code);
+    if (existing) {
+      return existing;
+    }
+    const currency: Currency = {
+      id: crypto.randomUUID(),
+      code: code.toUpperCase(),
+      symbol,
+      name,
+      exchangeRate, // Default to 1 (1:1 with USD)
+      createdAt: new Date().toISOString(),
+    };
+    await this.addCurrency(currency);
+    return currency;
+  }
+
+  // ============================================
   // Export/Import operations
   // ============================================
 
@@ -653,10 +728,11 @@ class FinancialDB {
     const subcategories = await this.getSubcategories();
     const mappingRules = await this.getMappingRules();
     const reconciliations = await this.getReconciliations();
+    const currencies = await this.getCurrencies();
 
     return JSON.stringify(
       {
-        version: '2.1',
+        version: '3.0',
         exportedAt: new Date().toISOString(),
         data: {
           contexts,
@@ -665,6 +741,7 @@ class FinancialDB {
           subcategories,
           mappingRules,
           reconciliations,
+          currencies,
         },
       },
       null,
@@ -733,6 +810,17 @@ class FinancialDB {
         }
       }
 
+      // Import currencies
+      if (data.currencies) {
+        for (const currency of data.currencies) {
+          try {
+            await this.addCurrency(currency);
+          } catch {
+            // Skip duplicates
+          }
+        }
+      }
+
       return { success: true };
     } catch (err) {
       return { success: false, error: String(err) };
@@ -741,7 +829,7 @@ class FinancialDB {
 
   async clearAllData(): Promise<void> {
     const db = this.ensureDb();
-    const storeNames = ['contexts', 'accounts', 'transactions', 'subcategories', 'mappingRules', 'reconciliations'];
+    const storeNames = ['contexts', 'accounts', 'transactions', 'subcategories', 'mappingRules', 'reconciliations', 'currencies'];
 
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeNames, 'readwrite');
