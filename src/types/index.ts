@@ -50,6 +50,29 @@ export interface BankAccount {
 // ============================================
 
 export type TransactionCategory = 'income' | 'expense' | 'transfer' | 'uncategorized' | 'adjustment';
+
+/**
+ * All valid transaction categories - single source of truth
+ */
+export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
+  'income',
+  'expense',
+  'transfer',
+  'uncategorized',
+  'adjustment',
+] as const;
+
+/**
+ * Categories that LLM can assign during categorization.
+ * Excludes 'adjustment' which is only created internally by reconciliation.
+ */
+export const LLM_ASSIGNABLE_CATEGORIES: TransactionCategory[] = [
+  'income',
+  'expense',
+  'transfer',
+  'uncategorized',
+] as const;
+
 export type IncomeType = 'local' | 'foreign';
 
 /**
