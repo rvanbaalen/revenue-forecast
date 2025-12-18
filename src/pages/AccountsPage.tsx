@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { useApp } from '../context/AppContext';
+import { useFinancialData } from '../stores';
 import { formatCurrency } from '../utils/decimal';
 import { getCurrencySymbol } from '@/utils/currency';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,7 @@ import { Label } from '@/components/ui/label';
 import type { BankAccount } from '../types';
 
 export function AccountsPage() {
-  const { contextAccounts: accounts, contextTransactions: transactions, updateAccount, deleteAccount } = useApp();
+  const { contextAccounts: accounts, contextTransactions: transactions, updateAccount, deleteAccount } = useFinancialData();
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [editName, setEditName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<BankAccount | null>(null);

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { useApp } from '../context/AppContext';
+import { useFinancialData } from '../stores';
 import { parseOFXFile } from '../utils/ofx-parser';
 import { Button } from '@/components/ui/button';
 import { ImportContextSelector } from '@/components/ImportContextSelector';
@@ -26,7 +26,7 @@ interface ParsedFileWithMeta {
 
 export function ImportPage() {
   const navigate = useNavigate();
-  const { importOFXFile, activeContext } = useApp();
+  const { importOFXFile, activeContext } = useFinancialData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [parsedFiles, setParsedFiles] = useState<ParsedFileWithMeta[]>([]);

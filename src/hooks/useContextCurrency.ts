@@ -2,7 +2,7 @@
  * Hook for accessing the current context's currency and formatting helpers
  */
 
-import { useApp } from '@/context/AppContext';
+import { useFinancialData } from '@/stores';
 import { formatCurrency } from '@/utils/decimal';
 import { getCurrencySymbol } from '@/utils/currency';
 
@@ -39,7 +39,7 @@ export interface ContextCurrencyResult {
  * ```
  */
 export function useContextCurrency(): ContextCurrencyResult {
-  const { contextCurrency, contextCurrencySymbol } = useApp();
+  const { contextCurrency, contextCurrencySymbol } = useFinancialData();
 
   return {
     currency: contextCurrency,

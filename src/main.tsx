@@ -3,13 +3,13 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from '@tanstack/react-router'
 import './index.css'
 import { router } from './router'
-import { AppProvider } from './context/AppContext'
+import { StoreProvider } from './stores/StoreProvider'
 
 function App() {
   return (
-    <AppProvider>
+    <StoreProvider>
       <RouterProvider router={router} />
-    </AppProvider>
+    </StoreProvider>
   )
 }
 

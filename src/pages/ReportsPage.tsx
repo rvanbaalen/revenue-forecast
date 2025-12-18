@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../context/AppContext';
+import { useFinancialData } from '../stores';
 import { formatCurrency, formatPercentage } from '../utils/decimal';
 import { useContextCurrency } from '@/hooks/useContextCurrency';
 import { getCurrencySymbol } from '@/utils/currency';
@@ -32,7 +32,7 @@ import type { DateRange } from '../types';
 
 export function ReportsPage() {
   const { getBalanceSheet, getProfitLoss, getCashFlow, getCategorySpending } =
-    useApp();
+    useFinancialData();
 
   const { symbol: currencySymbol } = useContextCurrency();
 

@@ -10,7 +10,7 @@ import {
   Upload,
   HardDrive,
 } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useFinancialData } from '@/stores';
 import { BackupRestoreModal } from '@/components/BackupRestoreModal';
 import {
   Sidebar,
@@ -36,7 +36,7 @@ const NAV_ITEMS = [
 ];
 
 function ContextSelector() {
-  const { contexts, activeContext, setActiveContext } = useApp();
+  const { contexts, activeContext, setActiveContext } = useFinancialData();
 
   if (contexts.length <= 1) {
     return null;

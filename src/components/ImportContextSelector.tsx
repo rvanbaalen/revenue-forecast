@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useApp } from '@/context/AppContext';
+import { useFinancialData } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +26,7 @@ export function ImportContextSelector({
   selectedContextId,
   onContextChange,
 }: ImportContextSelectorProps) {
-  const { contexts, createContext } = useApp();
+  const { contexts, createContext } = useFinancialData();
   const [isCreating, setIsCreating] = useState(false);
   const [newContextName, setNewContextName] = useState('');
   const [newContextCurrency, setNewContextCurrency] = useState(DEFAULT_CURRENCY);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useFinancialData } from '../stores';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -80,7 +80,7 @@ export function SettingsPage() {
     addCurrency,
     updateCurrency,
     deleteCurrency,
-  } = useApp();
+  } = useFinancialData();
 
   // Context state
   const [contextDialog, setContextDialog] = useState<'add' | 'edit' | null>(null);
