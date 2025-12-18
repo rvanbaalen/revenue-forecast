@@ -117,7 +117,12 @@ export function ImportPage() {
   );
 
   const handleImport = async () => {
-    if (parsedFiles.length === 0 || !activeContext) return;
+    if (parsedFiles.length === 0) return;
+
+    if (!activeContext) {
+      setError('No context selected. Please create or select a context first.');
+      return;
+    }
 
     setIsImporting(true);
     setError(null);
