@@ -23,7 +23,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { Search, Filter, SlidersHorizontal, X } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, X, Calendar } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import type { TransactionCategory, BankAccount } from '../../types';
 
 interface TransactionFiltersProps {
@@ -32,8 +33,14 @@ interface TransactionFiltersProps {
   onSearchChange: (value: string) => void;
   categoryFilter: TransactionCategory | 'all';
   onCategoryChange: (value: TransactionCategory | 'all') => void;
+  subcategoryFilter?: string;
+  onSubcategoryChange?: (value: string) => void;
   accountFilter: string;
   onAccountChange: (value: string) => void;
+  startDate?: string;
+  onStartDateChange?: (value: string) => void;
+  endDate?: string;
+  onEndDateChange?: (value: string) => void;
 
   // Pagination
   pageSize: number;
@@ -52,8 +59,14 @@ export function TransactionFilters({
   onSearchChange,
   categoryFilter,
   onCategoryChange,
+  subcategoryFilter,
+  onSubcategoryChange,
   accountFilter,
   onAccountChange,
+  startDate,
+  onStartDateChange,
+  endDate,
+  onEndDateChange,
   pageSize,
   onPageSizeChange,
   accounts,
@@ -67,8 +80,55 @@ export function TransactionFilters({
     setFilterDrawerOpen(false);
   };
 
+  // Format date range for display
+  const formatDateRange = () => {
+    if (!startDate && !endDate) return null;
+    if (startDate && endDate) {
+      return `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`;
+    }
+    if (startDate) return `From ${new Date(startDate).toLocaleDateString()}`;
+    if (endDate) return `Until ${new Date(endDate).toLocaleDateString()}`;
+    return null;
+  };
+
+  const dateRangeDisplay = formatDateRange();
+  const hasSubcategoryFilter = subcategoryFilter && subcategoryFilter !== 'all';
+  const hasDateFilter = startDate || endDate;
+
   return (
     <>
+      {/* Active Filter Badges */}
+      {(hasSubcategoryFilter || hasDateFilter) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {hasSubcategoryFilter && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              <span>Subcategory: {subcategoryFilter}</span>
+              <button
+                onClick={() => onSubcategoryChange?.('all')}
+                className="ml-1 hover:bg-muted rounded p-0.5"
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          )}
+          {hasDateFilter && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              <Calendar className="size-3" />
+              <span>{dateRangeDisplay}</span>
+              <button
+                onClick={() => {
+                  onStartDateChange?.('');
+                  onEndDateChange?.('');
+                }}
+                className="ml-1 hover:bg-muted rounded p-0.5"
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          )}
+        </div>
+      )}
+
       {/* Desktop Filters */}
       <div className="hidden md:flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
