@@ -23,6 +23,8 @@ import type {
   ProfitLossReport,
   CashFlowReport,
   CategorySpendingReport,
+  Reconciliation,
+  ReconciliationResult,
 } from '../types';
 import {
   DEFAULT_INCOME_SUBCATEGORIES,
@@ -36,6 +38,10 @@ import {
   generateCategorySpending,
   calculateSummaryMetrics,
 } from '../utils/reports';
+import {
+  calculateExpectedBalance,
+  performReconciliation,
+} from '../utils/reconciliation';
 
 // ============================================
 // Types
@@ -49,6 +55,7 @@ interface AppState {
   transactions: Transaction[];
   subcategories: Subcategory[];
   mappingRules: MappingRule[];
+  reconciliations: Reconciliation[];
 
   // UI State
   isLoading: boolean;
@@ -81,6 +88,17 @@ interface AppContextValue extends AppState {
   updateMappingRule: (rule: MappingRule) => Promise<void>;
   deleteMappingRule: (id: string) => Promise<void>;
   applyMappingRules: () => Promise<number>;
+
+  // Reconciliation operations
+  reconcileAccount: (
+    accountId: string,
+    reconciledDate: string,
+    actualBalance: string,
+    notes?: string,
+    createAdjustment?: boolean
+  ) => Promise<ReconciliationResult>;
+  getAccountReconciliations: (accountId: string) => Reconciliation[];
+  getExpectedBalance: (accountId: string, asOfDate: string) => string | null;
 
   // Report functions
   getBalanceSheet: (asOf?: string) => BalanceSheetReport;
@@ -121,6 +139,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     transactions: [],
     subcategories: [],
     mappingRules: [],
+    reconciliations: [],
     isLoading: true,
     error: null,
   });
@@ -142,12 +161,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadAllData = useCallback(async () => {
     setState((s) => ({ ...s, isLoading: true }));
     try {
-      const [contexts, accounts, transactions, subcategories, mappingRules] = await Promise.all([
+      const [contexts, accounts, transactions, subcategories, mappingRules, reconciliations] = await Promise.all([
         db.getContexts(),
         db.getAccounts(),
         db.getTransactions(),
         db.getSubcategories(),
         db.getMappingRules(),
+        db.getReconciliations(),
       ]);
 
       // Set active context to first one if not set
@@ -160,6 +180,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         transactions,
         subcategories,
         mappingRules,
+        reconciliations,
         activeContextId: s.activeContextId || activeContextId,
         isLoading: false,
         error: null,
@@ -507,6 +528,83 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.activeContextId, state.accounts, state.transactions, state.mappingRules, updateTransactionsFn]);
 
   // ============================================
+  // Reconciliation Operations
+  // ============================================
+
+  const reconcileAccount = useCallback(
+    async (
+      accountId: string,
+      reconciledDate: string,
+      actualBalance: string,
+      notes: string = '',
+      createAdjustment: boolean = true
+    ): Promise<ReconciliationResult> => {
+      const account = state.accounts.find((a) => a.id === accountId);
+      if (!account) {
+        return {
+          success: false,
+          reconciliation: {} as Reconciliation,
+          adjustmentTransaction: null,
+          message: 'Account not found',
+        };
+      }
+
+      const accountTransactions = state.transactions.filter((t) => t.accountId === accountId);
+
+      const result = performReconciliation(
+        account,
+        accountTransactions,
+        reconciledDate,
+        actualBalance,
+        notes,
+        createAdjustment
+      );
+
+      // Save reconciliation to database
+      await db.addReconciliation(result.reconciliation);
+
+      // If adjustment transaction was created, save it and update account balance
+      if (result.adjustmentTransaction) {
+        await db.addTransaction(result.adjustmentTransaction);
+
+        // Update account balance
+        const updatedAccount: BankAccount = {
+          ...account,
+          balance: actualBalance,
+          balanceDate: reconciledDate,
+        };
+        await db.updateAccount(updatedAccount);
+      }
+
+      // Reload all data to ensure state is consistent
+      await loadAllData();
+
+      return result;
+    },
+    [state.accounts, state.transactions, loadAllData]
+  );
+
+  const getAccountReconciliations = useCallback(
+    (accountId: string): Reconciliation[] => {
+      return state.reconciliations
+        .filter((r) => r.accountId === accountId)
+        .sort((a, b) => b.reconciledDate.localeCompare(a.reconciledDate));
+    },
+    [state.reconciliations]
+  );
+
+  const getExpectedBalance = useCallback(
+    (accountId: string, asOfDate: string): string | null => {
+      const account = state.accounts.find((a) => a.id === accountId);
+      if (!account) return null;
+
+      const accountTransactions = state.transactions.filter((t) => t.accountId === accountId);
+      return calculateExpectedBalance(account, accountTransactions, asOfDate);
+    },
+    [state.accounts, state.transactions]
+  );
+
+  // ============================================
   // Report Functions
   // ============================================
 
@@ -620,6 +718,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateMappingRule: updateMappingRuleFn,
     deleteMappingRule: deleteMappingRuleFn,
     applyMappingRules,
+
+    // Reconciliation operations
+    reconcileAccount,
+    getAccountReconciliations,
+    getExpectedBalance,
 
     // Report functions
     getBalanceSheet,

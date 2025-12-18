@@ -46,6 +46,7 @@ import {
   Sparkles,
   Copy,
   Check,
+  Scale,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -62,6 +63,7 @@ const CATEGORY_COLORS: Record<TransactionCategory, string> = {
   expense: 'bg-red-500/10 text-red-700 dark:text-red-400',
   transfer: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
   uncategorized: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
+  adjustment: 'bg-purple-500/10 text-purple-700 dark:text-purple-400',
 };
 
 const CATEGORY_ICONS: Record<TransactionCategory, React.ReactNode> = {
@@ -69,6 +71,7 @@ const CATEGORY_ICONS: Record<TransactionCategory, React.ReactNode> = {
   expense: <TrendingDown className="size-3" />,
   transfer: <ArrowLeftRight className="size-3" />,
   uncategorized: <HelpCircle className="size-3" />,
+  adjustment: <Scale className="size-3" />,
 };
 
 export function TransactionsPage() {

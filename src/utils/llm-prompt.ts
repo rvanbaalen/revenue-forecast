@@ -239,6 +239,7 @@ export function generateCategorizationSummary(
     expense: 0,
     transfer: 0,
     uncategorized: 0,
+    adjustment: 0,
   };
 
   const byConfidence: Record<string, number> = {
@@ -625,6 +626,7 @@ export function generateRulesetSummary(
     expense: 0,
     transfer: 0,
     uncategorized: 0,
+    adjustment: 0,
   };
 
   const byConfidence: Record<string, number> = {
