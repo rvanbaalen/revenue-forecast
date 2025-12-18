@@ -81,6 +81,8 @@ export function TransactionsPage() {
     contextSubcategories: subcategories,
     updateTransaction,
     updateTransactions,
+    addMappingRule,
+    activeContextId,
   } = useApp();
 
   // Filters
@@ -201,6 +203,37 @@ export function TransactionsPage() {
 
     if (appliedCount > 0) {
       await updateTransactions(updatedTransactions);
+
+      // Save LLM-generated rules as MappingRules for future use
+      if (activeContextId) {
+        for (let i = 0; i < ruleApplications.length; i++) {
+          const app = ruleApplications[i];
+          const rule = app.rule;
+
+          // Convert LLM matchType to MappingRule patternType
+          let patternType: 'contains' | 'exact' | 'regex' = 'contains';
+          let pattern = rule.pattern;
+          if (rule.matchType === 'exact') {
+            patternType = 'exact';
+          } else if (rule.matchType === 'startsWith') {
+            // Convert startsWith to regex pattern
+            patternType = 'regex';
+            pattern = `^${rule.pattern}`;
+          }
+
+          await addMappingRule({
+            contextId: activeContextId,
+            pattern,
+            patternType,
+            matchField: rule.matchField,
+            category: rule.category,
+            subcategory: rule.subcategory,
+            incomeType: rule.incomeType || undefined,
+            priority: ruleApplications.length - i, // Higher priority for earlier rules
+            isActive: true,
+          });
+        }
+      }
     }
   };
 
