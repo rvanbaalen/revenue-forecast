@@ -27,11 +27,21 @@ const mockActiveContext = {
   createdAt: '2024-01-01',
 };
 
+const mockContexts = [mockActiveContext];
+
+const mockCreateContext = vi.fn().mockResolvedValue({
+  id: 'ctx-new',
+  name: 'New Context',
+  createdAt: '2024-01-02',
+});
+
 // Mock the AppContext
 vi.mock('../context/AppContext', () => ({
   useApp: () => ({
     importOFXFile: mockImportOFXFile,
     activeContext: mockActiveContext,
+    contexts: mockContexts,
+    createContext: mockCreateContext,
   }),
 }));
 

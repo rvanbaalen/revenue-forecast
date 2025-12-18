@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useApp } from '../context/AppContext';
 import { parseOFXFile } from '../utils/ofx-parser';
 import { Button } from '@/components/ui/button';
+import { ImportContextSelector } from '@/components/ImportContextSelector';
 import {
   Upload,
   FileText,
@@ -32,11 +33,21 @@ export function ImportPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedContextId, setSelectedContextId] = useState<string | null>(
+    activeContext?.id || null
+  );
   const [importResult, setImportResult] = useState<{
     accountsCreated: number;
     transactionsImported: number;
     duplicatesSkipped: number;
   } | null>(null);
+
+  // Sync selected context with active context when it changes
+  useEffect(() => {
+    if (activeContext && !selectedContextId) {
+      setSelectedContextId(activeContext.id);
+    }
+  }, [activeContext, selectedContextId]);
 
   const handleFilesSelect = useCallback(async (selectedFiles: File[]) => {
     setError(null);
@@ -119,8 +130,8 @@ export function ImportPage() {
   const handleImport = async () => {
     if (parsedFiles.length === 0) return;
 
-    if (!activeContext) {
-      setError('No context selected. Please create or select a context first.');
+    if (!selectedContextId) {
+      setError('Please select a context to import transactions into.');
       return;
     }
 
@@ -133,7 +144,7 @@ export function ImportPage() {
       let totalDuplicatesSkipped = 0;
 
       for (const { parsed } of parsedFiles) {
-        const result = await importOFXFile(activeContext.id, parsed);
+        const result = await importOFXFile(selectedContextId, parsed);
         if (result.isNewAccount) {
           totalAccountsCreated++;
         }
@@ -228,12 +239,11 @@ export function ImportPage() {
         </p>
       </div>
 
-      {/* Context info */}
-      {activeContext && (
-        <div className="p-3 bg-muted rounded-lg text-center text-sm">
-          Importing to context: <span className="font-medium">{activeContext.name}</span>
-        </div>
-      )}
+      {/* Context selector */}
+      <ImportContextSelector
+        selectedContextId={selectedContextId}
+        onContextChange={setSelectedContextId}
+      />
 
       {/* File drop zone */}
       <div
