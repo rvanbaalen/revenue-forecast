@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/rvanbaalen/revenue-forecast/compare/v2.0.0...v2.0.1) (2025-12-18)
+
+
+### Bug Fixes
+
+* Add default type="button" to Button component to fix click issues ([#49](https://github.com/rvanbaalen/revenue-forecast/issues/49)) ([acd71f5](https://github.com/rvanbaalen/revenue-forecast/commit/acd71f58352f53912c056c22e0bccf8ed6acb49d))
+
 ## [2.0.0](https://github.com/rvanbaalen/revenue-forecast/compare/v1.10.0...v2.0.0) (2025-12-18)
 
 
