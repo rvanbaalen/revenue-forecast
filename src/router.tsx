@@ -5,6 +5,7 @@ import {
   redirect,
   Outlet,
 } from '@tanstack/react-router';
+import { TrendingUp, Menu } from 'lucide-react';
 import { DashboardPage } from './pages/DashboardPage';
 import { ExpectedRevenuePage } from './pages/ExpectedRevenuePage';
 import { ActualRevenuePage } from './pages/ActualRevenuePage';
@@ -15,14 +16,29 @@ import { SettingsPage } from './pages/SettingsPage';
 import { OFXWizardPage } from './pages/OFXWizardPage';
 import { BankLayout, BankAccountsPage, BankTransactionsPage, BankMappingRulesPage } from './pages/bank';
 import { AccountingLayout, AccountingOverviewPage, ChartOfAccountsPage, BudgetPage, ReportsPage } from './pages/accounting';
-import { SidebarProvider, SidebarInset } from './components/ui/sidebar';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from './components/ui/sidebar';
 import { AppSidebar } from './components/AppSidebar';
+import { Separator } from './components/ui/separator';
 
 function RootLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
+        {/* Mobile header with sidebar trigger */}
+        <header className="flex h-14 items-center gap-2 border-b px-4 md:hidden">
+          <SidebarTrigger>
+            <Menu className="size-5" />
+            <span className="sr-only">Toggle menu</span>
+          </SidebarTrigger>
+          <Separator orientation="vertical" className="h-6" />
+          <div className="flex items-center gap-2">
+            <div className="flex size-6 items-center justify-center rounded bg-primary text-primary-foreground">
+              <TrendingUp className="size-3.5" />
+            </div>
+            <span className="font-semibold">Revenue</span>
+          </div>
+        </header>
         <div className="p-6 max-w-[1600px]">
           <Outlet />
         </div>
