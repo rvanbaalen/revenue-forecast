@@ -402,3 +402,106 @@ export const DEFAULT_CHART_OF_ACCOUNTS: Omit<ChartAccount, 'createdAt' | 'update
   // Other Expenses (5900s)
   { id: '5900', code: '5900', name: 'Other Expenses', type: 'EXPENSE', parentId: '5000', isSystem: true, isActive: true },
 ];
+
+// ============================================
+// Revenue Analytics Types
+// ============================================
+
+// Variance information for comparing expected vs actual
+export interface VarianceInfo {
+  expected: number;
+  actual: number;
+  difference: number;
+  percentage: number;
+  isPositive: boolean;
+  status: 'exceeding' | 'on-target' | 'behind' | 'critical';
+}
+
+// Performance metrics for a single source
+export interface SourcePerformance {
+  sourceId: number;
+  sourceName: string;
+  sourceType: RevenueType;
+  currency: string;
+  ytdExpected: number;
+  ytdActual: number;
+  variance: VarianceInfo;
+  monthlyTrend: 'growing' | 'stable' | 'declining';
+  growthRate: number;
+  reliability: number; // 0-100 score based on hitting targets
+  bestMonth: { month: Month; amount: number } | null;
+  worstMonth: { month: Month; amount: number } | null;
+}
+
+// Monthly analysis data
+export interface MonthAnalysis {
+  month: Month;
+  year: number;
+  totalExpected: number;
+  totalActual: number;
+  variance: VarianceInfo;
+  byType: {
+    local: { expected: number; actual: number };
+    foreign: { expected: number; actual: number };
+  };
+  sources: Array<{
+    sourceId: number;
+    sourceName: string;
+    expected: number;
+    actual: number;
+    variance: VarianceInfo;
+  }>;
+}
+
+// Insight types for auto-generated recommendations
+export type InsightType = 'warning' | 'success' | 'info' | 'action';
+
+export interface Insight {
+  id: string;
+  type: InsightType;
+  title: string;
+  description: string;
+  metric?: string;
+  sourceId?: number;
+  month?: Month;
+}
+
+// Forecast scenario types
+export type ForecastScenario = 'conservative' | 'baseline' | 'optimistic' | 'custom';
+
+export interface ScenarioConfig {
+  scenario: ForecastScenario;
+  adjustmentFactor: number; // multiplier (0.9 for -10%, 1.15 for +15%)
+}
+
+// Extended forecast result with confidence
+export interface ForecastWithConfidence {
+  month: string;
+  predicted: number;
+  confidence: number; // 0-100
+  lowerBound: number;
+  upperBound: number;
+  method: string;
+}
+
+// Source-level forecast
+export interface SourceForecast {
+  sourceId: number;
+  sourceName: string;
+  forecasts: ForecastWithConfidence[];
+  overallConfidence: number;
+}
+
+// YTD Summary
+export interface YTDSummary {
+  revenue: VarianceInfo;
+  net: VarianceInfo;
+  currentMonth: {
+    month: Month;
+    actual: number;
+    expected: number;
+    percentComplete: number;
+  };
+  projectedEOY: number;
+  projectedEOYVariance: VarianceInfo;
+}
