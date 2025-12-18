@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/rvanbaalen/revenue-forecast/compare/v2.1.0...v2.1.1) (2025-12-18)
+
+
+### Bug Fixes
+
+* Ensure Button type="button" default cannot be overridden by spread props ([#53](https://github.com/rvanbaalen/revenue-forecast/issues/53)) ([5f46936](https://github.com/rvanbaalen/revenue-forecast/commit/5f46936ecc956669bd463f50ca0cd9cdbd273515))
+
 ## [2.1.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.0.1...v2.1.0) (2025-12-18)
 
 
