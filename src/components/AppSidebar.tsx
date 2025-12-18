@@ -9,6 +9,15 @@ import {
   Settings,
   Upload,
   HardDrive,
+  ChevronRight,
+  FolderOpen,
+  Coins,
+  Tag,
+  Wand2,
+  PieChart,
+  Scale,
+  ArrowLeftRight,
+  Wallet,
 } from 'lucide-react';
 import { useFinancialData } from '@/stores';
 import { BackupRestoreModal } from '@/components/BackupRestoreModal';
@@ -22,17 +31,37 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/accounts', label: 'Accounts', icon: Building2 },
   { path: '/transactions', label: 'Transactions', icon: Receipt },
   { path: '/import', label: 'Import', icon: Upload },
-  { path: '/reports', label: 'Reports', icon: FileText },
-  { path: '/settings', label: 'Settings', icon: Settings },
+];
+
+const REPORTS_ITEMS = [
+  { path: '/reports/profit-loss', label: 'P&L', icon: PieChart },
+  { path: '/reports/balance-sheet', label: 'Balance Sheet', icon: Scale },
+  { path: '/reports/cash-flow', label: 'Cash Flow', icon: ArrowLeftRight },
+  { path: '/reports/spending', label: 'Spending', icon: Wallet },
+];
+
+const SETTINGS_ITEMS = [
+  { path: '/settings/contexts', label: 'Contexts', icon: FolderOpen },
+  { path: '/settings/currencies', label: 'Currencies', icon: Coins },
+  { path: '/settings/categories', label: 'Categories', icon: Tag },
+  { path: '/settings/rules', label: 'Rules', icon: Wand2 },
 ];
 
 function ContextSelector() {
@@ -89,6 +118,9 @@ export function AppSidebar() {
   const currentPath = routerState.location.pathname;
   const { setOpenMobile } = useSidebar();
 
+  const isReportsActive = currentPath.startsWith('/reports');
+  const isSettingsActive = currentPath.startsWith('/settings');
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
@@ -109,6 +141,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Regular nav items */}
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const isActive =
@@ -126,6 +159,68 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+
+              {/* Reports with sub-items */}
+              <Collapsible asChild defaultOpen={isReportsActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Reports" isActive={isReportsActive}>
+                      <FileText className="size-4" />
+                      <span>Reports</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {REPORTS_ITEMS.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentPath === item.path;
+                        return (
+                          <SidebarMenuSubItem key={item.path}>
+                            <SidebarMenuSubButton asChild isActive={isActive}>
+                              <Link to={item.path} onClick={() => setOpenMobile(false)}>
+                                <Icon className="size-4" />
+                                <span>{item.label}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        );
+                      })}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Settings with sub-items */}
+              <Collapsible asChild defaultOpen={isSettingsActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Settings" isActive={isSettingsActive}>
+                      <Settings className="size-4" />
+                      <span>Settings</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {SETTINGS_ITEMS.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentPath === item.path;
+                        return (
+                          <SidebarMenuSubItem key={item.path}>
+                            <SidebarMenuSubButton asChild isActive={isActive}>
+                              <Link to={item.path} onClick={() => setOpenMobile(false)}>
+                                <Icon className="size-4" />
+                                <span>{item.label}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        );
+                      })}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

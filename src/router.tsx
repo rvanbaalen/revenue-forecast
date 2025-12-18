@@ -4,6 +4,7 @@ import {
   createRoute,
   createHashHistory,
   Outlet,
+  redirect,
 } from '@tanstack/react-router';
 import { TrendingUp, Menu } from 'lucide-react';
 import { DashboardPage } from './pages/DashboardPage';
@@ -12,6 +13,18 @@ import { TransactionsPage } from './pages/TransactionsPage';
 import { ImportPage } from './pages/ImportPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import {
+  ProfitLossPage,
+  BalanceSheetPage,
+  CashFlowPage,
+  SpendingPage,
+} from './pages/reports';
+import {
+  ContextsPage,
+  CurrenciesPage,
+  CategoriesPage,
+  RulesPage,
+} from './pages/settings';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from './components/ui/sidebar';
 import { AppSidebar } from './components/AppSidebar';
 import { Separator } from './components/ui/separator';
@@ -89,18 +102,84 @@ const importRoute = createRoute({
   component: ImportPage,
 });
 
-// Reports
+// Reports (layout)
 const reportsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/reports',
   component: ReportsPage,
 });
 
-// Settings
+// Reports sub-routes
+const reportsIndexRoute = createRoute({
+  getParentRoute: () => reportsRoute,
+  path: '/',
+  beforeLoad: () => {
+    throw redirect({ to: '/reports/profit-loss' });
+  },
+});
+
+const profitLossRoute = createRoute({
+  getParentRoute: () => reportsRoute,
+  path: '/profit-loss',
+  component: ProfitLossPage,
+});
+
+const balanceSheetRoute = createRoute({
+  getParentRoute: () => reportsRoute,
+  path: '/balance-sheet',
+  component: BalanceSheetPage,
+});
+
+const cashFlowRoute = createRoute({
+  getParentRoute: () => reportsRoute,
+  path: '/cash-flow',
+  component: CashFlowPage,
+});
+
+const spendingRoute = createRoute({
+  getParentRoute: () => reportsRoute,
+  path: '/spending',
+  component: SpendingPage,
+});
+
+// Settings (layout)
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
   component: SettingsPage,
+});
+
+// Settings sub-routes
+const settingsIndexRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/',
+  beforeLoad: () => {
+    throw redirect({ to: '/settings/contexts' });
+  },
+});
+
+const contextsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/contexts',
+  component: ContextsPage,
+});
+
+const currenciesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/currencies',
+  component: CurrenciesPage,
+});
+
+const categoriesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/categories',
+  component: CategoriesPage,
+});
+
+const rulesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/rules',
+  component: RulesPage,
 });
 
 // Create route tree
@@ -109,8 +188,20 @@ const routeTree = rootRoute.addChildren([
   accountsRoute,
   transactionsRoute,
   importRoute,
-  reportsRoute,
-  settingsRoute,
+  reportsRoute.addChildren([
+    reportsIndexRoute,
+    profitLossRoute,
+    balanceSheetRoute,
+    cashFlowRoute,
+    spendingRoute,
+  ]),
+  settingsRoute.addChildren([
+    settingsIndexRoute,
+    contextsRoute,
+    currenciesRoute,
+    categoriesRoute,
+    rulesRoute,
+  ]),
 ]);
 
 // Create hash history for GitHub Pages compatibility
