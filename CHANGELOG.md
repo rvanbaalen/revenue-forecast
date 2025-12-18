@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.3.0...v2.4.0) (2025-12-18)
+
+
+### Features
+
+* Add pagination and mobile-friendly filters to transactions list ([#65](https://github.com/rvanbaalen/revenue-forecast/issues/65)) ([4107840](https://github.com/rvanbaalen/revenue-forecast/commit/4107840a21e3485f7bdf7bd278e826f5dc82afe1))
+
+
+### Bug Fixes
+
+* Create single source of truth for transaction categories ([#63](https://github.com/rvanbaalen/revenue-forecast/issues/63)) ([91ec987](https://github.com/rvanbaalen/revenue-forecast/commit/91ec987544c94598539752a8d5f0e92a555423ff))
+
 ## [2.3.0](https://github.com/rvanbaalen/revenue-forecast/compare/v2.2.0...v2.3.0) (2025-12-18)
 
 
