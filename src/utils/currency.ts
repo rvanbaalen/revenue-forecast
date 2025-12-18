@@ -1,8 +1,14 @@
 /**
  * Currency utilities for formatting and displaying currencies
  *
- * Provides mapping from ISO 4217 currency codes to symbols and display names.
+ * Supports both user-defined currencies (stored in IndexedDB) and
+ * a fallback list of predefined currencies for common cases.
+ *
+ * User-defined currencies take precedence over predefined ones.
  */
+
+import type { Currency } from '@/types';
+import { multiply, divide } from './decimal';
 
 export interface CurrencyInfo {
   code: string;
@@ -58,61 +64,194 @@ export const SUPPORTED_CURRENCIES: CurrencyInfo[] = [
 ];
 
 /**
- * Map of currency codes to their info for quick lookup
+ * Map of predefined currency codes to their info for quick lookup
  */
-const CURRENCY_MAP = new Map<string, CurrencyInfo>(
+const PREDEFINED_CURRENCY_MAP = new Map<string, CurrencyInfo>(
   SUPPORTED_CURRENCIES.map((c) => [c.code, c])
 );
 
 /**
+ * Convert a user-defined Currency to CurrencyInfo
+ */
+function currencyToInfo(currency: Currency): CurrencyInfo {
+  return {
+    code: currency.code,
+    symbol: currency.symbol,
+    name: currency.name,
+  };
+}
+
+/**
+ * Create a lookup map from user-defined currencies
+ */
+function createUserCurrencyMap(userCurrencies: Currency[]): Map<string, CurrencyInfo> {
+  return new Map(userCurrencies.map((c) => [c.code.toUpperCase(), currencyToInfo(c)]));
+}
+
+/**
  * Get currency info by code
+ * Checks user-defined currencies first, then falls back to predefined
  * @param code ISO 4217 currency code
+ * @param userCurrencies Optional array of user-defined currencies
  * @returns Currency info or undefined if not found
  */
-export function getCurrencyInfo(code: string): CurrencyInfo | undefined {
-  return CURRENCY_MAP.get(code.toUpperCase());
+export function getCurrencyInfo(code: string, userCurrencies?: Currency[]): CurrencyInfo | undefined {
+  const upperCode = code.toUpperCase();
+
+  // Check user-defined currencies first
+  if (userCurrencies) {
+    const userMap = createUserCurrencyMap(userCurrencies);
+    const userCurrency = userMap.get(upperCode);
+    if (userCurrency) {
+      return userCurrency;
+    }
+  }
+
+  // Fall back to predefined currencies
+  return PREDEFINED_CURRENCY_MAP.get(upperCode);
 }
 
 /**
  * Get currency symbol by code
- * Falls back to the code itself if not found
+ * Checks user-defined currencies first, then falls back to predefined
+ * Falls back to the code itself if not found anywhere
  * @param code ISO 4217 currency code
+ * @param userCurrencies Optional array of user-defined currencies
  * @returns Currency symbol
  */
-export function getCurrencySymbol(code: string): string {
-  const info = getCurrencyInfo(code);
+export function getCurrencySymbol(code: string, userCurrencies?: Currency[]): string {
+  const info = getCurrencyInfo(code, userCurrencies);
   return info?.symbol ?? code;
 }
 
 /**
  * Get currency name by code
- * Falls back to the code itself if not found
+ * Checks user-defined currencies first, then falls back to predefined
+ * Falls back to the code itself if not found anywhere
  * @param code ISO 4217 currency code
+ * @param userCurrencies Optional array of user-defined currencies
  * @returns Currency name
  */
-export function getCurrencyName(code: string): string {
-  const info = getCurrencyInfo(code);
+export function getCurrencyName(code: string, userCurrencies?: Currency[]): string {
+  const info = getCurrencyInfo(code, userCurrencies);
   return info?.name ?? code;
 }
 
 /**
- * Check if a currency code is supported
+ * Check if a currency code is known (either user-defined or predefined)
  * @param code ISO 4217 currency code
- * @returns True if supported
+ * @param userCurrencies Optional array of user-defined currencies
+ * @returns True if known
  */
-export function isSupportedCurrency(code: string): boolean {
-  return CURRENCY_MAP.has(code.toUpperCase());
+export function isSupportedCurrency(code: string, userCurrencies?: Currency[]): boolean {
+  const upperCode = code.toUpperCase();
+
+  if (userCurrencies) {
+    const userMap = createUserCurrencyMap(userCurrencies);
+    if (userMap.has(upperCode)) {
+      return true;
+    }
+  }
+
+  return PREDEFINED_CURRENCY_MAP.has(upperCode);
 }
 
 /**
  * Get display label for a currency (code + name)
  * @param code ISO 4217 currency code
+ * @param userCurrencies Optional array of user-defined currencies
  * @returns Display label like "USD - US Dollar"
  */
-export function getCurrencyLabel(code: string): string {
-  const info = getCurrencyInfo(code);
+export function getCurrencyLabel(code: string, userCurrencies?: Currency[]): string {
+  const info = getCurrencyInfo(code, userCurrencies);
   if (info) {
     return `${info.code} - ${info.name}`;
   }
   return code;
+}
+
+/**
+ * Get suggested currency info for a code from OFX import
+ * First checks user currencies, then predefined list
+ * Returns suggested symbol and name for creating a new currency
+ * @param code ISO 4217 currency code
+ * @param userCurrencies User-defined currencies
+ * @returns Suggested currency info or defaults
+ */
+export function getSuggestedCurrencyInfo(code: string, userCurrencies?: Currency[]): CurrencyInfo {
+  const upperCode = code.toUpperCase();
+
+  // First check if already exists
+  const existing = getCurrencyInfo(upperCode, userCurrencies);
+  if (existing) {
+    return existing;
+  }
+
+  // Check predefined for suggestions
+  const predefined = PREDEFINED_CURRENCY_MAP.get(upperCode);
+  if (predefined) {
+    return predefined;
+  }
+
+  // Default: use code as both symbol and name
+  return {
+    code: upperCode,
+    symbol: upperCode,
+    name: upperCode,
+  };
+}
+
+/**
+ * Get exchange rate for a currency
+ * @param code ISO 4217 currency code
+ * @param userCurrencies User-defined currencies with exchange rates
+ * @returns Exchange rate as string, defaults to '1' if not found
+ */
+export function getExchangeRate(code: string, userCurrencies?: Currency[]): string {
+  if (!userCurrencies) return '1';
+
+  const upperCode = code.toUpperCase();
+  const currency = userCurrencies.find((c) => c.code.toUpperCase() === upperCode);
+  return currency?.exchangeRate ?? '1';
+}
+
+/**
+ * Convert an amount from one currency to another using exchange rates
+ * All rates are relative to USD, so conversion goes: source -> USD -> target
+ *
+ * @param amount Amount to convert (string for Decimal.js precision)
+ * @param fromCurrency Source currency code
+ * @param toCurrency Target currency code
+ * @param userCurrencies User-defined currencies with exchange rates
+ * @returns Converted amount as string
+ */
+export function convertCurrency(
+  amount: string,
+  fromCurrency: string,
+  toCurrency: string,
+  userCurrencies?: Currency[]
+): string {
+  const fromRate = getExchangeRate(fromCurrency, userCurrencies);
+  const toRate = getExchangeRate(toCurrency, userCurrencies);
+
+  // Convert: amount * fromRate / toRate
+  // (amount in source) * (USD per source) / (USD per target) = amount in target
+  const inUsd = multiply(amount, fromRate);
+  return divide(inUsd, toRate).toString();
+}
+
+/**
+ * Convert amount to USD using exchange rate
+ * @param amount Amount in source currency
+ * @param currencyCode Source currency code
+ * @param userCurrencies User-defined currencies
+ * @returns Amount in USD as string
+ */
+export function convertToUsd(
+  amount: string,
+  currencyCode: string,
+  userCurrencies?: Currency[]
+): string {
+  const rate = getExchangeRate(currencyCode, userCurrencies);
+  return multiply(amount, rate).toString();
 }

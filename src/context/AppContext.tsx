@@ -25,13 +25,18 @@ import type {
   CategorySpendingReport,
   Reconciliation,
   ReconciliationResult,
+  Currency,
 } from '../types';
 import {
   DEFAULT_INCOME_SUBCATEGORIES,
   DEFAULT_EXPENSE_SUBCATEGORIES,
   DEFAULT_CURRENCY,
 } from '../types';
-import { getCurrencySymbol } from '../utils/currency';
+import {
+  getCurrencySymbol,
+  getSuggestedCurrencyInfo,
+  convertCurrency,
+} from '../utils/currency';
 import { db } from '../store/db';
 import {
   generateBalanceSheet,
@@ -58,6 +63,7 @@ interface AppState {
   subcategories: Subcategory[];
   mappingRules: MappingRule[];
   reconciliations: Reconciliation[];
+  currencies: Currency[];
 
   // UI State
   isLoading: boolean;
@@ -102,6 +108,12 @@ interface AppContextValue extends AppState {
   getAccountReconciliations: (accountId: string) => Reconciliation[];
   getExpectedBalance: (accountId: string, asOfDate: string) => string | null;
 
+  // Currency operations
+  addCurrency: (code: string, symbol: string, name: string, exchangeRate?: string) => Promise<Currency>;
+  updateCurrency: (currency: Currency) => Promise<void>;
+  deleteCurrency: (id: string) => Promise<void>;
+  getCurrencyByCode: (code: string) => Currency | undefined;
+
   // Report functions
   getBalanceSheet: (asOf?: string) => BalanceSheetReport;
   getProfitLoss: (period: DateRange) => ProfitLossReport;
@@ -120,6 +132,8 @@ interface AppContextValue extends AppState {
   // Currency helpers
   contextCurrency: string; // ISO currency code (e.g., 'USD')
   contextCurrencySymbol: string; // Currency symbol (e.g., '$')
+  getSymbol: (code: string) => string; // Get symbol for any currency code
+  convertToContextCurrency: (amount: string, fromCurrency: string) => string; // Convert amount to context currency
 
   // Data operations
   refreshData: () => Promise<void>;
@@ -146,6 +160,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     subcategories: [],
     mappingRules: [],
     reconciliations: [],
+    currencies: [],
     isLoading: true,
     error: null,
   });
@@ -167,13 +182,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadAllData = useCallback(async () => {
     setState((s) => ({ ...s, isLoading: true }));
     try {
-      const [contexts, accounts, transactions, subcategories, mappingRules, reconciliations] = await Promise.all([
+      const [contexts, accounts, transactions, subcategories, mappingRules, reconciliations, currencies] = await Promise.all([
         db.getContexts(),
         db.getAccounts(),
         db.getTransactions(),
         db.getSubcategories(),
         db.getMappingRules(),
         db.getReconciliations(),
+        db.getCurrencies(),
       ]);
 
       // Set active context to first one if not set
@@ -187,6 +203,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         subcategories,
         mappingRules,
         reconciliations,
+        currencies,
         activeContextId: s.activeContextId || activeContextId,
         isLoading: false,
         error: null,
@@ -256,6 +273,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const errors: string[] = [];
       const now = new Date().toISOString();
       const importBatchId = crypto.randomUUID();
+
+      // Auto-create currency from OFX if it doesn't exist
+      const ofxCurrency = parsedOFX.currency || 'USD';
+      const existingCurrency = await db.getCurrencyByCode(ofxCurrency);
+      if (!existingCurrency) {
+        // Get suggested info from predefined list
+        const suggested = getSuggestedCurrencyInfo(ofxCurrency);
+        await db.getOrCreateCurrency(
+          suggested.code,
+          suggested.symbol,
+          suggested.name,
+          '1' // Default exchange rate, user can update in settings
+        );
+      }
 
       // Hash the account ID for deduplication
       const encoder = new TextEncoder();
@@ -612,6 +643,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   // ============================================
+  // Currency Operations
+  // ============================================
+
+  const addCurrencyFn = useCallback(
+    async (code: string, symbol: string, name: string, exchangeRate = '1'): Promise<Currency> => {
+      const currency: Currency = {
+        id: crypto.randomUUID(),
+        code: code.toUpperCase(),
+        symbol,
+        name,
+        exchangeRate,
+        createdAt: new Date().toISOString(),
+      };
+
+      await db.addCurrency(currency);
+      setState((s) => ({
+        ...s,
+        currencies: [...s.currencies, currency],
+      }));
+
+      return currency;
+    },
+    []
+  );
+
+  const updateCurrencyFn = useCallback(async (currency: Currency) => {
+    await db.updateCurrency(currency);
+    setState((s) => ({
+      ...s,
+      currencies: s.currencies.map((c) => (c.id === currency.id ? currency : c)),
+    }));
+  }, []);
+
+  const deleteCurrencyFn = useCallback(async (id: string) => {
+    await db.deleteCurrency(id);
+    setState((s) => ({
+      ...s,
+      currencies: s.currencies.filter((c) => c.id !== id),
+    }));
+  }, []);
+
+  const getCurrencyByCodeFn = useCallback(
+    (code: string): Currency | undefined => {
+      return state.currencies.find((c) => c.code.toUpperCase() === code.toUpperCase());
+    },
+    [state.currencies]
+  );
+
+  // ============================================
   // Report Functions
   // ============================================
 
@@ -695,7 +775,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Currency helpers - handle legacy contexts without currency field
   const contextCurrency = activeContext?.currency || DEFAULT_CURRENCY;
-  const contextCurrencySymbol = getCurrencySymbol(contextCurrency);
+  const contextCurrencySymbol = getCurrencySymbol(contextCurrency, state.currencies);
+
+  // Helper to get symbol for any currency code (uses user-defined currencies first)
+  const getSymbol = useCallback(
+    (code: string): string => {
+      return getCurrencySymbol(code, state.currencies);
+    },
+    [state.currencies]
+  );
+
+  // Helper to convert an amount to the context's currency
+  const convertToContextCurrency = useCallback(
+    (amount: string, fromCurrency: string): string => {
+      if (fromCurrency.toUpperCase() === contextCurrency.toUpperCase()) {
+        return amount; // Same currency, no conversion needed
+      }
+      return convertCurrency(amount, fromCurrency, contextCurrency, state.currencies);
+    },
+    [contextCurrency, state.currencies]
+  );
 
   // ============================================
   // Context Value
@@ -735,6 +834,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     getAccountReconciliations,
     getExpectedBalance,
 
+    // Currency operations
+    addCurrency: addCurrencyFn,
+    updateCurrency: updateCurrencyFn,
+    deleteCurrency: deleteCurrencyFn,
+    getCurrencyByCode: getCurrencyByCodeFn,
+
     // Report functions
     getBalanceSheet,
     getProfitLoss,
@@ -753,6 +858,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Currency helpers
     contextCurrency,
     contextCurrencySymbol,
+    getSymbol,
+    convertToContextCurrency,
 
     // Data operations
     refreshData: loadAllData,

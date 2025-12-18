@@ -9,6 +9,28 @@
  */
 
 // ============================================
+// Currency Types
+// ============================================
+
+/**
+ * User-defined currency with exchange rate
+ * Users can add custom currencies with code, symbol, name, and exchange rate
+ *
+ * Exchange rate is defined as: 1 unit of this currency = rate units of USD
+ * Example: AWG rate = 0.56 means 1 AWG = 0.56 USD
+ *
+ * For reports, values can be converted to a common currency using these rates.
+ */
+export interface Currency {
+  id: string;
+  code: string; // ISO 4217 code (e.g., 'USD', 'AWG')
+  symbol: string; // Display symbol (e.g., '$', 'ƒ')
+  name: string; // Display name (e.g., 'US Dollar', 'Aruban Florin')
+  exchangeRate: string; // Rate to USD as string for Decimal.js precision (e.g., '0.56')
+  createdAt: string; // ISO date
+}
+
+// ============================================
 // Context Types
 // ============================================
 

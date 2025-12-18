@@ -5,8 +5,13 @@ import {
   getCurrencyName,
   isSupportedCurrency,
   getCurrencyLabel,
+  getSuggestedCurrencyInfo,
+  getExchangeRate,
+  convertCurrency,
+  convertToUsd,
   SUPPORTED_CURRENCIES,
 } from './currency';
+import type { Currency } from '@/types';
 
 describe('Currency Utilities', () => {
   describe('SUPPORTED_CURRENCIES', () => {
@@ -171,6 +176,142 @@ describe('Currency Utilities', () => {
       expect(getCurrencyName('SEK')).toBe('Swedish Krona');
       expect(getCurrencyName('NOK')).toBe('Norwegian Krone');
       expect(getCurrencyName('DKK')).toBe('Danish Krone');
+    });
+  });
+
+  describe('User-defined currencies', () => {
+    const userCurrencies: Currency[] = [
+      { id: '1', code: 'AWG', symbol: 'ƒ', name: 'Aruban Florin', exchangeRate: '0.56', createdAt: '' },
+      { id: '2', code: 'USD', symbol: '$', name: 'US Dollar', exchangeRate: '1', createdAt: '' },
+      { id: '3', code: 'XYZ', symbol: '¤', name: 'Custom Currency', exchangeRate: '0.5', createdAt: '' },
+    ];
+
+    it('should prefer user-defined currencies over predefined', () => {
+      // User defined should take precedence
+      expect(getCurrencySymbol('AWG', userCurrencies)).toBe('ƒ');
+      expect(getCurrencyName('AWG', userCurrencies)).toBe('Aruban Florin');
+    });
+
+    it('should find custom currencies not in predefined list', () => {
+      expect(getCurrencySymbol('XYZ', userCurrencies)).toBe('¤');
+      expect(getCurrencyName('XYZ', userCurrencies)).toBe('Custom Currency');
+      expect(isSupportedCurrency('XYZ', userCurrencies)).toBe(true);
+    });
+
+    it('should fall back to predefined for currencies not in user list', () => {
+      expect(getCurrencySymbol('EUR', userCurrencies)).toBe('€');
+      expect(getCurrencyName('EUR', userCurrencies)).toBe('Euro');
+    });
+  });
+
+  describe('getSuggestedCurrencyInfo', () => {
+    it('should return predefined info for known currencies', () => {
+      const info = getSuggestedCurrencyInfo('USD');
+      expect(info.code).toBe('USD');
+      expect(info.symbol).toBe('$');
+      expect(info.name).toBe('US Dollar');
+    });
+
+    it('should return the code itself for unknown currencies', () => {
+      const info = getSuggestedCurrencyInfo('XYZ');
+      expect(info.code).toBe('XYZ');
+      expect(info.symbol).toBe('XYZ');
+      expect(info.name).toBe('XYZ');
+    });
+
+    it('should handle lowercase codes', () => {
+      const info = getSuggestedCurrencyInfo('eur');
+      expect(info.code).toBe('EUR');
+      expect(info.symbol).toBe('€');
+    });
+  });
+
+  describe('getExchangeRate', () => {
+    const userCurrencies: Currency[] = [
+      { id: '1', code: 'AWG', symbol: 'ƒ', name: 'Aruban Florin', exchangeRate: '0.56', createdAt: '' },
+      { id: '2', code: 'USD', symbol: '$', name: 'US Dollar', exchangeRate: '1', createdAt: '' },
+      { id: '3', code: 'EUR', symbol: '€', name: 'Euro', exchangeRate: '1.08', createdAt: '' },
+    ];
+
+    it('should return exchange rate for known currency', () => {
+      expect(getExchangeRate('AWG', userCurrencies)).toBe('0.56');
+      expect(getExchangeRate('USD', userCurrencies)).toBe('1');
+      expect(getExchangeRate('EUR', userCurrencies)).toBe('1.08');
+    });
+
+    it('should return 1 for unknown currency', () => {
+      expect(getExchangeRate('XYZ', userCurrencies)).toBe('1');
+    });
+
+    it('should return 1 when no user currencies provided', () => {
+      expect(getExchangeRate('USD')).toBe('1');
+    });
+
+    it('should handle case-insensitive lookup', () => {
+      expect(getExchangeRate('awg', userCurrencies)).toBe('0.56');
+      expect(getExchangeRate('Eur', userCurrencies)).toBe('1.08');
+    });
+  });
+
+  describe('convertToUsd', () => {
+    const userCurrencies: Currency[] = [
+      { id: '1', code: 'AWG', symbol: 'ƒ', name: 'Aruban Florin', exchangeRate: '0.56', createdAt: '' },
+      { id: '2', code: 'USD', symbol: '$', name: 'US Dollar', exchangeRate: '1', createdAt: '' },
+      { id: '3', code: 'EUR', symbol: '€', name: 'Euro', exchangeRate: '1.08', createdAt: '' },
+    ];
+
+    it('should convert AWG to USD', () => {
+      const result = convertToUsd('100', 'AWG', userCurrencies);
+      expect(parseFloat(result)).toBe(56); // 100 * 0.56
+    });
+
+    it('should convert EUR to USD', () => {
+      const result = convertToUsd('100', 'EUR', userCurrencies);
+      expect(parseFloat(result)).toBe(108); // 100 * 1.08
+    });
+
+    it('should not change USD', () => {
+      const result = convertToUsd('100', 'USD', userCurrencies);
+      expect(parseFloat(result)).toBe(100); // 100 * 1
+    });
+  });
+
+  describe('convertCurrency', () => {
+    const userCurrencies: Currency[] = [
+      { id: '1', code: 'AWG', symbol: 'ƒ', name: 'Aruban Florin', exchangeRate: '0.56', createdAt: '' },
+      { id: '2', code: 'USD', symbol: '$', name: 'US Dollar', exchangeRate: '1', createdAt: '' },
+      { id: '3', code: 'EUR', symbol: '€', name: 'Euro', exchangeRate: '1.08', createdAt: '' },
+    ];
+
+    it('should convert AWG to USD', () => {
+      const result = convertCurrency('100', 'AWG', 'USD', userCurrencies);
+      expect(parseFloat(result)).toBe(56); // 100 * 0.56 / 1
+    });
+
+    it('should convert USD to AWG', () => {
+      const result = convertCurrency('56', 'USD', 'AWG', userCurrencies);
+      expect(parseFloat(result)).toBe(100); // 56 * 1 / 0.56
+    });
+
+    it('should convert EUR to AWG', () => {
+      const result = convertCurrency('100', 'EUR', 'AWG', userCurrencies);
+      // 100 EUR * 1.08 = 108 USD
+      // 108 USD / 0.56 = ~192.86 AWG
+      const expected = (100 * 1.08) / 0.56;
+      expect(parseFloat(result)).toBeCloseTo(expected, 2);
+    });
+
+    it('should convert AWG to EUR', () => {
+      const result = convertCurrency('100', 'AWG', 'EUR', userCurrencies);
+      // 100 AWG * 0.56 = 56 USD
+      // 56 USD / 1.08 = ~51.85 EUR
+      const expected = (100 * 0.56) / 1.08;
+      expect(parseFloat(result)).toBeCloseTo(expected, 2);
+    });
+
+    it('should handle same currency (no conversion)', () => {
+      const result = convertCurrency('100', 'USD', 'USD', userCurrencies);
+      expect(parseFloat(result)).toBe(100);
     });
   });
 });
