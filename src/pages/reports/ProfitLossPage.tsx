@@ -1,8 +1,10 @@
+import { useNavigate } from '@tanstack/react-router';
 import { useFinancialData } from '../../stores';
 import { formatCurrency } from '../../utils/decimal';
 import { useContextCurrency } from '@/hooks/useContextCurrency';
 import { useReportDateRange } from '@/hooks/useReportDateRange';
 import { Badge } from '@/components/ui/badge';
+import { ExternalLink } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -15,10 +17,24 @@ import { cn } from '@/lib/utils';
 
 export function ProfitLossPage() {
   const { getProfitLoss } = useFinancialData();
+  const navigate = useNavigate();
   const { symbol: currencySymbol } = useContextCurrency();
   const { dateRange } = useReportDateRange();
 
   const profitLoss = getProfitLoss(dateRange);
+
+  // Navigate to transactions page with filters
+  const viewExpenseTransactions = (subcategory: string) => {
+    navigate({
+      to: '/transactions',
+      search: {
+        category: 'expense',
+        subcategory: subcategory,
+        startDate: dateRange.start,
+        endDate: dateRange.end,
+      },
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -130,8 +146,17 @@ export function ProfitLossPage() {
           </TableHeader>
           <TableBody>
             {profitLoss.expenses.items.map((item) => (
-              <TableRow key={item.subcategory}>
-                <TableCell>{item.subcategory || 'Uncategorized'}</TableCell>
+              <TableRow
+                key={item.subcategory || 'uncategorized'}
+                className="cursor-pointer hover:bg-muted/50 group"
+                onClick={() => viewExpenseTransactions(item.subcategory)}
+              >
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {item.subcategory || 'Uncategorized'}
+                    <ExternalLink className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </TableCell>
                 <TableCell className="text-right tabular-nums variance-negative">
                   {formatCurrency(item.amount, currencySymbol)}
                 </TableCell>

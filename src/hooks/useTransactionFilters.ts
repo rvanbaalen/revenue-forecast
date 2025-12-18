@@ -12,7 +12,10 @@ interface UseTransactionFiltersOptions {
   transactions: Transaction[];
   initialSearch?: string;
   initialCategory?: TransactionCategory | 'all';
+  initialSubcategory?: string;
   initialAccount?: string;
+  initialStartDate?: string;
+  initialEndDate?: string;
   initialPageSize?: number;
 }
 
@@ -22,8 +25,14 @@ interface UseTransactionFiltersReturn {
   setSearch: (search: string) => void;
   categoryFilter: TransactionCategory | 'all';
   setCategoryFilter: (category: TransactionCategory | 'all') => void;
+  subcategoryFilter: string;
+  setSubcategoryFilter: (subcategory: string) => void;
   accountFilter: string;
   setAccountFilter: (account: string) => void;
+  startDate: string;
+  setStartDate: (date: string) => void;
+  endDate: string;
+  setEndDate: (date: string) => void;
 
   // Pagination state
   currentPage: number;
@@ -48,14 +57,20 @@ export function useTransactionFilters(
     transactions,
     initialSearch = '',
     initialCategory = 'all',
+    initialSubcategory = 'all',
     initialAccount = 'all',
+    initialStartDate = '',
+    initialEndDate = '',
     initialPageSize = 20,
   } = options;
 
   // Filter state
   const [search, setSearch] = useState(initialSearch);
   const [categoryFilter, setCategoryFilter] = useState<TransactionCategory | 'all'>(initialCategory);
+  const [subcategoryFilter, setSubcategoryFilter] = useState(initialSubcategory);
   const [accountFilter, setAccountFilter] = useState(initialAccount);
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [endDate, setEndDate] = useState(initialEndDate);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,16 +95,31 @@ export function useTransactionFilters(
       result = result.filter((t) => t.category === categoryFilter);
     }
 
+    // Apply subcategory filter
+    if (subcategoryFilter !== 'all') {
+      result = result.filter(
+        (t) => t.subcategory.toLowerCase() === subcategoryFilter.toLowerCase()
+      );
+    }
+
     // Apply account filter
     if (accountFilter !== 'all') {
       result = result.filter((t) => t.accountId === accountFilter);
+    }
+
+    // Apply date range filter
+    if (startDate) {
+      result = result.filter((t) => t.date >= startDate);
+    }
+    if (endDate) {
+      result = result.filter((t) => t.date <= endDate);
     }
 
     // Sort by date descending
     result.sort((a, b) => b.date.localeCompare(a.date));
 
     return result;
-  }, [transactions, search, categoryFilter, accountFilter]);
+  }, [transactions, search, categoryFilter, subcategoryFilter, accountFilter, startDate, endDate]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredTransactions.length / pageSize);
@@ -101,13 +131,22 @@ export function useTransactionFilters(
   }, [filteredTransactions, currentPage, pageSize]);
 
   // Check if filters are active
-  const hasActiveFilters = search !== '' || categoryFilter !== 'all' || accountFilter !== 'all';
+  const hasActiveFilters =
+    search !== '' ||
+    categoryFilter !== 'all' ||
+    subcategoryFilter !== 'all' ||
+    accountFilter !== 'all' ||
+    startDate !== '' ||
+    endDate !== '';
 
   // Clear all filters
   const clearFilters = useCallback(() => {
     setSearch('');
     setCategoryFilter('all');
+    setSubcategoryFilter('all');
     setAccountFilter('all');
+    setStartDate('');
+    setEndDate('');
     setCurrentPage(1);
   }, []);
 
@@ -127,14 +166,35 @@ export function useTransactionFilters(
     setCurrentPage(1);
   }, []);
 
+  const handleSetSubcategoryFilter = useCallback((value: string) => {
+    setSubcategoryFilter(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSetStartDate = useCallback((value: string) => {
+    setStartDate(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSetEndDate = useCallback((value: string) => {
+    setEndDate(value);
+    setCurrentPage(1);
+  }, []);
+
   return {
     // Filter state
     search,
     setSearch: handleSetSearch,
     categoryFilter,
     setCategoryFilter: handleSetCategoryFilter,
+    subcategoryFilter,
+    setSubcategoryFilter: handleSetSubcategoryFilter,
     accountFilter,
     setAccountFilter: handleSetAccountFilter,
+    startDate,
+    setStartDate: handleSetStartDate,
+    endDate,
+    setEndDate: handleSetEndDate,
 
     // Pagination state
     currentPage,

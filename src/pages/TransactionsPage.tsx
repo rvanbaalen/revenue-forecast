@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useSearch } from '@tanstack/react-router';
 import { useFinancialData } from '../stores';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,14 +55,23 @@ export function TransactionsPage() {
     activeContextId,
   } = useFinancialData();
 
+  // Read URL search params
+  const searchParams = useSearch({ from: '/transactions' });
+
   // Filter and pagination state
   const {
     search,
     setSearch,
     categoryFilter,
     setCategoryFilter,
+    subcategoryFilter,
+    setSubcategoryFilter,
     accountFilter,
     setAccountFilter,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
     currentPage,
     setCurrentPage,
     pageSize,
@@ -74,6 +84,12 @@ export function TransactionsPage() {
   } = useTransactionFilters({
     transactions,
     initialPageSize: 25,
+    initialSearch: searchParams.q || '',
+    initialCategory: (searchParams.category as TransactionCategory) || 'all',
+    initialSubcategory: searchParams.subcategory || 'all',
+    initialAccount: searchParams.account || 'all',
+    initialStartDate: searchParams.startDate || '',
+    initialEndDate: searchParams.endDate || '',
   });
 
   // Edit dialog state
@@ -136,8 +152,14 @@ export function TransactionsPage() {
         onSearchChange={setSearch}
         categoryFilter={categoryFilter}
         onCategoryChange={(v) => setCategoryFilter(v as TransactionCategory | 'all')}
+        subcategoryFilter={subcategoryFilter}
+        onSubcategoryChange={setSubcategoryFilter}
         accountFilter={accountFilter}
         onAccountChange={setAccountFilter}
+        startDate={startDate}
+        onStartDateChange={setStartDate}
+        endDate={endDate}
+        onEndDateChange={setEndDate}
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
         accounts={accounts}

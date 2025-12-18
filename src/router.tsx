@@ -79,6 +79,9 @@ const accountsRoute = createRoute({
 interface TransactionsSearchParams {
   account?: string;
   category?: string;
+  subcategory?: string;
+  startDate?: string;
+  endDate?: string;
   q?: string;
 }
 
@@ -90,6 +93,9 @@ const transactionsRoute = createRoute({
     return {
       account: typeof search.account === 'string' ? search.account : undefined,
       category: typeof search.category === 'string' ? search.category : undefined,
+      subcategory: typeof search.subcategory === 'string' ? search.subcategory : undefined,
+      startDate: typeof search.startDate === 'string' ? search.startDate : undefined,
+      endDate: typeof search.endDate === 'string' ? search.endDate : undefined,
       q: typeof search.q === 'string' ? search.q : undefined,
     };
   },
