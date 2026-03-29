@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.2.0](https://github.com/rvanbaalen/revenue-forecast/compare/v3.1.0...v3.2.0) (2026-03-29)
+
+
+### Features
+
+* Add deep-link navigation from P&L expense categories to transactions ([#73](https://github.com/rvanbaalen/revenue-forecast/issues/73)) ([95195b6](https://github.com/rvanbaalen/revenue-forecast/commit/95195b67e65dd0c79dfec3b2e2573b50db125922))
+
+
+### Bug Fixes
+
+* update base path for custom domain and add manual deploy workflow ([bd61935](https://github.com/rvanbaalen/revenue-forecast/commit/bd619354d69b20f688b45e0734a12c2a4b2b35e6))
+
 ## [3.1.0](https://github.com/rvanbaalen/revenue-forecast/compare/v3.0.0...v3.1.0) (2025-12-18)
 
 
