@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.2.1](https://github.com/rvanbaalen/revenue-forecast/compare/v3.2.0...v3.2.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* link back to robinvanbaalen.nl from the page footer ([2f0816f](https://github.com/rvanbaalen/revenue-forecast/commit/2f0816f3d0a50afb8c8016b4394dc63edd27d630))
+* **seo:** add a static heading and intro, lengthen the title and description ([2dfffd4](https://github.com/rvanbaalen/revenue-forecast/commit/2dfffd40b70a3aa0c2a8a0550918a8eb02d82216))
+* **seo:** add Open Graph, Twitter card and canonical tags ([9ab76c6](https://github.com/rvanbaalen/revenue-forecast/commit/9ab76c62736aed19cb9f766c022a2fd945da2159))
+
 ## [3.2.0](https://github.com/rvanbaalen/revenue-forecast/compare/v3.1.0...v3.2.0) (2026-03-29)
 
 
