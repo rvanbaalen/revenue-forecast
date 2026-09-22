@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2026 Revenue Tracker</title>
-    <meta name="description" content="Personal finance tracker with P&amp;L, balance sheet, and cash flow reports.">
+    <title>2026 Revenue Tracker: Personal P&amp;L, Balance Sheet and Cash Flow</title>
+    <meta name="description" content="A free, browser-only revenue tracker for 2026. Log expected and actual revenue, recurring income, VAT and salaries, then review P&amp;L and cash flow.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://revenue-forecast.robinvanbaalen.nl/">
-    <meta property="og:title" content="2026 Revenue Tracker">
-    <meta property="og:description" content="Personal finance tracker with P&amp;L, balance sheet, and cash flow reports.">
+    <meta property="og:title" content="2026 Revenue Tracker: Personal P&amp;L, Balance Sheet and Cash Flow">
+    <meta property="og:description" content="A free, browser-only revenue tracker for 2026. Log expected and actual revenue, recurring income, VAT and salaries, then review P&amp;L and cash flow.">
     <meta property="og:image" content="https://robinvanbaalen.nl/og/default.png">
     <meta property="og:site_name" content="Robin van Baalen">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="2026 Revenue Tracker">
-    <meta name="twitter:description" content="Personal finance tracker with P&amp;L, balance sheet, and cash flow reports.">
+    <meta name="twitter:title" content="2026 Revenue Tracker: Personal P&amp;L, Balance Sheet and Cash Flow">
+    <meta name="twitter:description" content="A free, browser-only revenue tracker for 2026. Log expected and actual revenue, recurring income, VAT and salaries, then review P&amp;L and cash flow.">
     <meta name="twitter:image" content="https://robinvanbaalen.nl/og/default.png">
     <link rel="canonical" href="https://revenue-forecast.robinvanbaalen.nl/">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,7 +21,12 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <main class="mx-auto max-w-2xl px-6 py-16">
+            <h1 class="text-2xl font-semibold">2026 Revenue Tracker</h1>
+            <p class="mt-4">A personal finance tracker that runs entirely in your browser. Record expected and actual revenue, set up monthly recurring income, and track VAT, profit tax and salaries in Caribbean guilders or US dollars. Compare your budget against actuals, then review your profit and loss, balance sheet and cash flow reports. All data stays on your device in IndexedDB, and you can export or import a JSON backup at any time.</p>
+        </main>
+    </div>
     <footer class="py-4 text-center text-xs text-neutral-500"><a href="https://robinvanbaalen.nl/" class="hover:underline">Built by Robin van Baalen</a></footer>
     <script type="module" src="./src/main.tsx"></script>
 </body>
